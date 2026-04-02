@@ -1,0 +1,364 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Community Management - Admin{% endblock %}
+
+{% block content %}
+<style>
+  .ac-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; }
+  .ac-tab {
+    padding: 8px 18px; border-radius: 8px; font-size: 0.84rem; font-weight: 600;
+    border: 1px solid #dde1ec; background: #fff; color: #5a6070;
+    cursor: pointer; text-decoration: none; transition: all 0.15s;
+  }
+  .ac-tab.active, .ac-tab:hover { background: #696cff; color: #fff; border-color: #696cff; }
+
+  /* ── Cards ── */
+  .ac-card { background: #fff; border: 1px solid #e8eaf0; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.04); margin-bottom: 20px; overflow: hidden; }
+  .ac-card-header { padding: 16px 20px; border-bottom: 1px solid #edf0f7; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .ac-card-title  { font-size: 1rem; font-weight: 700; color: #2d3a52; margin: 0; }
+  .ac-card-body   { padding: 0; }
+
+  /* ── Table ── */
+  .ac-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .ac-table th { padding: 12px 16px; background: #f8f9fc; color: #7b8599; font-weight: 600; text-align: left; white-space: nowrap; border-bottom: 1px solid #edf0f7; }
+  .ac-table td { padding: 12px 16px; color: #4a5268; vertical-align: middle; border-bottom: 1px solid #f2f4f8; }
+  .ac-table tr:last-child td { border-bottom: none; }
+  .ac-table tr:hover td { background: #fafbff; }
+
+  /* ── Badges ── */
+  .badge-sm { font-size: 0.68rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+  .badge-verified { background: #eafff2; color: #3ea76a; }
+  .badge-unverified { background: #f5f5f5; color: #9098b0; }
+  .badge-pinned { background: #eeeeff; color: #696cff; }
+  .badge-report { background: #fff0ef; color: #e03e2d; }
+
+  /* ── Action buttons ── */
+  .ac-btn { font-size: 0.76rem; font-weight: 600; border-radius: 7px; padding: 5px 12px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+  .ac-btn-danger  { background: #fff0ef; color: #d93025; border-color: #fccac7; }
+  .ac-btn-danger:hover { background: #d93025; color: #fff; }
+  .ac-btn-success { background: #eafff2; color: #3ea76a; border-color: #b0f0ca; }
+  .ac-btn-success:hover { background: #3ea76a; color: #fff; }
+  .ac-btn-primary { background: #eeeeff; color: #696cff; border-color: #d0d0f8; }
+  .ac-btn-primary:hover { background: #696cff; color: #fff; }
+  .ac-btn-secondary { background: #f3f4f8; color: #5a6070; border-color: #e0e4ef; }
+  .ac-btn-secondary:hover { background: #696cff; color: #fff; border-color: #696cff; }
+
+  /* ── Community overview grid ── */
+  .comm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 20px; }
+  .comm-mini-card { border: 1px solid #e8eaf0; border-radius: 10px; padding: 16px; display: flex; gap: 12px; align-items: center; }
+  .cmm-icon { width: 40px; height: 40px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; flex-shrink: 0; }
+  .cmm-name { font-size: 0.87rem; font-weight: 700; color: #2d3a52; margin: 0 0 2px; }
+  .cmm-meta { font-size: 0.76rem; color: #9098b0; }
+
+  /* ── Warn modal ── */
+  .warn-modal-content { border-radius: 12px; border: none; }
+  .wm-field label { font-size: 0.82rem; font-weight: 600; color: #5a6070; display: block; margin-bottom: 5px; }
+  .wm-field input, .wm-field textarea {
+    width: 100%; border: 1px solid #dde1ec; border-radius: 8px;
+    padding: 8px 12px; font-size: 0.85rem; color: #3a4258; background: #fafbff;
+  }
+  .wm-field input:focus, .wm-field textarea:focus { outline: none; border-color: #696cff; }
+
+  .text-truncate-2 {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+</style>
+
+<!-- Page header -->
+<div class="row mb-4">
+  <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">Community Management</h4>
+      <small class="text-muted">Moderate posts, resolve reports, and manage communities.</small>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="ac-tabs">
+  <a href="?tab=communities" class="ac-tab {% if tab == 'communities' %}active{% endif %}">
+    <i class="bx bx-group me-1"></i>Communities
+  </a>
+  <a href="?tab=posts" class="ac-tab {% if tab == 'posts' %}active{% endif %}">
+    <i class="bx bx-chat me-1"></i>All Posts
+    {% if tab == 'posts' %}<span class="ms-1" style="background:#e8eaff;color:#696cff;border-radius:999px;padding:1px 7px;font-size:0.72rem;">{{ posts|length }}</span>{% endif %}
+  </a>
+  <a href="?tab=reports" class="ac-tab {% if tab == 'reports' %}active{% endif %}">
+    <i class="bx bx-flag me-1"></i>Reports
+    {% if reports %}<span class="ms-1" style="background:#fff0ef;color:#d93025;border-radius:999px;padding:1px 7px;font-size:0.72rem;">{{ reports|length }}</span>{% endif %}
+  </a>
+  <a href="?tab=warnings" class="ac-tab {% if tab == 'warnings' %}active{% endif %}">
+    <i class="bx bx-error me-1"></i>Warnings
+  </a>
+</div>
+
+<!-- ═══ TAB: COMMUNITIES ═══ -->
+{% if tab == 'communities' %}
+<div class="ac-card">
+  <div class="ac-card-header">
+    <h5 class="ac-card-title">All Communities</h5>
+  </div>
+  <div class="comm-grid">
+    {% for c in communities %}
+    <div class="comm-mini-card">
+      <div class="cmm-icon" style="background:{{ c.color_hex }};">
+        <i class="bx {{ c.icon }}"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <p class="cmm-name">{{ c.name }}</p>
+        <p class="cmm-meta">{{ c.member_count }} members &bull; {{ c.post_count }} posts</p>
+      </div>
+      <span style="font-size:0.72rem;padding:2px 8px;border-radius:999px;
+        {% if c.is_active %}background:#eafff2;color:#3ea76a;{% else %}background:#f5f5f5;color:#9098b0;{% endif %}">
+        {% if c.is_active %}Active{% else %}Inactive{% endif %}
+      </span>
+    </div>
+    {% empty %}
+    <div style="padding:20px;color:#9098b0;">No communities found.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ TAB: ALL POSTS ═══ -->
+{% if tab == 'posts' %}
+<div class="ac-card">
+  <div class="ac-card-header">
+    <h5 class="ac-card-title">All Posts</h5>
+    <small class="text-muted">Showing {{ posts|length }} most recent</small>
+  </div>
+  <div class="ac-card-body">
+    <div style="overflow-x:auto;">
+      <table class="ac-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Community</th>
+            <th>Author</th>
+            <th>Likes</th>
+            <th>Comments</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for post in posts %}
+          <tr>
+            <td style="max-width:220px;">
+              <span class="text-truncate-2" title="{{ post.title }}">{{ post.title }}</span>
+            </td>
+            <td><span style="font-size:0.78rem;color:#696cff;">{{ post.community_name }}</span></td>
+            <td>{{ post.author_name }}</td>
+            <td>{{ post.reaction_count }}</td>
+            <td>{{ post.comment_count }}</td>
+            <td>
+              {% if post.is_pinned %}<span class="badge-sm badge-pinned">Pinned</span>{% endif %}
+              {% if post.is_verified_answer %}<span class="badge-sm badge-verified">Verified</span>{% else %}<span class="badge-sm badge-unverified">Normal</span>{% endif %}
+            </td>
+            <td style="white-space:nowrap;">{{ post.created_at|slice:":10" }}</td>
+            <td>
+              <div style="display:flex;gap:5px;flex-wrap:nowrap;">
+                <!-- Verify toggle -->
+                <form method="post" action="/admin-panel/community/post/{{ post.id }}/verify/">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/admin-panel/community/?tab=posts">
+                  <button type="submit" class="ac-btn {% if post.is_verified_answer %}ac-btn-success{% else %}ac-btn-primary{% endif %}" title="Toggle Verified Answer">
+                    <i class="bx bx-check-shield"></i>
+                  </button>
+                </form>
+                <!-- Delete -->
+                <form method="post" action="/admin-panel/community/post/{{ post.id }}/delete/" onsubmit="return confirm('Delete this post?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/admin-panel/community/?tab=posts">
+                  <button type="submit" class="ac-btn ac-btn-danger" title="Delete Post">
+                    <i class="bx bx-trash"></i>
+                  </button>
+                </form>
+                <!-- Warn Author -->
+                <button class="ac-btn ac-btn-secondary" data-bs-toggle="modal" data-bs-target="#warnModal"
+                        data-user-id="{{ post.author_id }}" data-user-name="{{ post.author_name }}" title="Warn Author">
+                  <i class="bx bx-error-circle"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" style="text-align:center;padding:30px;color:#9098b0;">No posts found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ TAB: REPORTS ═══ -->
+{% if tab == 'reports' %}
+<div class="ac-card">
+  <div class="ac-card-header">
+    <h5 class="ac-card-title">Open Reports</h5>
+    <small class="text-muted">{{ reports|length }} unresolved</small>
+  </div>
+  <div class="ac-card-body">
+    <div style="overflow-x:auto;">
+      <table class="ac-table">
+        <thead>
+          <tr>
+            <th>Post Title</th>
+            <th>Post Author</th>
+            <th>Reported By</th>
+            <th>Reason</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td style="max-width:180px;">
+              {% if r.community_posts %}
+              <span class="text-truncate-2" title="{{ r.community_posts.title }}">{{ r.community_posts.title }}</span>
+              {% else %}<span style="color:#ccc;">Deleted</span>{% endif %}
+            </td>
+            <td>{% if r.community_posts %}{{ r.community_posts.author_name }}{% endif %}</td>
+            <td style="font-size:0.78rem;color:#9098b0;">{{ r.reporter_id|slice:":8" }}…</td>
+            <td style="max-width:200px;font-size:0.82rem;color:#5a6070;">{{ r.reason|default:"No reason"|truncatechars:80 }}</td>
+            <td style="white-space:nowrap;">{{ r.created_at|slice:":10" }}</td>
+            <td>
+              <div style="display:flex;gap:5px;">
+                {% if r.post_id %}
+                <!-- Delete reported post -->
+                <form method="post" action="/admin-panel/community/post/{{ r.post_id }}/delete/" onsubmit="return confirm('Delete this post and resolve report?');">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/admin-panel/community/?tab=reports">
+                  <button type="submit" class="ac-btn ac-btn-danger" title="Delete Post">
+                    <i class="bx bx-trash"></i> Delete Post
+                  </button>
+                </form>
+                {% endif %}
+                <!-- Resolve (dismiss) -->
+                <form method="post" action="/admin-panel/community/report/{{ r.id }}/resolve/">
+                  {% csrf_token %}
+                  <button type="submit" class="ac-btn ac-btn-success" title="Mark Resolved">
+                    <i class="bx bx-check"></i> Dismiss
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center;padding:30px;color:#9098b0;">No open reports. All clear!</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ TAB: WARNINGS ═══ -->
+{% if tab == 'warnings' %}
+<div class="row">
+  <div class="col-lg-7">
+    <div class="ac-card">
+      <div class="ac-card-header">
+        <h5 class="ac-card-title">Warning Log</h5>
+        <button class="ac-btn ac-btn-primary" data-bs-toggle="modal" data-bs-target="#warnModal">
+          <i class="bx bx-plus me-1"></i>Issue Warning
+        </button>
+      </div>
+      <div class="ac-card-body">
+        <div style="overflow-x:auto;">
+          <table class="ac-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Reason</th>
+                <th>Issued By</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for w in warnings %}
+              <tr>
+                <td style="font-size:0.78rem;font-family:monospace;color:#5a6070;">{{ w.user_id|slice:":12" }}…</td>
+                <td style="max-width:240px;font-size:0.82rem;">{{ w.reason|truncatechars:80 }}</td>
+                <td style="font-size:0.78rem;color:#9098b0;">{{ w.warned_by|slice:":8" }}…</td>
+                <td style="white-space:nowrap;">{{ w.created_at|slice:":10" }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" style="text-align:center;padding:30px;color:#9098b0;">No warnings issued yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="ac-card">
+      <div class="ac-card-header"><h5 class="ac-card-title">Issue Warning</h5></div>
+      <div style="padding:20px;">
+        <form method="post" action="/admin-panel/community/warn-user/">
+          {% csrf_token %}
+          <div class="wm-field mb-3">
+            <label>User ID (UUID)</label>
+            <input type="text" name="user_id" placeholder="Paste the user's UUID here..." required>
+          </div>
+          <div class="wm-field mb-3">
+            <label>Warning Reason</label>
+            <textarea name="reason" rows="3" placeholder="Explain what community rule was violated..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-warning w-100" style="border-radius:8px;font-weight:700;font-size:0.87rem;">
+            <i class="bx bx-error me-1"></i>Issue Warning
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Warn User Modal (triggered from Posts tab) -->
+<div class="modal fade" id="warnModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content warn-modal-content">
+      <div class="modal-header" style="border-bottom:1px solid #edf0f7;">
+        <h5 class="modal-title" style="font-size:1rem;font-weight:700;"><i class="bx bx-error me-2" style="color:#ffab00;"></i>Issue Warning</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="warnUserLabel" style="font-size:0.85rem;color:#7b8599;margin-bottom:14px;"></p>
+        <form method="post" action="/admin-panel/community/warn-user/" id="warnForm">
+          {% csrf_token %}
+          <input type="hidden" name="user_id" id="warnUserId">
+          <div class="wm-field mb-3">
+            <label>Warning Reason</label>
+            <textarea name="reason" rows="3" placeholder="Explain what community rule was violated..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-warning w-100" style="border-radius:8px;font-weight:700;">Issue Warning</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+// Populate warn modal
+document.addEventListener('DOMContentLoaded', function () {
+  var warnModal = document.getElementById('warnModal');
+  if (warnModal) {
+    warnModal.addEventListener('show.bs.modal', function (e) {
+      var btn = e.relatedTarget;
+      if (!btn) return;
+      var userId   = btn.getAttribute('data-user-id')   || '';
+      var userName = btn.getAttribute('data-user-name') || 'this user';
+      document.getElementById('warnUserId').value = userId;
+      document.getElementById('warnUserLabel').textContent = 'Issuing warning to: ' + userName;
+    });
+  }
+});
+</script>
+{% endblock %}
+{% endblock %}

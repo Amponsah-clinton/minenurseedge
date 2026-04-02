@@ -1,0 +1,414 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ community.name }} - Community{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Layout ───────────────────────── */
+  .cd-wrap { display: grid; grid-template-columns: 1fr 260px; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .cd-wrap { grid-template-columns: 1fr; } }
+
+  /* ── Community header ─────────────── */
+  .cd-header {
+    background: #fff;
+    border: 1px solid #e8eaf0;
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,.04);
+  }
+  .cd-icon {
+    width: 52px; height: 52px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #fff; flex-shrink: 0;
+  }
+  .cd-title   { font-size: 1.2rem; font-weight: 700; color: #2d3a52; margin: 0 0 3px; }
+  .cd-desc    { font-size: 0.83rem; color: #7b8599; margin: 0; }
+  .cd-meta    { display: flex; gap: 18px; margin-left: auto; flex-wrap: wrap; }
+  .cd-meta-item { font-size: 0.8rem; color: #9098b0; display: flex; align-items: center; gap: 5px; }
+
+  /* ── Toolbar ──────────────────────── */
+  .cd-toolbar {
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 16px;
+  }
+  .cd-search {
+    flex: 1; min-width: 160px;
+    height: 38px; border: 1px solid #dde1ec;
+    border-radius: 8px; padding: 0 12px;
+    font-size: 0.84rem; color: #4a5160; background: #fafbff;
+  }
+  .cd-search:focus { outline: none; border-color: #696cff; }
+  .cd-filter-btn {
+    height: 38px; padding: 0 14px; border-radius: 8px; border: 1px solid #dde1ec;
+    background: #fff; font-size: 0.82rem; font-weight: 600; color: #5a6070;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .cd-filter-btn.active, .cd-filter-btn:hover { background: #696cff; color: #fff; border-color: #696cff; }
+
+  /* ── Post cards ───────────────────── */
+  .post-list { display: flex; flex-direction: column; gap: 12px; }
+  .post-card {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 10px;
+    padding: 16px 18px; display: flex; gap: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .post-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); border-color: #c8ccf0; }
+  .post-card.pinned { border-left: 4px solid #696cff; }
+  .post-card.verified { border-left: 4px solid #71dd37; }
+
+  .pc-vote {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; flex-shrink: 0; min-width: 44px;
+  }
+  .pc-vote-btn {
+    background: none; border: 1px solid #e0e4ef; border-radius: 7px;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: #6b7490; font-size: 16px; transition: all 0.15s;
+  }
+  .pc-vote-btn:hover, .pc-vote-btn.liked { background: #696cff; border-color: #696cff; color: #fff; }
+  .pc-vote-count { font-size: 0.8rem; font-weight: 700; color: #5a6370; }
+
+  .pc-body { flex: 1; min-width: 0; }
+  .pc-badges { display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .pc-badge {
+    font-size: 0.69rem; font-weight: 600; border-radius: 999px;
+    padding: 2px 8px; display: inline-flex; align-items: center; gap: 3px;
+  }
+  .badge-pinned   { background: #f0f0ff; color: #696cff; }
+  .badge-verified { background: #e8fff0; color: #3ea76a; }
+  .badge-unanswered { background: #fff8e6; color: #cc8800; }
+
+  .pc-title { font-size: 0.97rem; font-weight: 700; color: #2d3a52; margin: 0 0 5px; }
+  .pc-title a { color: inherit; text-decoration: none; }
+  .pc-title a:hover { color: #696cff; }
+  .pc-excerpt { font-size: 0.82rem; color: #7b8599; margin: 0 0 10px; line-height: 1.5; }
+  .pc-footer { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .pc-footer-item { font-size: 0.77rem; color: #9098b0; display: flex; align-items: center; gap: 4px; }
+
+  /* ── Sticky sidebar ───────────────── */
+  .cd-sidebar { position: sticky; top: 80px; }
+  .cd-side-card {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 10px;
+    padding: 18px; box-shadow: 0 1px 5px rgba(0,0,0,.04); margin-bottom: 16px;
+  }
+  .cd-side-title { font-size: 0.85rem; font-weight: 700; color: #4a5268; margin: 0 0 12px;
+    text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── Sticky create button (mobile) ── */
+  .create-post-fab {
+    display: none;
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 300; background: #696cff; color: #fff;
+    border: none; border-radius: 50px; padding: 13px 22px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(105,108,255,.4);
+    align-items: center; gap: 8px;
+  }
+  @media (max-width: 768px) { .create-post-fab { display: flex; } }
+
+  /* ── Modal ────────────────────────── */
+  .cp-modal-content { border-radius: 12px; border: none; }
+  .cp-modal-header { border-bottom: 1px solid #edf0f7; padding: 18px 20px; }
+  .cp-modal-title { font-size: 1rem; font-weight: 700; color: #2d3a52; }
+  .cp-modal-body { padding: 20px; }
+  .cp-field label { font-size: 0.82rem; font-weight: 600; color: #5a6070; margin-bottom: 5px; display: block; }
+  .cp-field input, .cp-field textarea {
+    width: 100%; border: 1px solid #dde1ec; border-radius: 8px;
+    padding: 9px 12px; font-size: 0.87rem; color: #3a4258;
+    background: #fafbff; transition: border-color 0.15s;
+  }
+  .cp-field input:focus, .cp-field textarea:focus { outline: none; border-color: #696cff; }
+  .cp-field textarea { resize: vertical; min-height: 120px; }
+
+  .btn-create-post {
+    background: #696cff; color: #fff; border: none; border-radius: 8px;
+    padding: 10px 22px; font-size: 0.87rem; font-weight: 700; cursor: pointer;
+    width: 100%; transition: background 0.15s;
+  }
+  .btn-create-post:hover { background: #5a5ce8; }
+  .btn-create-post:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
+
+<!-- Community header -->
+<div class="cd-header">
+  <div class="cd-icon" style="background:{{ community.color_hex }};">
+    <i class="bx {{ community.icon }}"></i>
+  </div>
+  <div>
+    <p class="cd-title">{{ community.name }}</p>
+    <p class="cd-desc">{{ community.description }}</p>
+  </div>
+  <div class="cd-meta">
+    <span class="cd-meta-item"><i class="bx bx-group"></i> {{ community.member_count }} member{{ community.member_count|pluralize }}</span>
+    <span class="cd-meta-item"><i class="bx bx-chat"></i> {{ community.post_count }} post{{ community.post_count|pluralize }}</span>
+    {% if is_member %}
+    <span style="font-size:0.78rem;font-weight:600;color:#3ea76a;"><i class="bx bx-check-circle"></i> Member</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:0.82rem;">
+    <li class="breadcrumb-item"><a href="/dashboard/community/" style="color:#696cff;">Community</a></li>
+    <li class="breadcrumb-item active">{{ community.name }}</li>
+  </ol>
+</nav>
+
+<div class="cd-wrap">
+  <!-- Main content -->
+  <div>
+    <!-- Toolbar -->
+    <div class="cd-toolbar">
+      <form method="get" class="d-flex flex-1 gap-2" style="flex:1;">
+        <input class="cd-search" type="text" name="q" value="{{ search_q }}" placeholder="Search posts...">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <button class="cd-filter-btn" type="submit"><i class="bx bx-search"></i></button>
+      </form>
+      <a href="?sort=latest{% if search_q %}&q={{ search_q }}{% endif %}" class="cd-filter-btn {% if sort == 'latest' %}active{% endif %}">Latest</a>
+      <a href="?sort=most_liked{% if search_q %}&q={{ search_q }}{% endif %}" class="cd-filter-btn {% if sort == 'most_liked' %}active{% endif %}"><i class="bx bx-heart"></i> Top</a>
+      <a href="?sort=unanswered{% if search_q %}&q={{ search_q }}{% endif %}" class="cd-filter-btn {% if sort == 'unanswered' %}active{% endif %}">Unanswered</a>
+      {% if is_member %}
+      <button class="cd-filter-btn active" data-bs-toggle="modal" data-bs-target="#createPostModal" style="background:#696cff;color:#fff;border-color:#696cff;">
+        <i class="bx bx-plus"></i> Post
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Post list -->
+    <div class="post-list">
+      {% for post in posts %}
+      <div class="post-card {% if post.is_pinned %}pinned{% elif post.is_verified_answer %}verified{% endif %}">
+        <!-- Vote column -->
+        <div class="pc-vote">
+          {% if is_member %}
+          <button class="pc-vote-btn {% if post.user_liked %}liked{% endif %}"
+                  onclick="togglePostLike(this, '{{ post.id }}')" title="Like">
+            <i class="bx bx-upvote"></i>
+          </button>
+          {% else %}
+          <div class="pc-vote-btn" style="cursor:default;color:#ccc;">
+            <i class="bx bx-upvote"></i>
+          </div>
+          {% endif %}
+          <span class="pc-vote-count" id="count-{{ post.id }}">{{ post.reaction_count }}</span>
+        </div>
+
+        <!-- Body -->
+        <div class="pc-body">
+          <div class="pc-badges">
+            {% if post.is_pinned %}<span class="pc-badge badge-pinned"><i class="bx bx-pin"></i> Pinned</span>{% endif %}
+            {% if post.is_verified_answer %}<span class="pc-badge badge-verified"><i class="bx bx-check-shield"></i> Verified</span>{% endif %}
+            {% if post.comment_count == 0 %}<span class="pc-badge badge-unanswered"><i class="bx bx-question-mark"></i> Unanswered</span>{% endif %}
+          </div>
+          <p class="pc-title">
+            <a href="/dashboard/community/{{ community.slug }}/post/{{ post.id }}/">{{ post.title }}</a>
+          </p>
+          <p class="pc-excerpt">{{ post.content|truncatechars:140 }}</p>
+          <div class="pc-footer">
+            <span class="pc-footer-item"><i class="bx bx-user"></i> {{ post.author_name }}</span>
+            <span class="pc-footer-item"><i class="bx bx-comment"></i> {{ post.comment_count }} comment{{ post.comment_count|pluralize }}</span>
+            <span class="pc-footer-item"><i class="bx bx-time"></i> {{ post.created_at|slice:":16"|cut:"T" }}</span>
+            {% if is_member %}
+            <button class="pc-footer-item" style="background:none;border:none;padding:0;cursor:pointer;color:#c0c8d8;"
+                    data-bs-toggle="modal" data-bs-target="#reportModal" data-post-id="{{ post.id }}" title="Report">
+              <i class="bx bx-flag"></i> Report
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% empty %}
+      <div class="card">
+        <div class="card-body text-center py-5" style="color:#9098b0;">
+          <i class="bx bx-comment-x" style="font-size:2.5rem;opacity:0.4;"></i>
+          <p class="mt-3 mb-0">No posts yet.
+            {% if is_member %}Be the first to start a discussion!{% else %}Join to start posting.{% endif %}
+          </p>
+          {% if is_member %}
+          <button class="btn btn-primary mt-3 btn-sm" data-bs-toggle="modal" data-bs-target="#createPostModal">
+            Create First Post
+          </button>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="cd-sidebar">
+    <!-- Join/leave card -->
+    <div class="cd-side-card">
+      {% if is_member %}
+      <p class="cd-side-title">You are a member</p>
+      <p style="font-size:0.82rem;color:#7b8599;margin-bottom:12px;">You can post and comment in this community.</p>
+      <button class="btn-create-post d-none d-sm-block" data-bs-toggle="modal" data-bs-target="#createPostModal">
+        <i class="bx bx-plus"></i> Create Post
+      </button>
+      <form method="post" action="/dashboard/community/{{ community.slug }}/leave/" class="mt-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-secondary w-100"
+          onclick="return confirm('Leave this community?')">Leave Community</button>
+      </form>
+      {% else %}
+      <p class="cd-side-title">Join to participate</p>
+      <p style="font-size:0.82rem;color:#7b8599;margin-bottom:12px;">Join to create posts and comment.</p>
+      <form method="post" action="/dashboard/community/{{ community.slug }}/join/">
+        {% csrf_token %}
+        <button type="submit" class="btn-create-post">Join Community</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <!-- Stats card -->
+    <div class="cd-side-card">
+      <p class="cd-side-title">About</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+          <span style="color:#7b8599;">Members</span>
+          <span style="font-weight:700;color:#2d3a52;">{{ community.member_count }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+          <span style="color:#7b8599;">Posts</span>
+          <span style="font-weight:700;color:#2d3a52;">{{ community.post_count }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Back link -->
+    <div class="cd-side-card text-center">
+      <a href="/dashboard/community/" style="font-size:0.82rem;color:#696cff;text-decoration:none;">
+        <i class="bx bx-arrow-back"></i> All Communities
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Create Post button (mobile) -->
+{% if is_member %}
+<button class="create-post-fab" data-bs-toggle="modal" data-bs-target="#createPostModal">
+  <i class="bx bx-plus"></i> Post
+</button>
+{% endif %}
+
+<!-- Create Post Modal -->
+{% if is_member %}
+<div class="modal fade" id="createPostModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content cp-modal-content">
+      <div class="cp-modal-header">
+        <h5 class="cp-modal-title"><i class="bx bx-edit me-2" style="color:#696cff;"></i>Create a Post</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="cp-modal-body">
+        <form method="post" action="/dashboard/community/{{ community.slug }}/create-post/" id="createPostForm">
+          {% csrf_token %}
+          <div class="cp-field mb-3">
+            <label for="post-title">Title <span style="color:#f93232;">*</span></label>
+            <input type="text" id="post-title" name="title" placeholder="What's your question or topic?" maxlength="200" required>
+          </div>
+          <div class="cp-field mb-4">
+            <label for="post-content">Details <span style="color:#f93232;">*</span></label>
+            <textarea id="post-content" name="content" placeholder="Describe your question, share a case, or start a discussion..." maxlength="5000" required></textarea>
+            <div style="font-size:0.75rem;color:#aab0c0;text-align:right;margin-top:3px;">
+              <span id="contentCharCount">0</span>/5000
+            </div>
+          </div>
+          <button type="submit" class="btn-create-post" id="postSubmitBtn">
+            <i class="bx bx-send me-1"></i> Publish Post
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content cp-modal-content">
+      <div class="cp-modal-header">
+        <h5 class="cp-modal-title">Report Post</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="cp-modal-body">
+        <form method="post" id="reportForm">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="/dashboard/community/{{ community.slug }}/">
+          <div class="cp-field mb-3">
+            <label>Reason</label>
+            <textarea name="reason" rows="3" placeholder="Briefly describe why you're reporting this post..." maxlength="500"></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger w-100 btn-sm" style="border-radius:8px;font-weight:600;">Submit Report</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+// Report modal: set post-specific action URL
+document.addEventListener('DOMContentLoaded', function () {
+  var reportModal = document.getElementById('reportModal');
+  if (reportModal) {
+    reportModal.addEventListener('show.bs.modal', function (e) {
+      var btn = e.relatedTarget;
+      var postId = btn ? btn.getAttribute('data-post-id') : null;
+      var form = document.getElementById('reportForm');
+      if (form && postId) {
+        form.action = '/dashboard/community/post/' + postId + '/report/';
+      }
+    });
+  }
+
+  // Character counter
+  var contentArea = document.getElementById('post-content');
+  var counter = document.getElementById('contentCharCount');
+  if (contentArea && counter) {
+    contentArea.addEventListener('input', function () {
+      counter.textContent = contentArea.value.length;
+    });
+  }
+
+  // Prevent double-submit
+  var form = document.getElementById('createPostForm');
+  var submitBtn = document.getElementById('postSubmitBtn');
+  if (form && submitBtn) {
+    form.addEventListener('submit', function () {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Publishing...';
+    });
+  }
+});
+
+// AJAX-style like toggle
+function getCsrfToken() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+function togglePostLike(btn, postId) {
+  fetch('/dashboard/community/post/' + postId + '/react/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' },
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.error) return;
+    btn.classList.toggle('liked', data.liked);
+    var countEl = document.getElementById('count-' + postId);
+    if (countEl) countEl.textContent = data.count;
+  })
+  .catch(function(){});
+}
+</script>
+{% endblock %}
+{% endblock %}

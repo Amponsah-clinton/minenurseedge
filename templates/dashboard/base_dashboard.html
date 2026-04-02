@@ -398,13 +398,20 @@
             </a>
           </li>
 
+          <li class="menu-item {% if active_page == 'community' %}active{% endif %}">
+            <a href="/admin-panel/community/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Community">Community</div>
+            </a>
+          </li>
+
           <!-- Finance -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Finance</span>
           </li>
 
-          <li class="menu-item">
-            <a href="#" class="menu-link">
+          <li class="menu-item {% if active_page == 'payments' %}active{% endif %}">
+            <a href="/admin-panel/payments/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-credit-card"></i>
               <div data-i18n="Payments">Payments</div>
             </a>
@@ -528,10 +535,15 @@
             </a>
           </li>
 
-          <li class="menu-item">
-            <a href="#" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Community">Community</div>
+          <li class="menu-item {% if active_page == 'community' %}active{% endif %}">
+            <a href="/dashboard/community/" class="menu-link d-flex align-items-center justify-content-between">
+              <span class="d-flex align-items-center">
+                <i class="menu-icon tf-icons bx bx-group"></i>
+                <span data-i18n="Community">Community</span>
+              </span>
+              {% if community_unread %}
+              <span class="badge bg-label-primary rounded-pill">{{ community_unread }}</span>
+              {% endif %}
             </a>
           </li>
           <li class="menu-item {% if active_page == 'student_messages' %}active{% endif %}">
@@ -549,6 +561,13 @@
           <!-- Account -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Account</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'payment' %}active{% endif %}">
+            <a href="/payment/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-credit-card"></i>
+              <div data-i18n="My Subscription">My Subscription</div>
+            </a>
           </li>
 
           <li class="menu-item">

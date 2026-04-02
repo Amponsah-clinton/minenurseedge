@@ -1,0 +1,426 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ post.title }} - Community{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Layout ─────────────────── */
+  .cp-wrap { display: grid; grid-template-columns: 1fr 240px; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .cp-wrap { grid-template-columns: 1fr; } }
+
+  /* ── Post body ───────────────── */
+  .post-main {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
+    padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.05); margin-bottom: 20px;
+  }
+  .post-meta-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .post-author-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #696cff; color: #fff; font-size: 0.9rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .post-author-name  { font-size: 0.88rem; font-weight: 700; color: #2d3a52; }
+  .post-date         { font-size: 0.78rem; color: #a0a8b8; }
+  .post-badges       { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .pb { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 2px 10px;
+        display: inline-flex; align-items: center; gap: 3px; }
+  .pb-pinned   { background: #eeeeff; color: #696cff; }
+  .pb-verified { background: #eafff2; color: #3ea76a; border: 1px solid #b6f0cd; }
+
+  .post-title   { font-size: 1.25rem; font-weight: 800; color: #1f2d40; margin: 0 0 14px; }
+  .post-content { font-size: 0.91rem; color: #4a5570; line-height: 1.72; white-space: pre-wrap; word-break: break-word; }
+
+  .post-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #edf0f7; }
+  .pa-btn {
+    display: flex; align-items: center; gap: 6px; font-size: 0.82rem;
+    background: #f5f6fa; border: 1px solid #e0e4ef; border-radius: 8px;
+    padding: 7px 14px; cursor: pointer; color: #5a6070; font-weight: 600;
+    transition: all 0.15s; border: none;
+  }
+  .pa-btn:hover, .pa-btn.liked { background: #696cff; color: #fff; }
+  .pa-btn.liked .bx { color: #fff; }
+  .pa-btn-danger { color: #c0392b; }
+  .pa-btn-danger:hover { background: #fff0f0; color: #c0392b; }
+
+  /* ── Comments section ─────────── */
+  .comments-section { margin-top: 0; }
+  .cs-header { font-size: 1rem; font-weight: 700; color: #2d3a52; margin-bottom: 16px; }
+
+  /* ── Add comment form ─────────── */
+  .comment-form {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 10px;
+    padding: 18px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .cf-label { font-size: 0.82rem; font-weight: 600; color: #5a6070; margin-bottom: 7px; }
+  .cf-textarea {
+    width: 100%; border: 1px solid #dde1ec; border-radius: 8px;
+    padding: 10px 12px; font-size: 0.87rem; color: #3a4258; background: #fafbff;
+    resize: vertical; min-height: 90px; transition: border-color 0.15s;
+  }
+  .cf-textarea:focus { outline: none; border-color: #696cff; }
+  .cf-submit {
+    background: #696cff; color: #fff; border: none; border-radius: 8px;
+    padding: 9px 20px; font-size: 0.85rem; font-weight: 700;
+    cursor: pointer; transition: background 0.15s; margin-top: 10px;
+  }
+  .cf-submit:hover { background: #5a5ce8; }
+  .cf-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ── Comment card ─────────────── */
+  .comment-thread { display: flex; flex-direction: column; gap: 12px; }
+  .comment-card {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 10px;
+    padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.03);
+  }
+  .comment-card.reply {
+    margin-left: 32px; background: #fafbff; border-color: #eceff8;
+  }
+  .cc-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .cc-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #8c57ff; color: #fff; font-size: 0.75rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .cc-author { font-size: 0.83rem; font-weight: 700; color: #2d3a52; }
+  .cc-date   { font-size: 0.75rem; color: #a0a8b8; }
+  .cc-content { font-size: 0.87rem; color: #4a5570; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+  .cc-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .cc-btn {
+    display: flex; align-items: center; gap: 4px; font-size: 0.77rem;
+    background: none; border: none; cursor: pointer; color: #9098b0;
+    padding: 0; font-weight: 600; transition: color 0.15s;
+  }
+  .cc-btn:hover { color: #696cff; }
+  .cc-btn.liked { color: #696cff; }
+
+  /* ── Reply form (inline) ─────────── */
+  .reply-form { display: none; margin-top: 12px; }
+  .reply-form.open { display: block; }
+  .rf-textarea {
+    width: 100%; border: 1px solid #dde1ec; border-radius: 8px;
+    padding: 8px 11px; font-size: 0.84rem; color: #3a4258; background: #fafbff;
+    resize: vertical; min-height: 70px;
+  }
+  .rf-textarea:focus { outline: none; border-color: #696cff; }
+  .rf-submit {
+    background: #696cff; color: #fff; border: none; border-radius: 7px;
+    padding: 7px 16px; font-size: 0.81rem; font-weight: 700; cursor: pointer; margin-top: 8px;
+  }
+  .rf-cancel {
+    background: none; border: none; color: #9098b0;
+    font-size: 0.8rem; cursor: pointer; margin-left: 8px; font-weight: 600;
+  }
+
+  /* ── Sidebar ─────────────────── */
+  .cp-sidebar { position: sticky; top: 80px; }
+  .cp-side-card {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 10px;
+    padding: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.04); margin-bottom: 14px;
+  }
+  .cp-side-title { font-size: 0.82rem; font-weight: 700; color: #5a6070; margin: 0 0 10px;
+    text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:0.82rem;">
+    <li class="breadcrumb-item"><a href="/dashboard/community/" style="color:#696cff;">Community</a></li>
+    <li class="breadcrumb-item"><a href="/dashboard/community/{{ community.slug }}/" style="color:#696cff;">{{ community.name }}</a></li>
+    <li class="breadcrumb-item active" style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ post.title }}</li>
+  </ol>
+</nav>
+
+<div class="cp-wrap">
+  <!-- Main -->
+  <div>
+    <!-- Post -->
+    <div class="post-main">
+      <div class="post-meta-row">
+        <div class="post-author-avatar">{{ post.author_name|slice:":1"|upper }}</div>
+        <div>
+          <div class="post-author-name">{{ post.author_name }}</div>
+          <div class="post-date">{{ post.created_at|slice:":16"|cut:"T" }}</div>
+        </div>
+      </div>
+
+      <div class="post-badges">
+        {% if post.is_pinned %}<span class="pb pb-pinned"><i class="bx bx-pin"></i> Pinned</span>{% endif %}
+        {% if post.is_verified_answer %}<span class="pb pb-verified"><i class="bx bx-check-shield"></i> Verified Answer</span>{% endif %}
+      </div>
+
+      <h1 class="post-title">{{ post.title }}</h1>
+      <div class="post-content">{{ post.content }}</div>
+
+      <div class="post-actions">
+        {% if is_member %}
+        <button class="pa-btn {% if post.user_liked %}liked{% endif %}" id="postLikeBtn"
+                onclick="togglePostLike()">
+          <i class="bx bx-upvote"></i>
+          <span id="postLikeCount">{{ post.reaction_count }}</span> Like{{ post.reaction_count|pluralize }}
+        </button>
+        {% else %}
+        <span class="pa-btn" style="cursor:default;opacity:0.6;">
+          <i class="bx bx-upvote"></i> {{ post.reaction_count }} Like{{ post.reaction_count|pluralize }}
+        </span>
+        {% endif %}
+        <span class="pa-btn" style="cursor:default;">
+          <i class="bx bx-comment"></i> {{ post.comment_count }} Comment{{ post.comment_count|pluralize }}
+        </span>
+        {% if is_member %}
+        <button class="pa-btn pa-btn-danger" data-bs-toggle="modal" data-bs-target="#reportModal">
+          <i class="bx bx-flag"></i> Report
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Comments -->
+    <div class="comments-section">
+      <div class="cs-header">
+        <i class="bx bx-comment me-1" style="color:#696cff;"></i>
+        {{ post.comment_count }} Comment{{ post.comment_count|pluralize }}
+      </div>
+
+      {% if is_member %}
+      <!-- Add comment form -->
+      <div class="comment-form">
+        <div class="cf-label">Add a comment</div>
+        <form method="post" action="/dashboard/community/post/{{ post.id }}/comment/" id="commentForm">
+          {% csrf_token %}
+          <input type="hidden" name="parent_id" value="">
+          <textarea class="cf-textarea" name="content" placeholder="Share your thoughts, answer the question, or add more context..." maxlength="2000" required id="commentContent"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:6px;">
+            <span style="font-size:0.75rem;color:#aab0c0;"><span id="commentCharCount">0</span>/2000</span>
+            <button type="submit" class="cf-submit" id="commentSubmitBtn">
+              <i class="bx bx-send me-1"></i> Post Comment
+            </button>
+          </div>
+        </form>
+      </div>
+      {% else %}
+      <div class="card mb-3">
+        <div class="card-body text-center" style="color:#9098b0;font-size:0.85rem;padding:18px;">
+          <a href="/dashboard/community/{{ community.slug }}/join/" style="color:#696cff;font-weight:600;">Join this community</a> to comment.
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Comment thread -->
+      <div class="comment-thread">
+        {% for comment in top_comments %}
+        <div class="comment-card" id="comment-{{ comment.id }}">
+          <div class="cc-meta">
+            <div class="cc-avatar">{{ comment.author_name|slice:":1"|upper }}</div>
+            <span class="cc-author">{{ comment.author_name }}</span>
+            <span class="cc-date">{{ comment.created_at|slice:":16"|cut:"T" }}</span>
+          </div>
+          <div class="cc-content">{{ comment.content }}</div>
+          <div class="cc-actions">
+            {% if is_member %}
+            <button class="cc-btn {% if comment.user_liked %}liked{% endif %}"
+                    onclick="toggleCommentLike(this, '{{ comment.id }}')">
+              <i class="bx bx-heart"></i>
+              <span id="cc-count-{{ comment.id }}">{{ comment.reaction_count }}</span>
+            </button>
+            <button class="cc-btn" onclick="toggleReplyForm('reply-form-{{ comment.id }}')">
+              <i class="bx bx-reply"></i> Reply
+            </button>
+            {% else %}
+            <span class="cc-btn" style="cursor:default;">
+              <i class="bx bx-heart"></i> {{ comment.reaction_count }}
+            </span>
+            {% endif %}
+          </div>
+
+          {% if is_member %}
+          <!-- Inline reply form -->
+          <div class="reply-form" id="reply-form-{{ comment.id }}">
+            <form method="post" action="/dashboard/community/post/{{ post.id }}/comment/">
+              {% csrf_token %}
+              <input type="hidden" name="parent_id" value="{{ comment.id }}">
+              <textarea class="rf-textarea" name="content" placeholder="Write a reply..." maxlength="2000" required></textarea>
+              <div>
+                <button type="submit" class="rf-submit">Reply</button>
+                <button type="button" class="rf-cancel" onclick="toggleReplyForm('reply-form-{{ comment.id }}')">Cancel</button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+
+          <!-- Nested replies -->
+          {% for reply in comment.replies %}
+          <div class="comment-card reply mt-3" id="comment-{{ reply.id }}">
+            <div class="cc-meta">
+              <div class="cc-avatar" style="background:#8c57ff;">{{ reply.author_name|slice:":1"|upper }}</div>
+              <span class="cc-author">{{ reply.author_name }}</span>
+              <span class="cc-date">{{ reply.created_at|slice:":16"|cut:"T" }}</span>
+            </div>
+            <div class="cc-content">{{ reply.content }}</div>
+            <div class="cc-actions">
+              {% if is_member %}
+              <button class="cc-btn {% if reply.user_liked %}liked{% endif %}"
+                      onclick="toggleCommentLike(this, '{{ reply.id }}')">
+                <i class="bx bx-heart"></i>
+                <span id="cc-count-{{ reply.id }}">{{ reply.reaction_count }}</span>
+              </button>
+              {% else %}
+              <span class="cc-btn" style="cursor:default;">
+                <i class="bx bx-heart"></i> {{ reply.reaction_count }}
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% empty %}
+        <div class="card">
+          <div class="card-body text-center py-4" style="color:#a0a8b8;font-size:0.87rem;">
+            No comments yet.
+            {% if is_member %}Be the first to comment!{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="cp-sidebar">
+    <!-- Community card -->
+    <div class="cp-side-card">
+      <p class="cp-side-title">Community</p>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:32px;height:32px;border-radius:8px;background:{{ community.color_hex }};display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">
+          <i class="bx {{ community.icon }}"></i>
+        </div>
+        <span style="font-size:0.87rem;font-weight:700;color:#2d3a52;">{{ community.name }}</span>
+      </div>
+      <a href="/dashboard/community/{{ community.slug }}/" class="btn btn-sm btn-outline-primary w-100" style="font-size:0.8rem;">
+        View All Posts
+      </a>
+    </div>
+
+    <!-- Post stats -->
+    <div class="cp-side-card">
+      <p class="cp-side-title">Post Stats</p>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:0.82rem;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:#7b8599;">Likes</span>
+          <span style="font-weight:700;color:#2d3a52;" id="sidebarLikeCount">{{ post.reaction_count }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:#7b8599;">Comments</span>
+          <span style="font-weight:700;color:#2d3a52;">{{ post.comment_count }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:#7b8599;">Posted</span>
+          <span style="font-weight:700;color:#2d3a52;">{{ post.created_at|slice:":10" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Back link -->
+    <div class="cp-side-card text-center">
+      <a href="/dashboard/community/{{ community.slug }}/" style="font-size:0.82rem;color:#696cff;text-decoration:none;">
+        <i class="bx bx-arrow-back"></i> Back to Posts
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:12px;">
+      <div class="modal-header" style="border-bottom:1px solid #edf0f7;">
+        <h5 class="modal-title" style="font-size:1rem;font-weight:700;">Report Post</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="/dashboard/community/post/{{ post.id }}/report/">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="/dashboard/community/{{ community.slug }}/post/{{ post.id }}/">
+          <div class="mb-3">
+            <label style="font-size:0.82rem;font-weight:600;color:#5a6070;display:block;margin-bottom:5px;">Reason</label>
+            <textarea name="reason" rows="3" class="form-control" style="border-radius:8px;font-size:0.85rem;"
+              placeholder="Briefly describe why you're reporting this post..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger w-100 btn-sm" style="border-radius:8px;font-weight:600;">Submit Report</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+var POST_ID = '{{ post.id }}';
+
+// CSRF helper
+function getCsrfToken() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
+// Toggle post like
+function togglePostLike() {
+  fetch('/dashboard/community/post/' + POST_ID + '/react/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.error) return;
+    var btn = document.getElementById('postLikeBtn');
+    var countEl = document.getElementById('postLikeCount');
+    var sideCount = document.getElementById('sidebarLikeCount');
+    if (btn) btn.classList.toggle('liked', data.liked);
+    if (countEl) countEl.textContent = data.count;
+    if (sideCount) sideCount.textContent = data.count;
+  })
+  .catch(function(){});
+}
+
+// Toggle comment like
+function toggleCommentLike(btn, commentId) {
+  fetch('/dashboard/community/comment/' + commentId + '/react/', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCsrfToken() },
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if (data.error) return;
+    btn.classList.toggle('liked', data.liked);
+    var countEl = document.getElementById('cc-count-' + commentId);
+    if (countEl) countEl.textContent = data.count;
+  })
+  .catch(function(){});
+}
+
+// Toggle reply form visibility
+function toggleReplyForm(id) {
+  var form = document.getElementById(id);
+  if (form) form.classList.toggle('open');
+}
+
+// Character count for comment textarea
+document.addEventListener('DOMContentLoaded', function () {
+  var textarea = document.getElementById('commentContent');
+  var counter = document.getElementById('commentCharCount');
+  if (textarea && counter) {
+    textarea.addEventListener('input', function () {
+      counter.textContent = textarea.value.length;
+    });
+  }
+
+  // Prevent double-submit
+  var commentForm = document.getElementById('commentForm');
+  var submitBtn = document.getElementById('commentSubmitBtn');
+  if (commentForm && submitBtn) {
+    commentForm.addEventListener('submit', function () {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Posting...';
+    });
+  }
+});
+</script>
+{% endblock %}
+{% endblock %}

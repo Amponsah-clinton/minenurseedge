@@ -1,0 +1,400 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Payments & Subscriptions - Admin{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Stat bar ── */
+  .pay-stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px; margin-bottom:28px; }
+  .pay-stat {
+    background:#fff; border:1px solid #e8eaf0; border-radius:10px; padding:16px 18px;
+    box-shadow:0 1px 4px rgba(0,0,0,.04);
+  }
+  .pay-stat__num   { font-size:1.6rem; font-weight:800; color:#1f2d40; display:block; }
+  .pay-stat__label { font-size:0.76rem; color:#9098b0; font-weight:600; margin-top:2px; }
+
+  /* ── Plan cards ── */
+  .plan-cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:28px; }
+  @media(max-width:640px){ .plan-cards-grid { grid-template-columns:1fr; } }
+
+  .admin-plan-card {
+    background:#fff; border:1px solid #e8eaf0; border-radius:12px; padding:24px;
+    box-shadow:0 2px 8px rgba(0,0,0,.05); position:relative;
+  }
+  .apc-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+  .plan-badge { font-size:0.72rem; font-weight:700; border-radius:999px; padding:3px 11px; }
+  .plan-badge-basic   { background:#f0f2ff; color:#5a5ce8; }
+  .plan-badge-premium { background:#1a1a2e; color:#fff; }
+
+  .apc-name  { font-size:1.05rem; font-weight:800; color:#1f2d40; margin:0 0 4px; }
+  .apc-tagline { font-size:0.8rem; color:#7b8599; margin:0 0 14px; }
+  .apc-price { font-size:2rem; font-weight:800; color:#1a1a2e; }
+  .apc-price small { font-size:0.78rem; font-weight:400; color:#9098b0; }
+  .apc-features { list-style:none; padding:0; margin:12px 0 0; display:flex; flex-direction:column; gap:5px; }
+  .apc-features li { font-size:0.8rem; color:#4a5268; display:flex; align-items:flex-start; gap:6px; }
+  .apc-features li::before { content:'✓'; color:#3ea76a; font-weight:700; font-size:11px; flex-shrink:0; margin-top:1px; }
+
+  .btn-edit-plan {
+    position:absolute; top:18px; right:18px;
+    background:#f3f4f8; border:1px solid #e0e4ef; border-radius:8px;
+    padding:6px 14px; font-size:0.78rem; font-weight:700; color:#5a6070;
+    cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:5px;
+  }
+  .btn-edit-plan:hover { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+
+  .apc-updated { font-size:0.72rem; color:#a8b0c0; margin-top:14px; }
+
+  /* ── Subscribers table ── */
+  .sub-card { background:#fff; border:1px solid #e8eaf0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.04); overflow:hidden; }
+  .sub-card-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #edf0f7; flex-wrap:wrap; gap:8px; }
+  .sub-card-title { font-size:1rem; font-weight:700; color:#1f2d40; margin:0; }
+
+  .sub-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .sub-table th { padding:11px 16px; background:#f8f9fc; color:#7b8599; font-weight:600; text-align:left; white-space:nowrap; border-bottom:1px solid #edf0f7; }
+  .sub-table td { padding:12px 16px; color:#4a5268; border-bottom:1px solid #f2f4f8; vertical-align:middle; }
+  .sub-table tr:last-child td { border-bottom:none; }
+  .sub-table tr:hover td { background:#fafbff; }
+
+  .s-badge { font-size:0.68rem; font-weight:700; border-radius:999px; padding:2px 9px; }
+  .s-badge-active    { background:#eafff2; color:#3ea76a; }
+  .s-badge-pending   { background:#fff8e6; color:#cc8800; }
+  .s-badge-cancelled { background:#fff0ef; color:#d93025; }
+  .s-badge-expired   { background:#f5f5f5; color:#9098b0; }
+  .s-plan-basic   { background:#f0f2ff; color:#5a5ce8; }
+  .s-plan-premium { background:#1a1a2e; color:#fff; }
+
+  .act-btn { font-size:0.73rem; font-weight:700; border-radius:7px; padding:4px 11px; cursor:pointer; border:1px solid transparent; transition:all 0.15s; }
+  .act-btn-activate { background:#eafff2; color:#3ea76a; border-color:#b0f0ca; }
+  .act-btn-activate:hover { background:#3ea76a; color:#fff; }
+  .act-btn-cancel   { background:#fff0ef; color:#d93025; border-color:#fccac7; }
+  .act-btn-cancel:hover { background:#d93025; color:#fff; }
+
+  /* ── Filter tabs ── */
+  .filter-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0; }
+  .filter-tab {
+    padding:6px 14px; border-radius:7px; font-size:0.79rem; font-weight:600;
+    border:1px solid #dde1ec; background:#fff; color:#5a6070;
+    cursor:pointer; text-decoration:none; transition:all 0.12s;
+  }
+  .filter-tab.active, .filter-tab:hover { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+
+  /* ── Modal ── */
+  .modal-content { border-radius:12px; border:none; }
+  .modal-header  { border-bottom:1px solid #edf0f7; padding:18px 22px; }
+  .modal-title   { font-size:1rem; font-weight:700; color:#1f2d40; }
+  .modal-body    { padding:22px; }
+  .modal-footer  { border-top:1px solid #edf0f7; padding:14px 22px; }
+
+  .mf label { font-size:0.82rem; font-weight:700; color:#2d3a52; display:block; margin-bottom:5px; }
+  .mf input, .mf textarea, .mf select {
+    width:100%; border:1px solid #dde1ec; border-radius:8px;
+    padding:9px 12px; font-size:0.87rem; color:#2d3a52; background:#fafbff;
+    box-sizing:border-box; transition:border-color 0.15s;
+  }
+  .mf input:focus, .mf textarea:focus { outline:none; border-color:#1a1a2e; }
+  .mf textarea { resize:vertical; min-height:80px; }
+  .mf-hint { font-size:0.73rem; color:#9098b0; margin-top:3px; }
+
+  .btn-save-plan {
+    background:#1a1a2e; color:#fff; border:none; border-radius:8px;
+    padding:10px 24px; font-size:0.87rem; font-weight:700; cursor:pointer;
+    transition:background 0.15s;
+  }
+  .btn-save-plan:hover { background:#2a2a4e; }
+</style>
+
+<!-- Page header -->
+<div class="row mb-4 align-items-center">
+  <div class="col">
+    <h4 class="mb-0">Payments &amp; Subscriptions</h4>
+    <small class="text-muted">Manage subscription plans and review all subscribers.</small>
+  </div>
+</div>
+
+{% if success %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
+  <i class="bx bx-check-circle fs-5"></i> {{ success }}
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
+  <i class="bx bx-error-circle fs-5"></i> {{ error }}
+</div>
+{% endif %}
+
+<!-- Stat bar -->
+<div class="pay-stats">
+  <div class="pay-stat">
+    <span class="pay-stat__num">{{ counts.total }}</span>
+    <span class="pay-stat__label">Total Subscribers</span>
+  </div>
+  <div class="pay-stat">
+    <span class="pay-stat__num" style="color:#3ea76a;">{{ counts.active }}</span>
+    <span class="pay-stat__label">Active</span>
+  </div>
+  <div class="pay-stat">
+    <span class="pay-stat__num" style="color:#cc8800;">{{ counts.pending }}</span>
+    <span class="pay-stat__label">Pending Payment</span>
+  </div>
+  <div class="pay-stat">
+    <span class="pay-stat__num" style="color:#5a5ce8;">{{ counts.basic }}</span>
+    <span class="pay-stat__label">Basic Plans</span>
+  </div>
+  <div class="pay-stat">
+    <span class="pay-stat__num" style="color:#1a1a2e;">{{ counts.premium }}</span>
+    <span class="pay-stat__label">Premium Plans</span>
+  </div>
+</div>
+
+<!-- Plan Cards -->
+<h6 class="mb-3" style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#8892a4;">
+  Subscription Plans — click Edit to change price, features, or instructions
+</h6>
+<div class="plan-cards-grid">
+
+  <!-- Basic card -->
+  <div class="admin-plan-card">
+    <div class="apc-top">
+      <span class="plan-badge plan-badge-basic">Basic</span>
+      <button class="btn-edit-plan" data-bs-toggle="modal" data-bs-target="#editPlanModal"
+              data-slug="basic"
+              data-name="{{ basic.name|default:'Basic'|escapejs }}"
+              data-tagline="{{ basic.tagline|default:''|escapejs }}"
+              data-price="{{ basic.price|default:'0' }}"
+              data-duration="{{ basic.duration_days|default:365 }}"
+              data-instructions="{{ basic.payment_instructions|default:''|escapejs }}"
+              data-features="{% for f in basic.features %}{{ f }}{% if not forloop.last %}||{% endif %}{% endfor %}">
+        <i class="bx bx-edit"></i> Edit
+      </button>
+    </div>
+    <p class="apc-name">{{ basic.name|default:"Basic" }}</p>
+    <p class="apc-tagline">{{ basic.tagline|default:"Essential study tools" }}</p>
+    <div class="apc-price">GHS {{ basic.price|default:"0.00" }}<small> / {{ basic.duration_days|default:365 }} days</small></div>
+    <ul class="apc-features">
+      {% for f in basic.features %}<li>{{ f }}</li>
+      {% empty %}<li>No features set yet</li>{% endfor %}
+    </ul>
+    <p class="apc-updated">Last updated: {{ basic.updated_at|slice:":16"|cut:"T"|default:"—" }}</p>
+  </div>
+
+  <!-- Premium card -->
+  <div class="admin-plan-card">
+    <div class="apc-top">
+      <span class="plan-badge plan-badge-premium">Premium</span>
+      <button class="btn-edit-plan" data-bs-toggle="modal" data-bs-target="#editPlanModal"
+              data-slug="premium"
+              data-name="{{ premium.name|default:'Premium'|escapejs }}"
+              data-tagline="{{ premium.tagline|default:''|escapejs }}"
+              data-price="{{ premium.price|default:'0' }}"
+              data-duration="{{ premium.duration_days|default:365 }}"
+              data-instructions="{{ premium.payment_instructions|default:''|escapejs }}"
+              data-features="{% for f in premium.features %}{{ f }}{% if not forloop.last %}||{% endif %}{% endfor %}">
+        <i class="bx bx-edit"></i> Edit
+      </button>
+    </div>
+    <p class="apc-name">{{ premium.name|default:"Premium" }}</p>
+    <p class="apc-tagline">{{ premium.tagline|default:"Full unlimited access" }}</p>
+    <div class="apc-price">GHS {{ premium.price|default:"0.00" }}<small> / {{ premium.duration_days|default:365 }} days</small></div>
+    <ul class="apc-features">
+      {% for f in premium.features %}<li>{{ f }}</li>
+      {% empty %}<li>No features set yet</li>{% endfor %}
+    </ul>
+    <p class="apc-updated">Last updated: {{ premium.updated_at|slice:":16"|cut:"T"|default:"—" }}</p>
+  </div>
+
+</div>
+
+<!-- Subscribers table -->
+<div class="sub-card">
+  <div class="sub-card-header">
+    <h5 class="sub-card-title">All Subscribers <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">{{ subscribers|length }} records</span></h5>
+    <div class="filter-tabs">
+      <a href="?tab=subscribers" class="filter-tab {% if not request.GET.filter %}active{% endif %}">All</a>
+      <a href="?filter=pending" class="filter-tab {% if request.GET.filter == 'pending' %}active{% endif %}">Pending</a>
+      <a href="?filter=active"  class="filter-tab {% if request.GET.filter == 'active'  %}active{% endif %}">Active</a>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="sub-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Plan</th>
+          <th>Amount Due</th>
+          <th>Reference</th>
+          <th>Status</th>
+          <th>Expires</th>
+          <th>Signed Up</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in subscribers %}
+        {% if not request.GET.filter or s.status == request.GET.filter or (request.GET.filter == 'pending' and s.status == 'pending_payment') %}
+        <tr>
+          <td style="font-weight:600;color:#1f2d40;">{{ s.user_name|default:"—" }}</td>
+          <td style="font-size:0.78rem;color:#5a6070;">{{ s.user_email|default:"—" }}</td>
+          <td>
+            <span class="s-badge {% if s.plan_slug == 'premium' %}s-plan-premium{% else %}s-plan-basic{% endif %}">
+              {{ s.plan_slug|title|default:"—" }}
+            </span>
+          </td>
+          <td style="font-weight:700;">GHS {{ s.amount_due|default:"—" }}</td>
+          <td style="font-size:0.77rem;color:#7b8599;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+              title="{{ s.payment_reference|default:'' }}">
+            {{ s.payment_reference|default:"Not submitted" }}
+          </td>
+          <td>
+            <span class="s-badge
+              {% if s.status == 'active' %}s-badge-active
+              {% elif s.status == 'pending_payment' %}s-badge-pending
+              {% elif s.status == 'cancelled' %}s-badge-cancelled
+              {% else %}s-badge-expired{% endif %}">
+              {% if s.status == 'pending_payment' %}Pending{% else %}{{ s.status|title }}{% endif %}
+            </span>
+          </td>
+          <td style="white-space:nowrap;font-size:0.78rem;">{{ s.expires_at|slice:":10"|default:"—" }}</td>
+          <td style="white-space:nowrap;font-size:0.78rem;">{{ s.created_at|slice:":10"|default:"—" }}</td>
+          <td>
+            <div style="display:flex;gap:5px;flex-wrap:nowrap;">
+              {% if s.status != 'active' %}
+              <form method="post" action="/admin-panel/payments/">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="activate_subscription">
+                <input type="hidden" name="subscription_id" value="{{ s.id }}">
+                <input type="hidden" name="sub_plan_slug" value="{{ s.plan_slug }}">
+                <button type="submit" class="act-btn act-btn-activate" title="Activate">
+                  <i class="bx bx-check"></i> Activate
+                </button>
+              </form>
+              {% endif %}
+              {% if s.status == 'active' or s.status == 'pending_payment' %}
+              <form method="post" action="/admin-panel/payments/" onsubmit="return confirm('Cancel this subscription?')">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="cancel_subscription">
+                <input type="hidden" name="subscription_id" value="{{ s.id }}">
+                <button type="submit" class="act-btn act-btn-cancel" title="Cancel">
+                  <i class="bx bx-x"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;padding:32px;color:#9098b0;">No subscribers yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════ EDIT PLAN MODAL ═══════════ -->
+<div class="modal fade" id="editPlanModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bx bx-edit me-2" style="color:#696cff;"></i>
+          Edit <span id="modalPlanLabel">Plan</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="/admin-panel/payments/" id="editPlanForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_plan">
+        <input type="hidden" name="plan_slug" id="modalPlanSlug">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="mf">
+                <label>Plan Display Name</label>
+                <input type="text" name="name" id="modalName" maxlength="80" required placeholder="e.g. Basic">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mf">
+                <label>Price (GHS)</label>
+                <input type="number" name="price" id="modalPrice" min="0" step="0.01" required placeholder="e.g. 50.00">
+                <p class="mf-hint">This is the exact amount students will see and pay.</p>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="mf">
+                <label>Tagline / Subtitle</label>
+                <input type="text" name="tagline" id="modalTagline" maxlength="200" placeholder="Short description shown on the plan card">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mf">
+                <label>Duration (days)</label>
+                <input type="number" name="duration_days" id="modalDuration" min="1" required placeholder="365">
+                <p class="mf-hint">How many days the plan is valid after activation.</p>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="mf">
+                <label>Features (one per line)</label>
+                <textarea name="features" id="modalFeatures" rows="6"
+                  placeholder="Practice Questions&#10;Mock Exams&#10;Drug Cards&#10;..."></textarea>
+                <p class="mf-hint">Each line becomes a bullet point on the plan card.</p>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="mf">
+                <label>Payment Instructions</label>
+                <textarea name="payment_instructions" id="modalInstructions" rows="4"
+                  placeholder="e.g. Pay via MTN Mobile Money to 024 000 0000. Use your email as reference."></textarea>
+                <p class="mf-hint">Shown to students on the payment page. Include exact amount, account number, and reference format.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-save-plan">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modal = document.getElementById('editPlanModal');
+  if (!modal) return;
+
+  modal.addEventListener('show.bs.modal', function (e) {
+    var btn = e.relatedTarget;
+    if (!btn) return;
+
+    var slug         = btn.getAttribute('data-slug')         || '';
+    var name         = btn.getAttribute('data-name')         || '';
+    var tagline      = btn.getAttribute('data-tagline')      || '';
+    var price        = btn.getAttribute('data-price')        || '0';
+    var duration     = btn.getAttribute('data-duration')     || '365';
+    var instructions = btn.getAttribute('data-instructions') || '';
+    var featureStr   = btn.getAttribute('data-features')     || '';
+    var features     = featureStr ? featureStr.split('||').join('\n') : '';
+
+    document.getElementById('modalPlanLabel').textContent = name || slug;
+    document.getElementById('modalPlanSlug').value        = slug;
+    document.getElementById('modalName').value            = name;
+    document.getElementById('modalTagline').value         = tagline;
+    document.getElementById('modalPrice').value           = price;
+    document.getElementById('modalDuration').value        = duration;
+    document.getElementById('modalFeatures').value        = features;
+    document.getElementById('modalInstructions').value    = instructions;
+  });
+
+  // Prevent double-submit
+  document.getElementById('editPlanForm').addEventListener('submit', function () {
+    document.querySelector('.btn-save-plan').disabled = true;
+    document.querySelector('.btn-save-plan').textContent = 'Saving…';
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

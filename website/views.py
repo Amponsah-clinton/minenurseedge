@@ -308,15 +308,21 @@ PROGRAMME_INITIALS = {
 
 
 def signup_page(request):
+    plans = _get_plans()
+
     if request.method == "POST":
-        full_name = request.POST.get("fullName", "").strip()
-        email = request.POST.get("email", "").strip().lower()
-        phone = request.POST.get("phone", "").strip()
-        year_of_study = request.POST.get("yearOfStudy", "").strip()
-        institution = request.POST.get("institution", "").strip()
-        programme = request.POST.get("programme", "").strip()
-        password = request.POST.get("password", "")
+        full_name        = request.POST.get("fullName", "").strip()
+        email            = request.POST.get("email", "").strip().lower()
+        phone            = request.POST.get("phone", "").strip()
+        year_of_study    = request.POST.get("yearOfStudy", "").strip()
+        institution      = request.POST.get("institution", "").strip()
+        programme        = request.POST.get("programme", "").strip()
+        password         = request.POST.get("password", "")
         confirm_password = request.POST.get("confirmPassword", "")
+        plan_slug        = request.POST.get("plan_slug", "basic").strip()
+
+        if plan_slug not in ("basic", "premium"):
+            plan_slug = "basic"
 
         form_data = {
             "fullName": full_name,
@@ -325,6 +331,7 @@ def signup_page(request):
             "yearOfStudy": year_of_study,
             "institution": institution,
             "programme": programme,
+            "plan_slug": plan_slug,
         }
 
         errors = []
@@ -341,7 +348,13 @@ def signup_page(request):
         errors.extend(_validate_password(password))
 
         if errors:
-            return render(request, "signup.html", {"errors": errors, "form_data": form_data})
+            return render(request, "signup.html", {
+                "errors": errors,
+                "form_data": form_data,
+                "plans": plans,
+                "basic": plans.get("basic", {}),
+                "premium": plans.get("premium", {}),
+            })
 
         try:
             admin = _supabase_admin()
@@ -350,21 +363,22 @@ def signup_page(request):
                 "email": email,
                 "password": password,
                 "email_confirm": True,
-                "user_metadata": {
-                    "full_name": full_name,
-                    "role": "student",
-                },
+                "user_metadata": {"full_name": full_name, "role": "student"},
             })
 
             if not auth_resp.user:
                 return render(request, "signup.html", {
                     "errors": ["Failed to create account. Please try again."],
                     "form_data": form_data,
+                    "plans": plans,
+                    "basic": plans.get("basic", {}),
+                    "premium": plans.get("premium", {}),
                 })
 
             user_id = str(auth_resp.user.id)
+            plan    = plans.get(plan_slug, {})
 
-            # Upsert profile (trigger may have already created a partial row)
+            # Upsert profile with plan info
             admin.table("profiles").upsert({
                 "id": user_id,
                 "email": email,
@@ -374,10 +388,23 @@ def signup_page(request):
                 "school": institution,
                 "programme": programme,
                 "role": "student",
+                "plan_slug": plan_slug,
+                "subscription_status": "pending_payment",
+            }).execute()
+
+            # Create pending subscription record
+            admin.table("subscriptions").insert({
+                "user_id": user_id,
+                "user_email": email,
+                "user_name": full_name,
+                "plan_slug": plan_slug,
+                "amount_due": plan.get("price", 0),
+                "currency": plan.get("currency", "GHS"),
+                "status": "pending_payment",
             }).execute()
 
             _create_session(request, user_id, email, full_name, "student")
-            return redirect("/dashboard/")
+            return redirect("/payment/")
 
         except Exception as exc:
             msg = str(exc).lower()
@@ -385,13 +412,23 @@ def signup_page(request):
                 return render(request, "signup.html", {
                     "errors": ["This email is already registered. Please log in instead."],
                     "form_data": form_data,
+                    "plans": plans,
+                    "basic": plans.get("basic", {}),
+                    "premium": plans.get("premium", {}),
                 })
             return render(request, "signup.html", {
                 "errors": ["Registration failed. Please try again."],
                 "form_data": form_data,
+                "plans": plans,
+                "basic": plans.get("basic", {}),
+                "premium": plans.get("premium", {}),
             })
 
-    return render(request, "signup.html")
+    return render(request, "signup.html", {
+        "plans": plans,
+        "basic": plans.get("basic", {}),
+        "premium": plans.get("premium", {}),
+    })
 
 
 def logout_view(request):
@@ -407,16 +444,18 @@ def contact_page(request):
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
         email = request.POST.get("email", "").strip()
+        phone = request.POST.get("phone", "").strip()
         subject = request.POST.get("subject", "").strip()
         message = request.POST.get("message", "").strip()
 
-        if not all([name, email, message]):
-            return render(request, "contact.html", {"error": "Name, email, and message are required."})
+        if not all([name, email, phone, message]):
+            return render(request, "contact.html", {"error": "Name, email, phone number, and message are required."})
 
         try:
             _supabase_admin().table("contact_messages").insert({
                 "name": name,
                 "email": email,
+                "phone": phone,
                 "subject": subject,
                 "message": message,
             }).execute()
@@ -507,6 +546,50 @@ def user_dashboard(request):
     except Exception:
         pass
 
+    # Subscription info for dashboard cards
+    subscription = _get_active_subscription(user_id)
+    plan_name = "Basic"
+    plan_slug = "basic"
+    sub_status = "pending_payment"
+    sub_expires = None
+    try:
+        if subscription:
+            plan_slug  = subscription.get("plan_slug", "basic")
+            sub_status = subscription.get("status", "pending_payment")
+            sub_expires= subscription.get("expires_at", None)
+        plans = _get_plans()
+        plan_name = plans.get(plan_slug, {}).get("name", plan_slug.title())
+    except Exception:
+        pass
+
+    # Joined communities for dashboard widget
+    joined_communities = []
+    community_unread = 0
+    try:
+        admin = _supabase_admin()
+        memberships = (
+            admin.table("community_members")
+            .select("community_id")
+            .eq("user_id", str(user_id))
+            .execute()
+            .data or []
+        )
+        if memberships:
+            cids = [m["community_id"] for m in memberships]
+            comm_rows = (
+                admin.table("communities")
+                .select("id, name, slug, icon, color_hex, member_count")
+                .in_("id", cids)
+                .eq("is_active", True)
+                .order("name")
+                .execute()
+                .data or []
+            )
+            joined_communities = comm_rows
+        community_unread = _community_unread_count(user_id)
+    except Exception:
+        pass
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -518,6 +601,13 @@ def user_dashboard(request):
         "best_mock_percentage": best_mock_percentage,
         "total_questions_available": total_questions_available,
         "recent_messages": recent_messages,
+        "joined_communities": joined_communities,
+        "community_unread": community_unread,
+        "subscription": subscription,
+        "plan_name": plan_name,
+        "plan_slug": plan_slug,
+        "sub_status": sub_status,
+        "sub_expires": (sub_expires or "")[:10] if sub_expires else "",
     }
     return render(request, "dashboard/user_dashboard.html", context)
 
@@ -3187,3 +3277,1027 @@ def admin_drug_card_form(request, drug_id=None):
         "error": error,
     }
     return render(request, "dashboard/admin_drug_card_form.html", context)
+
+
+# ===========================================================================
+# COMMUNITY MODULE
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# Community helpers
+# ---------------------------------------------------------------------------
+
+def _community_unread_count(user_id):
+    """Number of unread community notifications for a user."""
+    try:
+        resp = (
+            _supabase_admin()
+            .table("community_notifications")
+            .select("id", count="exact", head=True)
+            .eq("user_id", str(user_id))
+            .eq("is_read", False)
+            .execute()
+        )
+        return resp.count or 0
+    except Exception:
+        return 0
+
+
+def _base_community_ctx(request):
+    """Shared context dict for all community pages."""
+    user_id = request.session.get("user_id")
+    return {
+        "full_name": request.session.get("full_name", ""),
+        "email": request.session.get("email", ""),
+        "role": request.session.get("role", "student"),
+        "student_unread_notifications": _student_unread_count(user_id),
+        "community_unread": _community_unread_count(user_id),
+    }
+
+
+def _get_community_by_slug(slug):
+    try:
+        rows = (
+            _supabase_admin()
+            .table("communities")
+            .select("*")
+            .eq("slug", slug)
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+            .data
+        )
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
+def _is_member(user_id, community_id):
+    try:
+        rows = (
+            _supabase_admin()
+            .table("community_members")
+            .select("id")
+            .eq("user_id", str(user_id))
+            .eq("community_id", str(community_id))
+            .limit(1)
+            .execute()
+            .data
+        )
+        return bool(rows)
+    except Exception:
+        return False
+
+
+def _push_community_notif(user_id, notif_type, message, post_id=None, comment_id=None):
+    try:
+        payload = {
+            "user_id": str(user_id),
+            "notif_type": notif_type,
+            "message": message,
+            "is_read": False,
+        }
+        if post_id:
+            payload["post_id"] = str(post_id)
+        if comment_id:
+            payload["comment_id"] = str(comment_id)
+        _supabase_admin().table("community_notifications").insert(payload).execute()
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Student: community home — list all 6 communities
+# ---------------------------------------------------------------------------
+
+def community_home(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    user_id = request.session.get("user_id")
+    db = _supabase_admin()
+
+    try:
+        communities = db.table("communities").select("*").eq("is_active", True).order("name").execute().data or []
+    except Exception:
+        communities = []
+
+    # Which ones has this user joined?
+    try:
+        memberships = (
+            db.table("community_members")
+            .select("community_id")
+            .eq("user_id", str(user_id))
+            .execute()
+            .data or []
+        )
+        joined_ids = {m["community_id"] for m in memberships}
+    except Exception:
+        joined_ids = set()
+
+    for c in communities:
+        c["is_member"] = c["id"] in joined_ids
+
+    ctx = _base_community_ctx(request)
+    ctx.update({
+        "active_page": "community",
+        "communities": communities,
+        "joined_count": len(joined_ids),
+    })
+    return render(request, "dashboard/community_home.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Student: join / leave a community
+# ---------------------------------------------------------------------------
+
+def community_join(request, slug):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect(f"/dashboard/community/{slug}/")
+
+    user_id = request.session.get("user_id")
+    community = _get_community_by_slug(slug)
+    if not community:
+        return redirect("/dashboard/community/")
+
+    try:
+        _supabase_admin().table("community_members").insert({
+            "community_id": community["id"],
+            "user_id": str(user_id),
+        }).execute()
+    except Exception:
+        pass  # Already a member — ignore duplicate
+
+    return redirect(f"/dashboard/community/{slug}/")
+
+
+def community_leave(request, slug):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect(f"/dashboard/community/{slug}/")
+
+    user_id = request.session.get("user_id")
+    community = _get_community_by_slug(slug)
+    if not community:
+        return redirect("/dashboard/community/")
+
+    try:
+        _supabase_admin().table("community_members").delete().eq(
+            "community_id", community["id"]
+        ).eq("user_id", str(user_id)).execute()
+    except Exception:
+        pass
+
+    return redirect(f"/dashboard/community/{slug}/")
+
+
+# ---------------------------------------------------------------------------
+# Student: community detail — list posts
+# ---------------------------------------------------------------------------
+
+def community_detail(request, slug):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    user_id = request.session.get("user_id")
+    community = _get_community_by_slug(slug)
+    if not community:
+        return redirect("/dashboard/community/")
+
+    is_member = _is_member(user_id, community["id"])
+    db = _supabase_admin()
+
+    # Filters
+    sort = request.GET.get("sort", "latest")  # latest | most_liked | unanswered
+    search_q = request.GET.get("q", "").strip()
+
+    try:
+        query = (
+            db.table("community_posts")
+            .select("*")
+            .eq("community_id", community["id"])
+            .eq("is_deleted", False)
+        )
+        if search_q:
+            query = query.ilike("title", f"%{search_q}%")
+        if sort == "most_liked":
+            query = query.order("reaction_count", desc=True)
+        elif sort == "unanswered":
+            query = query.eq("comment_count", 0).order("created_at", desc=True)
+        else:
+            query = query.order("is_pinned", desc=True).order("created_at", desc=True)
+
+        posts = query.limit(50).execute().data or []
+    except Exception:
+        posts = []
+
+    # Which posts has the user liked?
+    try:
+        user_reactions = (
+            db.table("post_reactions")
+            .select("post_id")
+            .eq("user_id", str(user_id))
+            .execute()
+            .data or []
+        )
+        liked_post_ids = {r["post_id"] for r in user_reactions}
+    except Exception:
+        liked_post_ids = set()
+
+    for p in posts:
+        p["user_liked"] = p["id"] in liked_post_ids
+
+    ctx = _base_community_ctx(request)
+    ctx.update({
+        "active_page": "community",
+        "community": community,
+        "posts": posts,
+        "is_member": is_member,
+        "sort": sort,
+        "search_q": search_q,
+    })
+    return render(request, "dashboard/community_detail.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Student: create post
+# ---------------------------------------------------------------------------
+
+def community_create_post(request, slug):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    community = _get_community_by_slug(slug)
+    if not community:
+        return redirect("/dashboard/community/")
+
+    user_id = request.session.get("user_id")
+
+    # Only members can post
+    if not _is_member(user_id, community["id"]):
+        return redirect(f"/dashboard/community/{slug}/")
+
+    if request.method != "POST":
+        return redirect(f"/dashboard/community/{slug}/")
+
+    title = request.POST.get("title", "").strip()
+    content = request.POST.get("content", "").strip()
+
+    if not title or not content:
+        return redirect(f"/dashboard/community/{slug}/")
+
+    try:
+        result = _supabase_admin().table("community_posts").insert({
+            "community_id": community["id"],
+            "author_id": str(user_id),
+            "author_name": request.session.get("full_name", "Student"),
+            "title": title[:200],
+            "content": content[:5000],
+        }).execute()
+        if result.data:
+            post_id = result.data[0]["id"]
+            return redirect(f"/dashboard/community/{slug}/post/{post_id}/")
+    except Exception:
+        pass
+
+    return redirect(f"/dashboard/community/{slug}/")
+
+
+# ---------------------------------------------------------------------------
+# Student: post detail — view post + threaded comments
+# ---------------------------------------------------------------------------
+
+def community_post_detail(request, slug, post_id):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    user_id = request.session.get("user_id")
+    community = _get_community_by_slug(slug)
+    if not community:
+        return redirect("/dashboard/community/")
+
+    db = _supabase_admin()
+
+    try:
+        rows = (
+            db.table("community_posts")
+            .select("*")
+            .eq("id", str(post_id))
+            .eq("is_deleted", False)
+            .limit(1)
+            .execute()
+            .data
+        )
+        post = rows[0] if rows else None
+    except Exception:
+        post = None
+
+    if not post:
+        return redirect(f"/dashboard/community/{slug}/")
+
+    # Has user liked the post?
+    try:
+        liked = bool(
+            db.table("post_reactions")
+            .select("id")
+            .eq("post_id", str(post_id))
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+        )
+    except Exception:
+        liked = False
+    post["user_liked"] = liked
+
+    # Fetch top-level comments
+    try:
+        all_comments = (
+            db.table("post_comments")
+            .select("*")
+            .eq("post_id", str(post_id))
+            .eq("is_deleted", False)
+            .order("created_at")
+            .execute()
+            .data or []
+        )
+    except Exception:
+        all_comments = []
+
+    # Which comments has the user liked?
+    try:
+        liked_comments = (
+            db.table("comment_reactions")
+            .select("comment_id")
+            .eq("user_id", str(user_id))
+            .execute()
+            .data or []
+        )
+        liked_comment_ids = {c["comment_id"] for c in liked_comments}
+    except Exception:
+        liked_comment_ids = set()
+
+    # Build threaded structure: top-level + nested replies
+    top_comments = []
+    comment_map = {}
+    for c in all_comments:
+        c["user_liked"] = c["id"] in liked_comment_ids
+        c["replies"] = []
+        comment_map[c["id"]] = c
+
+    for c in all_comments:
+        if c.get("parent_id") and c["parent_id"] in comment_map:
+            comment_map[c["parent_id"]]["replies"].append(c)
+        elif not c.get("parent_id"):
+            top_comments.append(c)
+
+    is_member = _is_member(user_id, community["id"])
+
+    # Mark related notifications as read
+    try:
+        db.table("community_notifications").update({"is_read": True}).eq(
+            "user_id", str(user_id)
+        ).eq("post_id", str(post_id)).eq("is_read", False).execute()
+    except Exception:
+        pass
+
+    ctx = _base_community_ctx(request)
+    ctx.update({
+        "active_page": "community",
+        "community": community,
+        "post": post,
+        "top_comments": top_comments,
+        "is_member": is_member,
+        "is_author": str(post["author_id"]) == str(user_id),
+    })
+    return render(request, "dashboard/community_post.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Student: add comment / reply
+# ---------------------------------------------------------------------------
+
+def community_add_comment(request, post_id):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/dashboard/community/")
+
+    user_id = request.session.get("user_id")
+    db = _supabase_admin()
+
+    # Verify post exists
+    try:
+        rows = (
+            db.table("community_posts")
+            .select("id, community_id, author_id, title")
+            .eq("id", str(post_id))
+            .eq("is_deleted", False)
+            .limit(1)
+            .execute()
+            .data
+        )
+        post = rows[0] if rows else None
+    except Exception:
+        post = None
+
+    if not post:
+        return redirect("/dashboard/community/")
+
+    # Get community slug for redirect
+    try:
+        comm_rows = (
+            db.table("communities")
+            .select("slug")
+            .eq("id", post["community_id"])
+            .limit(1)
+            .execute()
+            .data
+        )
+        slug = comm_rows[0]["slug"] if comm_rows else "general-qa"
+    except Exception:
+        slug = "general-qa"
+
+    content = request.POST.get("content", "").strip()
+    parent_id = request.POST.get("parent_id", "").strip() or None
+
+    if not content:
+        return redirect(f"/dashboard/community/{slug}/post/{post_id}/")
+
+    try:
+        db.table("post_comments").insert({
+            "post_id": str(post_id),
+            "parent_id": parent_id,
+            "author_id": str(user_id),
+            "author_name": request.session.get("full_name", "Student"),
+            "content": content[:2000],
+        }).execute()
+
+        # Notify original post author (not self)
+        if str(post["author_id"]) != str(user_id):
+            notif_type = "new_reply" if parent_id else "new_comment"
+            msg = f"{request.session.get('full_name', 'Someone')} {'replied to a comment on' if parent_id else 'commented on'} your post: \"{post['title'][:60]}\""
+            _push_community_notif(post["author_id"], notif_type, msg, post_id=post_id)
+
+    except Exception:
+        pass
+
+    return redirect(f"/dashboard/community/{slug}/post/{post_id}/")
+
+
+# ---------------------------------------------------------------------------
+# Student: react (like/unlike) a post — JSON or redirect
+# ---------------------------------------------------------------------------
+
+def community_react_post(request, post_id):
+    guard = _require_login(request)
+    if guard:
+        return redirect("/login/")
+    if request.method != "POST":
+        return redirect("/dashboard/community/")
+
+    user_id = request.session.get("user_id")
+    db = _supabase_admin()
+
+    # Check existing reaction
+    try:
+        existing = (
+            db.table("post_reactions")
+            .select("id")
+            .eq("post_id", str(post_id))
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+        )
+        if existing:
+            # Unlike
+            db.table("post_reactions").delete().eq("post_id", str(post_id)).eq("user_id", str(user_id)).execute()
+            liked = False
+        else:
+            # Like
+            db.table("post_reactions").insert({
+                "post_id": str(post_id),
+                "user_id": str(user_id),
+            }).execute()
+            liked = True
+
+            # Notify post author
+            post_rows = db.table("community_posts").select("author_id, title").eq("id", str(post_id)).limit(1).execute().data
+            if post_rows and str(post_rows[0]["author_id"]) != str(user_id):
+                msg = f"{request.session.get('full_name', 'Someone')} liked your post: \"{post_rows[0]['title'][:60]}\""
+                _push_community_notif(post_rows[0]["author_id"], "post_liked", msg, post_id=post_id)
+
+        # Get updated count
+        count_resp = db.table("community_posts").select("reaction_count").eq("id", str(post_id)).limit(1).execute().data
+        count = count_resp[0]["reaction_count"] if count_resp else 0
+
+        from django.http import JsonResponse
+        return JsonResponse({"liked": liked, "count": count})
+    except Exception as e:
+        from django.http import JsonResponse
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Student: react (like/unlike) a comment
+# ---------------------------------------------------------------------------
+
+def community_react_comment(request, comment_id):
+    guard = _require_login(request)
+    if guard:
+        return redirect("/login/")
+    if request.method != "POST":
+        return redirect("/dashboard/community/")
+
+    user_id = request.session.get("user_id")
+    db = _supabase_admin()
+
+    try:
+        existing = (
+            db.table("comment_reactions")
+            .select("id")
+            .eq("comment_id", str(comment_id))
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+        )
+        if existing:
+            db.table("comment_reactions").delete().eq("comment_id", str(comment_id)).eq("user_id", str(user_id)).execute()
+            liked = False
+        else:
+            db.table("comment_reactions").insert({
+                "comment_id": str(comment_id),
+                "user_id": str(user_id),
+            }).execute()
+            liked = True
+
+        count_resp = db.table("post_comments").select("reaction_count").eq("id", str(comment_id)).limit(1).execute().data
+        count = count_resp[0]["reaction_count"] if count_resp else 0
+
+        from django.http import JsonResponse
+        return JsonResponse({"liked": liked, "count": count})
+    except Exception as e:
+        from django.http import JsonResponse
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Student: report a post
+# ---------------------------------------------------------------------------
+
+def community_report_post(request, post_id):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/dashboard/community/")
+
+    user_id = request.session.get("user_id")
+    reason = request.POST.get("reason", "").strip()[:500]
+
+    try:
+        _supabase_admin().table("post_reports").insert({
+            "post_id": str(post_id),
+            "reporter_id": str(user_id),
+            "reason": reason or "No reason provided",
+        }).execute()
+    except Exception:
+        pass
+
+    # Redirect back to wherever they came from
+    next_url = request.POST.get("next", "/dashboard/community/")
+    return redirect(next_url)
+
+
+# ---------------------------------------------------------------------------
+# Student: mark all community notifications read
+# ---------------------------------------------------------------------------
+
+def community_notifications_read(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.method == "POST":
+        user_id = request.session.get("user_id")
+        try:
+            _supabase_admin().table("community_notifications").update({"is_read": True}).eq(
+                "user_id", str(user_id)
+            ).eq("is_read", False).execute()
+        except Exception:
+            pass
+    return redirect(request.POST.get("next", "/dashboard/community/"))
+
+
+# ---------------------------------------------------------------------------
+# Admin: community management panel
+# ---------------------------------------------------------------------------
+
+def admin_community_manage(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    db = _supabase_admin()
+    tab = request.GET.get("tab", "posts")  # posts | reports | warnings | communities
+
+    try:
+        communities = db.table("communities").select("*").order("name").execute().data or []
+    except Exception:
+        communities = []
+
+    posts = []
+    reports = []
+    warnings = []
+
+    if tab == "posts":
+        try:
+            posts = (
+                db.table("community_posts")
+                .select("*")
+                .eq("is_deleted", False)
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+                .data or []
+            )
+            # Attach community name
+            comm_map = {c["id"]: c["name"] for c in communities}
+            for p in posts:
+                p["community_name"] = comm_map.get(p["community_id"], "Unknown")
+        except Exception:
+            pass
+
+    elif tab == "reports":
+        try:
+            reports = (
+                db.table("post_reports")
+                .select("*, community_posts(title, author_name, community_id)")
+                .eq("is_resolved", False)
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+                .data or []
+            )
+        except Exception:
+            reports = []
+
+    elif tab == "warnings":
+        try:
+            warnings = (
+                db.table("community_warnings")
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+                .data or []
+            )
+        except Exception:
+            warnings = []
+
+    ctx = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "community",
+        "student_unread_notifications": 0,
+        "communities": communities,
+        "posts": posts,
+        "reports": reports,
+        "warnings": warnings,
+        "tab": tab,
+    }
+    return render(request, "dashboard/admin_community.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Admin: delete a post
+# ---------------------------------------------------------------------------
+
+def admin_community_delete_post(request, post_id):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/admin-panel/community/")
+
+    try:
+        _supabase_admin().table("community_posts").update({
+            "is_deleted": True
+        }).eq("id", str(post_id)).execute()
+    except Exception:
+        pass
+
+    return redirect(request.POST.get("next", "/admin-panel/community/"))
+
+
+# ---------------------------------------------------------------------------
+# Admin: toggle verified answer on a post
+# ---------------------------------------------------------------------------
+
+def admin_community_verify_answer(request, post_id):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/admin-panel/community/")
+
+    db = _supabase_admin()
+    try:
+        rows = db.table("community_posts").select("is_verified_answer, author_id, title").eq("id", str(post_id)).limit(1).execute().data
+        if rows:
+            current = rows[0]["is_verified_answer"]
+            db.table("community_posts").update({"is_verified_answer": not current}).eq("id", str(post_id)).execute()
+            if not current:
+                msg = f"Your post \"{rows[0]['title'][:60]}\" has been marked as a Verified Answer by admin."
+                _push_community_notif(rows[0]["author_id"], "verified_answer", msg, post_id=post_id)
+    except Exception:
+        pass
+
+    return redirect(request.POST.get("next", "/admin-panel/community/"))
+
+
+# ---------------------------------------------------------------------------
+# Admin: warn a user
+# ---------------------------------------------------------------------------
+
+def admin_community_warn_user(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/admin-panel/community/")
+
+    admin_id = request.session.get("user_id")
+    target_user_id = request.POST.get("user_id", "").strip()
+    reason = request.POST.get("reason", "").strip()[:500]
+
+    if target_user_id and reason:
+        try:
+            _supabase_admin().table("community_warnings").insert({
+                "user_id": target_user_id,
+                "warned_by": str(admin_id),
+                "reason": reason,
+            }).execute()
+            msg = f"You have received a community warning: {reason}"
+            _push_community_notif(target_user_id, "warning", msg)
+        except Exception:
+            pass
+
+    return redirect("/admin-panel/community/?tab=warnings")
+
+
+# ---------------------------------------------------------------------------
+# Admin: resolve a report
+# ---------------------------------------------------------------------------
+
+def admin_community_resolve_report(request, report_id):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/admin-panel/community/?tab=reports")
+
+    admin_id = request.session.get("user_id")
+    try:
+        _supabase_admin().table("post_reports").update({
+            "is_resolved": True,
+            "resolved_by": str(admin_id),
+            "resolved_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", str(report_id)).execute()
+    except Exception:
+        pass
+
+    return redirect("/admin-panel/community/?tab=reports")
+
+
+# ===========================================================================
+# SUBSCRIPTION / PAYMENT MODULE
+# ===========================================================================
+
+def _get_plans():
+    """Fetch both plans from Supabase. Returns dict keyed by slug."""
+    try:
+        rows = _supabase_admin().table("subscription_plans").select("*").eq("is_active", True).execute().data or []
+        return {r["slug"]: r for r in rows}
+    except Exception:
+        return {
+            "basic": {"slug": "basic", "name": "Basic", "price": 0, "currency": "GHS",
+                      "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
+            "premium": {"slug": "premium", "name": "Premium", "price": 0, "currency": "GHS",
+                        "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
+        }
+
+
+def _get_active_subscription(user_id):
+    """Return the user's most recent subscription row, or None."""
+    try:
+        rows = (
+            _supabase_admin()
+            .table("subscriptions")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+        )
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Student: payment / subscription page (shown after signup or on demand)
+# ---------------------------------------------------------------------------
+
+def payment_page(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    user_id = request.session.get("user_id")
+    db = _supabase_admin()
+    plans = _get_plans()
+    subscription = _get_active_subscription(user_id)
+    error = None
+    success = None
+
+    if request.method == "POST":
+        payment_ref = request.POST.get("payment_reference", "").strip()[:200]
+        plan_slug   = request.POST.get("plan_slug", "basic").strip()
+        if plan_slug not in ("basic", "premium"):
+            plan_slug = "basic"
+
+        plan = plans.get(plan_slug, plans.get("basic", {}))
+        amount_due = plan.get("price", 0)
+
+        try:
+            if subscription:
+                db.table("subscriptions").update({
+                    "payment_reference": payment_ref or None,
+                    "plan_slug": plan_slug,
+                    "amount_due": amount_due,
+                }).eq("id", subscription["id"]).execute()
+            else:
+                db.table("subscriptions").insert({
+                    "user_id": str(user_id),
+                    "user_email": request.session.get("email", ""),
+                    "user_name": request.session.get("full_name", ""),
+                    "plan_slug": plan_slug,
+                    "amount_due": amount_due,
+                    "currency": plan.get("currency", "GHS"),
+                    "payment_reference": payment_ref or None,
+                    "status": "pending_payment",
+                }).execute()
+            subscription = _get_active_subscription(user_id)
+            success = "Payment reference submitted. Your account will be activated after verification."
+        except Exception:
+            error = "Failed to save payment details. Please try again."
+
+    current_plan_slug = "basic"
+    if subscription:
+        current_plan_slug = subscription.get("plan_slug", "basic")
+
+    ctx = {
+        "full_name": request.session.get("full_name", ""),
+        "email": request.session.get("email", ""),
+        "role": request.session.get("role", "student"),
+        "active_page": "payment",
+        "student_unread_notifications": _student_unread_count(user_id),
+        "community_unread": _community_unread_count(user_id),
+        "plans": plans,
+        "subscription": subscription,
+        "current_plan_slug": current_plan_slug,
+        "basic": plans.get("basic", {}),
+        "premium": plans.get("premium", {}),
+        "error": error,
+        "success": success,
+    }
+    return render(request, "payment.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Admin: payments management — plan editor + all subscribers
+# ---------------------------------------------------------------------------
+
+def admin_payments(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    db = _supabase_admin()
+    plans = _get_plans()
+    error = None
+    success = None
+
+    if request.method == "POST":
+        action   = request.POST.get("action", "")
+        plan_slug = request.POST.get("plan_slug", "").strip()
+
+        if action == "update_plan" and plan_slug in ("basic", "premium"):
+            try:
+                name         = request.POST.get("name", "").strip()[:80]
+                tagline      = request.POST.get("tagline", "").strip()[:200]
+                price_raw    = request.POST.get("price", "0").strip()
+                duration_raw = request.POST.get("duration_days", "365").strip()
+                instructions = request.POST.get("payment_instructions", "").strip()[:1000]
+                features_raw = request.POST.get("features", "").strip()
+                features     = [f.strip() for f in features_raw.splitlines() if f.strip()]
+
+                price = round(float(price_raw), 2) if price_raw else 0.0
+                dur   = int(duration_raw) if duration_raw.isdigit() else 365
+
+                db.table("subscription_plans").update({
+                    "name": name,
+                    "tagline": tagline,
+                    "price": price,
+                    "duration_days": dur,
+                    "payment_instructions": instructions,
+                    "features": features,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("slug", plan_slug).execute()
+
+                plans = _get_plans()
+                success = f"{name} plan updated successfully."
+            except Exception as exc:
+                error = f"Update failed: {exc}"
+
+        elif action == "activate_subscription":
+            sub_id        = request.POST.get("subscription_id", "").strip()
+            sub_plan_slug = request.POST.get("sub_plan_slug", "basic").strip()
+            plan          = plans.get(sub_plan_slug, {})
+            dur           = plan.get("duration_days", 365)
+            now           = datetime.now(timezone.utc)
+            expires       = now + timedelta(days=dur)
+            try:
+                db.table("subscriptions").update({
+                    "status": "active",
+                    "started_at": now.isoformat(),
+                    "expires_at": expires.isoformat(),
+                    "amount_paid": plan.get("price", 0),
+                    "activated_by": str(request.session.get("user_id", "")),
+                }).eq("id", sub_id).execute()
+                success = "Subscription activated."
+            except Exception as exc:
+                error = f"Activation failed: {exc}"
+
+        elif action == "cancel_subscription":
+            sub_id = request.POST.get("subscription_id", "").strip()
+            try:
+                db.table("subscriptions").update({"status": "cancelled"}).eq("id", sub_id).execute()
+                success = "Subscription cancelled."
+            except Exception as exc:
+                error = f"Cancellation failed: {exc}"
+
+    subscribers = []
+    counts = {"total": 0, "active": 0, "pending": 0, "basic": 0, "premium": 0}
+    try:
+        subscribers = (
+            db.table("subscriptions")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(300)
+            .execute()
+            .data or []
+        )
+        for s in subscribers:
+            counts["total"] += 1
+            if s.get("status") == "active":
+                counts["active"] += 1
+            if s.get("status") == "pending_payment":
+                counts["pending"] += 1
+            if s.get("plan_slug") == "basic":
+                counts["basic"] += 1
+            if s.get("plan_slug") == "premium":
+                counts["premium"] += 1
+    except Exception:
+        pass
+
+    ctx = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "payments",
+        "student_unread_notifications": 0,
+        "community_unread": 0,
+        "plans": plans,
+        "basic": plans.get("basic", {}),
+        "premium": plans.get("premium", {}),
+        "subscribers": subscribers,
+        "counts": counts,
+        "error": error,
+        "success": success,
+    }
+    return render(request, "dashboard/admin_payments.html", ctx)

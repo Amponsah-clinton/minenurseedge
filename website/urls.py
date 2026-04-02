@@ -48,4 +48,29 @@ urlpatterns = [
     path("admin-panel/drug-cards/", views.admin_drug_cards, name="admin_drug_cards"),
     path("admin-panel/drug-cards/add/", views.admin_drug_card_form, name="admin_drug_card_add"),
     path("admin-panel/drug-cards/<uuid:drug_id>/edit/", views.admin_drug_card_form, name="admin_drug_card_edit"),
+
+    # Payment / Subscription
+    path("payment/", views.payment_page, name="payment_page"),
+
+    # Community — Student
+    path("dashboard/community/", views.community_home, name="community_home"),
+    path("dashboard/community/<slug:slug>/", views.community_detail, name="community_detail"),
+    path("dashboard/community/<slug:slug>/join/", views.community_join, name="community_join"),
+    path("dashboard/community/<slug:slug>/leave/", views.community_leave, name="community_leave"),
+    path("dashboard/community/<slug:slug>/create-post/", views.community_create_post, name="community_create_post"),
+    path("dashboard/community/<slug:slug>/post/<uuid:post_id>/", views.community_post_detail, name="community_post_detail"),
+    path("dashboard/community/post/<uuid:post_id>/comment/", views.community_add_comment, name="community_add_comment"),
+    path("dashboard/community/post/<uuid:post_id>/react/", views.community_react_post, name="community_react_post"),
+    path("dashboard/community/comment/<uuid:comment_id>/react/", views.community_react_comment, name="community_react_comment"),
+    path("dashboard/community/post/<uuid:post_id>/report/", views.community_report_post, name="community_report_post"),
+    path("dashboard/community/notifications/read/", views.community_notifications_read, name="community_notifications_read"),
+
+    # Community — Admin
+    path("admin-panel/payments/", views.admin_payments, name="admin_payments"),
+
+    path("admin-panel/community/", views.admin_community_manage, name="admin_community_manage"),
+    path("admin-panel/community/post/<uuid:post_id>/delete/", views.admin_community_delete_post, name="admin_community_delete_post"),
+    path("admin-panel/community/post/<uuid:post_id>/verify/", views.admin_community_verify_answer, name="admin_community_verify_answer"),
+    path("admin-panel/community/warn-user/", views.admin_community_warn_user, name="admin_community_warn_user"),
+    path("admin-panel/community/report/<uuid:report_id>/resolve/", views.admin_community_resolve_report, name="admin_community_resolve_report"),
 ]

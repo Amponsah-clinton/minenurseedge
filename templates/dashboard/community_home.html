@@ -1,0 +1,205 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Community - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Community Home ────────────────────────────── */
+  .comm-hero {
+    background: #fff;
+    border: 1px solid #e8eaf0;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  }
+  .comm-hero__title { font-size: 1.4rem; font-weight: 700; color: #2d3a52; margin: 0 0 4px; }
+  .comm-hero__sub   { color: #7b8599; font-size: 0.9rem; margin: 0; }
+  .comm-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+  .comm-stat  { text-align: center; }
+  .comm-stat__num  { font-size: 1.5rem; font-weight: 700; color: #696cff; display: block; }
+  .comm-stat__label{ font-size: 0.78rem; color: #9098b0; }
+
+  /* ── Community Cards ───────────────────────────── */
+  .community-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+  }
+  .community-card {
+    background: #fff;
+    border: 1px solid #e8eaf0;
+    border-radius: 12px;
+    padding: 22px 22px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.04);
+    transition: box-shadow 0.18s, border-color 0.18s;
+    position: relative;
+  }
+  .community-card:hover {
+    box-shadow: 0 6px 18px rgba(0,0,0,.09);
+    border-color: #c8ccf0;
+  }
+  .community-card.is-member {
+    border-left: 1px solid #e8eaf0;
+  }
+  .cc-header { display: flex; align-items: flex-start; gap: 14px; }
+  .cc-icon {
+    width: 46px; height: 46px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .cc-name  { font-size: 1rem; font-weight: 700; color: #2d3a52; margin: 0 0 3px; }
+  .cc-desc  { font-size: 0.82rem; color: #7b8599; margin: 0; line-height: 1.5; }
+  .cc-meta  { display: flex; gap: 16px; }
+  .cc-meta-item { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: #9098b0; }
+  .cc-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+  .cc-actions-left { min-height: 28px; display:flex; align-items:center; }
+  .cc-actions-right { display:flex; align-items:center; gap:10px; }
+  .cc-actions-right form { margin:0; }
+  .cc-badge-joined {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #2d3a52;
+    background: #f4f5f7;
+    border-radius: 999px;
+    padding: 2px 10px;
+  }
+  .btn-join  { background: #111; color: #fff; border: none; border-radius: 8px; padding: 7px 18px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .btn-join:hover { background: #2a2a2a; }
+  .btn-enter { background: #fff; color: #111; border: 1px solid #d0d5dd; border-radius: 8px; padding: 7px 18px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s; text-decoration: none; display: inline-block; }
+  .btn-enter:hover { background: #f5f5f5; color: #111; }
+</style>
+
+<!-- Hero banner -->
+<div class="comm-hero">
+  <div>
+    <h4 class="comm-hero__title"><i class="bx bx-group me-2"></i>NurseEdge Community</h4>
+    <p class="comm-hero__sub">Join your nursing programme community — ask questions, share knowledge, and grow together.</p>
+  </div>
+  <div class="comm-stats">
+    <div class="comm-stat">
+      <span class="comm-stat__num" style="color:#2d3a52;">{{ communities|length }}</span>
+      <span class="comm-stat__label">Communities</span>
+    </div>
+    <div class="comm-stat">
+      <span class="comm-stat__num" style="color:#2d3a52;">{{ joined_count }}</span>
+      <span class="comm-stat__label">Joined</span>
+    </div>
+  </div>
+</div>
+
+{% if community_unread %}
+<div class="alert alert-primary d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
+  <i class="bx bx-bell fs-5"></i>
+  <span>You have <strong>{{ community_unread }}</strong> unread community notification{{ community_unread|pluralize }}.</span>
+  <form method="post" action="/dashboard/community/notifications/read/" class="ms-auto">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="/dashboard/community/">
+    <button type="submit" class="btn btn-sm btn-outline-primary">Clear</button>
+  </form>
+</div>
+{% endif %}
+
+<!-- Community grid -->
+{% with has_joined=False %}
+{% for c in communities %}
+  {% if c.is_member %}{% with has_joined=True %}{% endwith %}{% endif %}
+{% endfor %}
+{% endwith %}
+
+<div class="mb-3">
+  <h5 class="mb-1" style="color:#2d3a52;font-weight:800;">Joined</h5>
+  <p class="text-muted mb-0" style="font-size:0.9rem;">Your communities</p>
+</div>
+
+<div class="community-grid mb-4">
+  {% for c in communities %}
+  {% if c.is_member %}
+  <div class="community-card is-member">
+    <div class="cc-header">
+      <div class="cc-icon" style="background:#111;opacity:0.92;">
+        <i class="bx {{ c.icon }}"></i>
+      </div>
+      <div>
+        <p class="cc-name">{{ c.name }}</p>
+        <p class="cc-desc">{{ c.description }}</p>
+      </div>
+    </div>
+
+    <div class="cc-meta">
+      <span class="cc-meta-item"><i class="bx bx-group"></i> {{ c.member_count }} member{{ c.member_count|pluralize }}</span>
+      <span class="cc-meta-item"><i class="bx bx-chat"></i> {{ c.post_count }} post{{ c.post_count|pluralize }}</span>
+    </div>
+
+    <div class="cc-actions">
+      <div class="cc-actions-left">
+        <span class="cc-badge-joined"><i class="bx bx-check"></i> Joined</span>
+      </div>
+      <div class="cc-actions-right">
+        <a href="/dashboard/community/{{ c.slug }}/" class="btn-enter">Enter</a>
+        <form method="post" action="/dashboard/community/{{ c.slug }}/leave/">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-secondary" style="font-size:0.78rem;"
+            onclick="return confirm('Leave this community?')">Leave</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<div class="mb-3">
+  <h5 class="mb-1" style="color:#2d3a52;font-weight:800;">Explore</h5>
+  <p class="text-muted mb-0" style="font-size:0.9rem;">Communities you have not joined yet</p>
+</div>
+
+<div class="community-grid">
+  {% for c in communities %}
+  {% if not c.is_member %}
+  <div class="community-card">
+    <div class="cc-header">
+      <div class="cc-icon" style="background:#111;opacity:0.92;">
+        <i class="bx {{ c.icon }}"></i>
+      </div>
+      <div>
+        <p class="cc-name">{{ c.name }}</p>
+        <p class="cc-desc">{{ c.description }}</p>
+      </div>
+    </div>
+
+    <div class="cc-meta">
+      <span class="cc-meta-item"><i class="bx bx-group"></i> {{ c.member_count }} member{{ c.member_count|pluralize }}</span>
+      <span class="cc-meta-item"><i class="bx bx-chat"></i> {{ c.post_count }} post{{ c.post_count|pluralize }}</span>
+    </div>
+
+    <div class="cc-actions">
+      <div class="cc-actions-left">
+        <span style="font-size:0.78rem;color:#aab0c0;">Not joined</span>
+      </div>
+      <div class="cc-actions-right">
+        <form method="post" action="/dashboard/community/{{ c.slug }}/join/">
+          {% csrf_token %}
+          <button type="submit" class="btn-join">Join</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% empty %}
+  <div class="col-12">
+    <div class="card"><div class="card-body text-muted">No communities available yet.</div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

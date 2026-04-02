@@ -28,6 +28,17 @@
     <section class="contact-card" aria-labelledby="contact-title">
         <h1 id="contact-title">Contact Us</h1>
         <p>Send us your message and we will get back to you.</p>
+        <div style="margin:0 0 18px;padding:12px 14px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:13px;color:#333;">
+                    Prefer email? You can also contact our support team directly.
+                </span>
+                <a href="mailto:newtestdjango@gmail.com"
+                   style="display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:7px;border:1px solid #111;background:#111;color:#fff;font-size:13px;font-weight:700;text-decoration:none;">
+                    Email Support
+                </a>
+            </div>
+        </div>
 
         {% if error %}
         <div class="alert-error">{{ error }}</div>
@@ -46,6 +57,10 @@
             <div class="contact-field">
                 <label for="email">Email<span class="required-star">*</span></label>
                 <input type="email" id="email" name="email" required>
+            </div>
+            <div class="contact-field">
+                <label for="phone">Phone Number<span class="required-star">*</span></label>
+                <input type="tel" id="phone" name="phone" required>
             </div>
             <div class="contact-field">
                 <label for="subject">Subject<span class="required-star">*</span></label>

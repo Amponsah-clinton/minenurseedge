@@ -1,233 +1,408 @@
 {% extends "base.html" %}
-{% block title %}Signup - NurseEdge{% endblock %}
+{% block title %}Create Account - NurseEdge{% endblock %}
 {% block head_extra %}
 <style>
-    body { margin:0; background-color:#f5f5f5; font-family:"Open Sans",Arial,sans-serif; color:#111; }
-    .auth-page { min-height:calc(100vh - 170px); display:flex; align-items:center; justify-content:center; padding:28px 16px; }
-    .auth-card { width:100%; max-width:560px; background:#fff; border:1px solid #e4e4e4; border-radius:10px; padding:28px; box-shadow:0 8px 24px rgba(0,0,0,.06); }
-    .auth-card h1 { margin:0 0 6px; font-size:28px; font-weight:700; }
-    .auth-card > p { margin:0 0 20px; color:#4c4c4c; font-size:14px; }
-    .auth-field { margin-bottom:14px; }
-    .auth-field label { display:block; margin-bottom:7px; font-size:13px; font-weight:700; }
-    .required-star { color:#cc0000; margin-left:2px; }
-    .auth-field input, .auth-field select {
-        width:100%; box-sizing:border-box; height:44px; padding:0 12px;
-        border:1px solid #ccc; border-radius:6px; font-size:14px; background:#fff;
-    }
-    .auth-field input:focus, .auth-field select:focus { outline:none; border-color:#111; }
-    .pw-wrap { position:relative; }
-    .pw-wrap input { padding-right:40px !important; }
-    .pw-toggle { position:absolute; top:50%; right:12px; transform:translateY(-50%); cursor:pointer; color:#888; font-size:15px; background:none; border:none; padding:0; line-height:1; }
-    .pw-toggle:hover { color:#111; }
-    .auth-field input.input-error { border-color:#e74c3c; }
-    .auth-checkbox { display:flex; align-items:center; gap:10px; margin:8px 0 14px; font-size:13px; color:#333; }
-    .auth-checkbox input { width:16px; height:16px; margin:0; flex-shrink:0; }
-    .auth-submit { width:100%; height:44px; border:none; border-radius:6px; background:#111; color:#fff; font-size:14px; font-weight:700; cursor:pointer; margin-top:4px; }
-    .auth-submit:hover { background:#2a2a2a; }
-    .auth-links { margin-top:16px; font-size:14px; text-align:center; }
-    .auth-links a { color:#111; font-weight:700; text-decoration:none; }
-    .alert-error { background:#fff0f0; border:1px solid #f5c2c2; color:#c0392b; padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:14px; }
-    .alert-error ul { margin:4px 0 0; padding-left:18px; }
-    .pw-hints { font-size:12px; color:#666; margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; }
-    .pw-hint { display:inline-flex; align-items:center; gap:4px; background:#f5f5f5; border-radius:4px; padding:2px 8px; }
-    .pw-hint.ok { color:#27ae60; background:#eafaf1; }
-    .pw-hint.fail { color:#e74c3c; background:#fff0f0; }
+  body { margin:0; background:#f4f5f7; font-family:"Open Sans",Arial,sans-serif; color:#111; }
+  .auth-page { min-height:calc(100vh - 170px); display:flex; align-items:flex-start; justify-content:center; padding:36px 16px 48px; }
+  .auth-card { width:100%; max-width:600px; }
+
+  /* ── Step labels ── */
+  .step-row { display:flex; align-items:center; gap:0; margin-bottom:28px; }
+  .step-item { display:flex; align-items:center; gap:8px; }
+  .step-num {
+    width:28px; height:28px; border-radius:50%;
+    background:#1a1a2e; color:#fff;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700; flex-shrink:0;
+  }
+  .step-num.done { background:#3ea76a; }
+  .step-label { font-size:12px; font-weight:700; color:#5a6070; white-space:nowrap; }
+  .step-line  { flex:1; height:1px; background:#dde1ec; margin:0 10px; }
+
+  /* ── Card sections ── */
+  .auth-section {
+    background:#fff; border:1px solid #e4e8f0; border-radius:12px;
+    padding:26px 28px; margin-bottom:14px;
+    box-shadow:0 2px 8px rgba(0,0,0,.04);
+  }
+  .auth-section-title {
+    font-size:0.78rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.6px; color:#8892a4; margin:0 0 18px;
+  }
+
+  /* ── Fields ── */
+  .auth-field { margin-bottom:14px; }
+  .auth-field label { display:block; margin-bottom:6px; font-size:13px; font-weight:700; color:#2d3a52; }
+  .required-star { color:#cc0000; margin-left:2px; }
+  .auth-field input, .auth-field select {
+    width:100%; box-sizing:border-box; height:44px; padding:0 12px;
+    border:1px solid #dde1ec; border-radius:8px; font-size:14px;
+    background:#fafbff; color:#2d3a52; transition:border-color 0.15s;
+  }
+  .auth-field input:focus, .auth-field select:focus { outline:none; border-color:#1a1a2e; }
+  .auth-field input.input-error { border-color:#e74c3c; }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:500px){ .field-row { grid-template-columns:1fr; } }
+
+  /* ── Password ── */
+  .pw-wrap { position:relative; }
+  .pw-wrap input { padding-right:42px !important; }
+  .pw-toggle { position:absolute; top:50%; right:12px; transform:translateY(-50%); cursor:pointer; color:#888; font-size:15px; background:none; border:none; padding:0; }
+  .pw-toggle:hover { color:#111; }
+  .pw-hints { font-size:11.5px; color:#666; margin-top:6px; display:flex; flex-wrap:wrap; gap:5px; }
+  .pw-hint { display:inline-flex; align-items:center; gap:3px; background:#f5f5f5; border-radius:4px; padding:2px 7px; }
+  .pw-hint.ok   { color:#27ae60; background:#eafaf1; }
+  .pw-hint.fail { color:#e74c3c; background:#fff0f0; }
+
+  /* ── Plan picker ── */
+  .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:500px){ .plan-grid { grid-template-columns:1fr; } }
+
+  .plan-card {
+    position:relative; border:2px solid #e4e8f0; border-radius:10px;
+    padding:18px 16px; cursor:pointer; transition:border-color 0.18s, box-shadow 0.18s;
+    background:#fff;
+  }
+  .plan-card:hover { border-color:#1a1a2e; }
+  .plan-card input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
+  .plan-card.selected { border-color:#1a1a2e; box-shadow:0 0 0 3px rgba(26,26,46,.08); }
+  .plan-card.selected .plan-radio-dot { background:#1a1a2e; border-color:#1a1a2e; }
+
+  .plan-card-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
+  .plan-radio-dot {
+    width:18px; height:18px; border-radius:50%;
+    border:2px solid #c8cdd8; background:#fff;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0; transition:all 0.15s;
+  }
+  .plan-radio-dot::after {
+    content:''; width:8px; height:8px; border-radius:50%;
+    background:#fff; display:block;
+  }
+  .plan-card.selected .plan-radio-dot::after { background:#fff; }
+  .plan-card.selected .plan-radio-dot { background:#1a1a2e; }
+
+  .plan-badge {
+    font-size:0.67rem; font-weight:700; border-radius:999px;
+    padding:2px 9px; text-transform:uppercase; letter-spacing:0.3px;
+  }
+  .plan-badge-basic   { background:#f0f2ff; color:#5a5ce8; }
+  .plan-badge-premium { background:#1a1a2e; color:#fff; }
+
+  .plan-name  { font-size:1.05rem; font-weight:800; color:#1f2d40; margin:0 0 2px; }
+  .plan-price { font-size:1.6rem; font-weight:800; color:#1a1a2e; line-height:1; }
+  .plan-price span { font-size:0.8rem; font-weight:400; color:#7b8599; }
+  .plan-tagline { font-size:0.78rem; color:#7b8599; margin:6px 0 10px; }
+  .plan-features { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
+  .plan-features li { font-size:0.78rem; color:#4a5268; display:flex; align-items:flex-start; gap:6px; }
+  .plan-features li::before {
+    content:'✓'; font-size:11px; font-weight:700;
+    color:#3ea76a; flex-shrink:0; margin-top:1px;
+  }
+
+  /* ── Checkbox ── */
+  .auth-checkbox { display:flex; align-items:center; gap:10px; margin:12px 0 18px; font-size:13px; color:#333; }
+  .auth-checkbox input { width:16px; height:16px; margin:0; flex-shrink:0; accent-color:#1a1a2e; }
+
+  /* ── Submit ── */
+  .auth-submit {
+    width:100%; height:48px; border:none; border-radius:9px;
+    background:#1a1a2e; color:#fff; font-size:15px; font-weight:700;
+    cursor:pointer; letter-spacing:0.2px; transition:background 0.15s;
+  }
+  .auth-submit:hover { background:#2a2a4e; }
+
+  /* ── Alerts ── */
+  .alert-error { background:#fff0f0; border:1px solid #f5c2c2; color:#c0392b; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:13.5px; }
+  .alert-error ul { margin:4px 0 0; padding-left:18px; }
+
+  /* ── Links ── */
+  .auth-links { margin-top:14px; font-size:13px; text-align:center; color:#7b8599; }
+  .auth-links a { color:#1a1a2e; font-weight:700; text-decoration:none; }
+
+  /* ── Page title ── */
+  .auth-page-title { font-size:1.4rem; font-weight:800; color:#1f2d40; margin:0 0 4px; }
+  .auth-page-sub   { font-size:0.87rem; color:#7b8599; margin:0 0 22px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <main class="auth-page">
-    <section class="auth-card" aria-labelledby="signup-title">
-        <h1 id="signup-title">Create Account</h1>
-        <p>All fields are required.</p>
+  <div class="auth-card">
 
-        {% if errors %}
-        <div class="alert-error">
-            <ul>{% for err in errors %}<li>{{ err }}</li>{% endfor %}</ul>
+    <h1 class="auth-page-title">Create your account</h1>
+    <p class="auth-page-sub">Join thousands of nursing students preparing for the NMC Licensure Exam.</p>
+
+    <!-- Step indicator -->
+    <div class="step-row">
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <span class="step-label">Your Details</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <span class="step-label">Choose Plan</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <span class="step-label">Payment</span>
+      </div>
+    </div>
+
+    {% if errors %}
+    <div class="alert-error">
+      <ul>{% for err in errors %}<li>{{ err }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <form id="signupForm" method="POST" action="/signup/" novalidate>
+      {% csrf_token %}
+
+      <!-- ── Section 1: Personal Info ── -->
+      <div class="auth-section">
+        <p class="auth-section-title">Personal Information</p>
+
+        <div class="auth-field">
+          <label for="fullName">Full Name<span class="required-star">*</span></label>
+          <input type="text" id="fullName" name="fullName" required
+                 value="{{ form_data.fullName|default:'' }}" placeholder="e.g. Ama Owusu">
         </div>
-        {% endif %}
 
-        <form id="signupForm" method="POST" action="/signup/" novalidate>
-            {% csrf_token %}
-
-            <div class="auth-field">
-                <label for="fullName">Full Name<span class="required-star">*</span></label>
-                <input type="text" id="fullName" name="fullName" required
-                       value="{{ form_data.fullName|default:'' }}">
-            </div>
-
-            <div class="auth-field">
-                <label for="email">Email<span class="required-star">*</span></label>
-                <input type="email" id="email" name="email" required autocomplete="email"
-                       value="{{ form_data.email|default:'' }}">
-            </div>
-
-            <div class="auth-field">
-                <label for="phone">Phone Number<span class="required-star">*</span></label>
-                <input type="tel" id="phone" name="phone" required
-                       value="{{ form_data.phone|default:'' }}">
-            </div>
-
-            <div class="auth-field">
-                <label for="yearOfStudy">Year of Study<span class="required-star">*</span></label>
-                <select id="yearOfStudy" name="yearOfStudy" required>
-                    <option value="" disabled {% if not form_data.yearOfStudy %}selected{% endif %}>Select Year</option>
-                    {% for val, label in year_choices %}
-                    <option value="{{ val }}" {% if form_data.yearOfStudy == val %}selected{% endif %}>{{ label }}</option>
-                    {% empty %}
-                    <option value="year1" {% if form_data.yearOfStudy == "year1" %}selected{% endif %}>Year 1</option>
-                    <option value="year2" {% if form_data.yearOfStudy == "year2" %}selected{% endif %}>Year 2</option>
-                    <option value="year3" {% if form_data.yearOfStudy == "year3" %}selected{% endif %}>Year 3</option>
-                    <option value="year4" {% if form_data.yearOfStudy == "year4" %}selected{% endif %}>Year 4</option>
-                    <option value="finalyear" {% if form_data.yearOfStudy == "finalyear" %}selected{% endif %}>Final Year</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="auth-field">
-                <label for="institution">School / Institution<span class="required-star">*</span></label>
-                <input type="text" id="institution" name="institution" required
-                       value="{{ form_data.institution|default:'' }}">
-            </div>
-
-            <div class="auth-field">
-                <label for="programme">Programme Category<span class="required-star">*</span></label>
-                <select id="programme" name="programme" required>
-                    <option value="" disabled {% if not form_data.programme %}selected{% endif %}>Select your nursing programme</option>
-                    <option value="Registered General Nursing (RGN)"
-                        {% if form_data.programme == "Registered General Nursing (RGN)" %}selected{% endif %}>
-                        Registered General Nursing (RGN)
-                    </option>
-                    <option value="Registered Midwifery (RM)"
-                        {% if form_data.programme == "Registered Midwifery (RM)" %}selected{% endif %}>
-                        Registered Midwifery (RM)
-                    </option>
-                    <option value="Nurse Assistant Clinical (NAC/NAP)"
-                        {% if form_data.programme == "Nurse Assistant Clinical (NAC/NAP)" %}selected{% endif %}>
-                        Nurse Assistant Clinical (NAC/NAP)
-                    </option>
-                    <option value="Registered Mental Health Nursing (RMHN)"
-                        {% if form_data.programme == "Registered Mental Health Nursing (RMHN)" %}selected{% endif %}>
-                        Registered Mental Health Nursing (RMHN)
-                    </option>
-                    <option value="Registered Public Health Nursing (RPHN)"
-                        {% if form_data.programme == "Registered Public Health Nursing (RPHN)" %}selected{% endif %}>
-                        Registered Public Health Nursing (RPHN)
-                    </option>
-                </select>
-            </div>
-
-            <div class="auth-field">
-                <label for="password">Password<span class="required-star">*</span></label>
-                <div class="pw-wrap">
-                    <input type="password" id="password" name="password" required autocomplete="new-password">
-                    <button type="button" class="pw-toggle" data-target="password" aria-label="Toggle password visibility">
-                        <i class="fa fa-eye" id="icon-password"></i>
-                    </button>
-                </div>
-                <div class="pw-hints" id="pwHints">
-                    <span class="pw-hint" id="hint-len">8+ characters</span>
-                    <span class="pw-hint" id="hint-upper">Uppercase</span>
-                    <span class="pw-hint" id="hint-lower">Lowercase</span>
-                    <span class="pw-hint" id="hint-num">Number</span>
-                    <span class="pw-hint" id="hint-special">Special char</span>
-                </div>
-            </div>
-
-            <div class="auth-field">
-                <label for="confirmPassword">Confirm Password<span class="required-star">*</span></label>
-                <div class="pw-wrap">
-                    <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
-                    <button type="button" class="pw-toggle" data-target="confirmPassword" aria-label="Toggle confirm password visibility">
-                        <i class="fa fa-eye" id="icon-confirmPassword"></i>
-                    </button>
-                </div>
-            </div>
-
-            <label class="auth-checkbox" for="agree">
-                <input type="checkbox" id="agree" name="agree" required>
-                <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
-            </label>
-
-            <button type="submit" class="auth-submit">Create Account</button>
-        </form>
-
-        <div class="auth-links">
-            <a href="/">Back to Home</a> &nbsp;|&nbsp; <a href="/login/">Already have an account?</a>
+        <div class="field-row">
+          <div class="auth-field">
+            <label for="email">Email<span class="required-star">*</span></label>
+            <input type="email" id="email" name="email" required autocomplete="email"
+                   value="{{ form_data.email|default:'' }}" placeholder="you@example.com">
+          </div>
+          <div class="auth-field">
+            <label for="phone">Phone Number<span class="required-star">*</span></label>
+            <input type="tel" id="phone" name="phone" required
+                   value="{{ form_data.phone|default:'' }}" placeholder="024 000 0000">
+          </div>
         </div>
-    </section>
+
+        <div class="field-row">
+          <div class="auth-field">
+            <label for="yearOfStudy">Year of Study<span class="required-star">*</span></label>
+            <select id="yearOfStudy" name="yearOfStudy" required>
+              <option value="" disabled {% if not form_data.yearOfStudy %}selected{% endif %}>Select year</option>
+              <option value="year1"    {% if form_data.yearOfStudy == "year1"    %}selected{% endif %}>Year 1</option>
+              <option value="year2"    {% if form_data.yearOfStudy == "year2"    %}selected{% endif %}>Year 2</option>
+              <option value="year3"    {% if form_data.yearOfStudy == "year3"    %}selected{% endif %}>Year 3</option>
+              <option value="year4"    {% if form_data.yearOfStudy == "year4"    %}selected{% endif %}>Year 4</option>
+              <option value="finalyear"{% if form_data.yearOfStudy == "finalyear"%}selected{% endif %}>Final Year</option>
+            </select>
+          </div>
+          <div class="auth-field">
+            <label for="institution">School / Institution<span class="required-star">*</span></label>
+            <input type="text" id="institution" name="institution" required
+                   value="{{ form_data.institution|default:'' }}" placeholder="e.g. UHAS">
+          </div>
+        </div>
+
+        <div class="auth-field">
+          <label for="programme">Nursing Programme<span class="required-star">*</span></label>
+          <select id="programme" name="programme" required>
+            <option value="" disabled {% if not form_data.programme %}selected{% endif %}>Select your programme</option>
+            <option value="Registered General Nursing (RGN)"        {% if form_data.programme == "Registered General Nursing (RGN)"        %}selected{% endif %}>Registered General Nursing (RGN)</option>
+            <option value="Registered Midwifery (RM)"               {% if form_data.programme == "Registered Midwifery (RM)"               %}selected{% endif %}>Registered Midwifery (RM)</option>
+            <option value="Nurse Assistant Clinical (NAC/NAP)"      {% if form_data.programme == "Nurse Assistant Clinical (NAC/NAP)"      %}selected{% endif %}>Nurse Assistant Clinical (NAC/NAP)</option>
+            <option value="Registered Mental Health Nursing (RMHN)" {% if form_data.programme == "Registered Mental Health Nursing (RMHN)" %}selected{% endif %}>Registered Mental Health Nursing (RMHN)</option>
+            <option value="Registered Public Health Nursing (RPHN)" {% if form_data.programme == "Registered Public Health Nursing (RPHN)" %}selected{% endif %}>Registered Public Health Nursing (RPHN)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Password ── -->
+      <div class="auth-section">
+        <p class="auth-section-title">Set Password</p>
+
+        <div class="field-row">
+          <div class="auth-field">
+            <label for="password">Password<span class="required-star">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" id="password" name="password" required autocomplete="new-password">
+              <button type="button" class="pw-toggle" data-target="password" aria-label="Toggle">
+                <i class="fa fa-eye" id="icon-password"></i>
+              </button>
+            </div>
+            <div class="pw-hints" id="pwHints">
+              <span class="pw-hint" id="hint-len">8+ chars</span>
+              <span class="pw-hint" id="hint-upper">Uppercase</span>
+              <span class="pw-hint" id="hint-lower">Lowercase</span>
+              <span class="pw-hint" id="hint-num">Number</span>
+              <span class="pw-hint" id="hint-special">Special</span>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="confirmPassword">Confirm Password<span class="required-star">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+              <button type="button" class="pw-toggle" data-target="confirmPassword" aria-label="Toggle">
+                <i class="fa fa-eye" id="icon-confirmPassword"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Section 3: Choose Plan ── -->
+      <div class="auth-section">
+        <p class="auth-section-title">Choose Your Plan</p>
+        <div class="plan-grid" id="planGrid">
+
+          <!-- Basic -->
+          <label class="plan-card {% if not form_data.plan_slug or form_data.plan_slug == 'basic' %}selected{% endif %}"
+                 id="card-basic" for="plan-basic">
+            <input type="radio" id="plan-basic" name="plan_slug" value="basic"
+                   {% if not form_data.plan_slug or form_data.plan_slug == 'basic' %}checked{% endif %}>
+            <div class="plan-card-top">
+              <span class="plan-badge plan-badge-basic">Basic</span>
+              <div class="plan-radio-dot"></div>
+            </div>
+            <div class="plan-name">{{ basic.name|default:"Basic" }}</div>
+            <div class="plan-price">
+              GHS {{ basic.price|default:"0" }}<span> / {{ basic.duration_days|default:"365" }} days</span>
+            </div>
+            <p class="plan-tagline">{{ basic.tagline|default:"Essential study tools" }}</p>
+            <ul class="plan-features">
+              {% for f in basic.features %}
+              <li>{{ f }}</li>
+              {% empty %}
+              <li>Practice Questions</li>
+              <li>Mock Exams</li>
+              <li>Drug Cards</li>
+              {% endfor %}
+            </ul>
+          </label>
+
+          <!-- Premium -->
+          <label class="plan-card {% if form_data.plan_slug == 'premium' %}selected{% endif %}"
+                 id="card-premium" for="plan-premium">
+            <input type="radio" id="plan-premium" name="plan_slug" value="premium"
+                   {% if form_data.plan_slug == 'premium' %}checked{% endif %}>
+            <div class="plan-card-top">
+              <span class="plan-badge plan-badge-premium">Premium</span>
+              <div class="plan-radio-dot"></div>
+            </div>
+            <div class="plan-name">{{ premium.name|default:"Premium" }}</div>
+            <div class="plan-price">
+              GHS {{ premium.price|default:"0" }}<span> / {{ premium.duration_days|default:"365" }} days</span>
+            </div>
+            <p class="plan-tagline">{{ premium.tagline|default:"Full access to everything" }}</p>
+            <ul class="plan-features">
+              {% for f in premium.features %}
+              <li>{{ f }}</li>
+              {% empty %}
+              <li>Everything in Basic</li>
+              <li>Lecture Notes</li>
+              <li>AI Study Assistant</li>
+              {% endfor %}
+            </ul>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- Terms + Submit -->
+      <div class="auth-section" style="padding:20px 28px;">
+        <label class="auth-checkbox" for="agree">
+          <input type="checkbox" id="agree" name="agree" required>
+          <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
+        </label>
+        <button type="submit" class="auth-submit" id="signupBtn">
+          Create Account &amp; Continue to Payment →
+        </button>
+      </div>
+
+    </form>
+
+    <div class="auth-links">
+      <a href="/">Back to Home</a> &nbsp;&middot;&nbsp; <a href="/login/">Already have an account?</a>
+    </div>
+  </div>
 </main>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (function () {
-    var pwInput   = document.getElementById("password");
-    var cpInput   = document.getElementById("confirmPassword");
-    var form      = document.getElementById("signupForm");
+  var pwInput = document.getElementById("password");
+  var cpInput = document.getElementById("confirmPassword");
+  var form    = document.getElementById("signupForm");
+  var btn     = document.getElementById("signupBtn");
 
-    var rules = {
-        "hint-len":     function(v){ return v.length >= 8; },
-        "hint-upper":   function(v){ return /[A-Z]/.test(v); },
-        "hint-lower":   function(v){ return /[a-z]/.test(v); },
-        "hint-num":     function(v){ return /\d/.test(v); },
-        "hint-special": function(v){ return /[!@#$%^&*()\-_=+\[\]{};:'",.<>?\/\\|`~]/.test(v); }
-    };
+  // Password strength rules
+  var rules = {
+    "hint-len":     function(v){ return v.length >= 8; },
+    "hint-upper":   function(v){ return /[A-Z]/.test(v); },
+    "hint-lower":   function(v){ return /[a-z]/.test(v); },
+    "hint-num":     function(v){ return /\d/.test(v); },
+    "hint-special": function(v){ return /[!@#$%^&*()\-_=+\[\]{};:'",.<>?\/\\|`~]/.test(v); }
+  };
 
-    pwInput.addEventListener("input", function () {
-        var v = pwInput.value;
-        Object.keys(rules).forEach(function(id) {
-            var el = document.getElementById(id);
-            if (rules[id](v)) { el.classList.add("ok"); el.classList.remove("fail"); }
-            else               { el.classList.add("fail"); el.classList.remove("ok"); }
-        });
+  pwInput.addEventListener("input", function () {
+    var v = pwInput.value;
+    Object.keys(rules).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      if (rules[id](v)) { el.classList.add("ok"); el.classList.remove("fail"); }
+      else               { el.classList.add("fail"); el.classList.remove("ok"); }
     });
+  });
 
-    function passwordStrong(v) {
-        return Object.values(rules).every(function(fn){ return fn(v); });
+  function passwordStrong(v) {
+    return Object.values(rules).every(function(fn){ return fn(v); });
+  }
+
+  form.addEventListener("submit", function (e) {
+    var pw = pwInput.value, cp = cpInput.value;
+    if (!passwordStrong(pw)) {
+      e.preventDefault();
+      pwInput.setCustomValidity("Password does not meet the requirements.");
+      pwInput.reportValidity(); return;
     }
+    pwInput.setCustomValidity("");
+    if (pw !== cp) {
+      e.preventDefault();
+      cpInput.setCustomValidity("Passwords do not match.");
+      cpInput.reportValidity(); return;
+    }
+    cpInput.setCustomValidity("");
+    if (!form.checkValidity()) { e.preventDefault(); form.reportValidity(); return; }
+    btn.disabled = true;
+    btn.textContent = "Creating account…";
+  });
 
-    form.addEventListener("submit", function (e) {
-        var pw = pwInput.value;
-        var cp = cpInput.value;
+  cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });
+  pwInput.addEventListener("input", function () { pwInput.setCustomValidity(""); });
 
-        if (!passwordStrong(pw)) {
-            e.preventDefault();
-            pwInput.setCustomValidity("Password does not meet the requirements.");
-            pwInput.reportValidity();
-            return;
-        }
-        pwInput.setCustomValidity("");
-
-        if (pw !== cp) {
-            e.preventDefault();
-            cpInput.setCustomValidity("Passwords do not match.");
-            cpInput.reportValidity();
-            return;
-        }
-        cpInput.setCustomValidity("");
-
-        if (!form.checkValidity()) { e.preventDefault(); form.reportValidity(); }
+  // Password eye toggle
+  document.querySelectorAll(".pw-toggle").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var id    = b.getAttribute("data-target");
+      var inp   = document.getElementById(id);
+      var icon  = document.getElementById("icon-" + id);
+      if (inp.type === "password") {
+        inp.type = "text";
+        icon.classList.replace("fa-eye", "fa-eye-slash");
+      } else {
+        inp.type = "password";
+        icon.classList.replace("fa-eye-slash", "fa-eye");
+      }
     });
+  });
 
-    cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });
-    pwInput.addEventListener("input", function () { pwInput.setCustomValidity(""); });
-
-    // Eye toggle for all password fields
-    document.querySelectorAll(".pw-toggle").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-            var targetId = btn.getAttribute("data-target");
-            var input = document.getElementById(targetId);
-            var icon  = document.getElementById("icon-" + targetId);
-            if (input.type === "password") {
-                input.type = "text";
-                icon.classList.replace("fa-eye", "fa-eye-slash");
-            } else {
-                input.type = "password";
-                icon.classList.replace("fa-eye-slash", "fa-eye");
-            }
-        });
+  // Plan card selection highlight
+  document.querySelectorAll('input[name="plan_slug"]').forEach(function (radio) {
+    radio.addEventListener("change", function () {
+      document.querySelectorAll(".plan-card").forEach(function(c){ c.classList.remove("selected"); });
+      var card = document.getElementById("card-" + radio.value);
+      if (card) card.classList.add("selected");
     });
+  });
 })();
 </script>
 {% endblock %}
