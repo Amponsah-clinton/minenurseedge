@@ -49,6 +49,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "website.middleware.SingleSessionMiddleware",
+    "website.middleware.StudentSubscriptionGateMiddleware",
     "website.middleware.LoginRequiredForFormsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -101,6 +102,26 @@ SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "project-files")
 
 BYTEZ_API_KEY = os.getenv("BYTEZ_API_KEY", "")
 
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()
+# Used in Stripe Checkout success/cancel URLs if request.build_absolute_uri is wrong behind a proxy
+PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "").strip().rstrip("/")
+
+# Paystack (preferred for /subscribe/ when secret is set)
+PAYSTACK_SECRET_KEY = (
+    os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+    or os.getenv("VITE_PAYSTACK_SECRET_KEY", "").strip()
+)
+PAYSTACK_PUBLIC_KEY = (
+    os.getenv("PAYSTACK_PUBLIC_KEY", "").strip()
+    or os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "").strip()
+)
+PAYSTACK_PUBLIC_KEY = (
+    os.getenv("PAYSTACK_PUBLIC_KEY", "").strip()
+    or os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "").strip()
+)
+
+# Legacy names (still read if PAYSTACK_* not set)
 VITE_PAYSTACK_PUBLIC_KEY = os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "")
 VITE_PAYSTACK_SECRET_KEY = os.getenv("VITE_PAYSTACK_SECRET_KEY", "")
 

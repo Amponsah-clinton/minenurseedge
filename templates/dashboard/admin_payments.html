@@ -76,6 +76,12 @@
     cursor:pointer; text-decoration:none; transition:all 0.12s;
   }
   .filter-tab.active, .filter-tab:hover { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+  .export-csv-btn {
+    padding:6px 14px; border-radius:7px; font-size:0.79rem; font-weight:700;
+    border:1px solid #1a1a2e; background:#1a1a2e; color:#fff; text-decoration:none;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .export-csv-btn:hover { background:#2a2a4e; border-color:#2a2a4e; color:#fff; }
 
   /* ── Modal ── */
   .modal-content { border-radius:12px; border:none; }
@@ -206,11 +212,20 @@
 <!-- Subscribers table -->
 <div class="sub-card">
   <div class="sub-card-header">
-    <h5 class="sub-card-title">All Subscribers <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">{{ subscribers|length }} records</span></h5>
-    <div class="filter-tabs">
-      <a href="?tab=subscribers" class="filter-tab {% if not request.GET.filter %}active{% endif %}">All</a>
-      <a href="?filter=pending" class="filter-tab {% if request.GET.filter == 'pending' %}active{% endif %}">Pending</a>
-      <a href="?filter=active"  class="filter-tab {% if request.GET.filter == 'active'  %}active{% endif %}">Active</a>
+    <h5 class="sub-card-title">All Subscribers <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">{{ all_subscribers_count|default:subscribers|length }} records</span></h5>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="filter-tabs">
+        <a href="?tab=subscribers" class="filter-tab {% if not selected_filter %}active{% endif %}">All</a>
+        <a href="?filter=pending" class="filter-tab {% if selected_filter == 'pending' %}active{% endif %}">Pending</a>
+        <a href="?filter=active"  class="filter-tab {% if selected_filter == 'active'  %}active{% endif %}">Active</a>
+      </div>
+      <a
+        href="?{% if selected_filter %}filter={{ selected_filter }}&{% endif %}export=csv"
+        class="export-csv-btn"
+        title="Export current subscribers view as CSV"
+      >
+        <i class="bx bx-download"></i> Export CSV
+      </a>
     </div>
   </div>
   <div style="overflow-x:auto;">
@@ -230,7 +245,6 @@
       </thead>
       <tbody>
         {% for s in subscribers %}
-        {% if not request.GET.filter or s.status == request.GET.filter or (request.GET.filter == 'pending' and s.status == 'pending_payment') %}
         <tr>
           <td style="font-weight:600;color:#1f2d40;">{{ s.user_name|default:"—" }}</td>
           <td style="font-size:0.78rem;color:#5a6070;">{{ s.user_email|default:"—" }}</td>
@@ -281,7 +295,6 @@
             </div>
           </td>
         </tr>
-        {% endif %}
         {% empty %}
         <tr><td colspan="9" style="text-align:center;padding:32px;color:#9098b0;">No subscribers yet.</td></tr>
         {% endfor %}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Create Account - NurseEdge{% endblock %}
 {% block head_extra %}
+<script src="https://js.paystack.co/v1/inline.js"></script>
 <style>
   body { margin:0; background:#f4f5f7; font-family:"Open Sans",Arial,sans-serif; color:#111; }
   .auth-page { min-height:calc(100vh - 170px); display:flex; align-items:flex-start; justify-content:center; padding:36px 16px 48px; }
@@ -312,8 +313,9 @@
           <input type="checkbox" id="agree" name="agree" required>
           <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
         </label>
-        <button type="submit" class="auth-submit" id="signupBtn">
-          Create Account &amp; Continue to Payment →
+        <input type="hidden" id="paystack_reference" name="paystack_reference" value="">
+        <button type="button" class="auth-submit" id="signupBtn">
+          Create Account &amp; Pay with Paystack →
         </button>
       </div>
 
@@ -333,6 +335,12 @@
   var cpInput = document.getElementById("confirmPassword");
   var form    = document.getElementById("signupForm");
   var btn     = document.getElementById("signupBtn");
+
+  var PLAN_PRICES = {
+    basic:   {{ basic.price|default:0 }},
+    premium: {{ premium.price|default:0 }}
+  };
+  var PAYSTACK_KEY = "{{ paystack_pub_key|default:'' }}";
 
   // Password strength rules
   var rules = {
@@ -357,23 +365,54 @@
     return Object.values(rules).every(function(fn){ return fn(v); });
   }
 
-  form.addEventListener("submit", function (e) {
+  function validateForm() {
     var pw = pwInput.value, cp = cpInput.value;
     if (!passwordStrong(pw)) {
-      e.preventDefault();
       pwInput.setCustomValidity("Password does not meet the requirements.");
-      pwInput.reportValidity(); return;
+      pwInput.reportValidity(); return false;
     }
     pwInput.setCustomValidity("");
     if (pw !== cp) {
-      e.preventDefault();
       cpInput.setCustomValidity("Passwords do not match.");
-      cpInput.reportValidity(); return;
+      cpInput.reportValidity(); return false;
     }
     cpInput.setCustomValidity("");
-    if (!form.checkValidity()) { e.preventDefault(); form.reportValidity(); return; }
+    if (!form.checkValidity()) { form.reportValidity(); return false; }
+    return true;
+  }
+
+  btn.addEventListener("click", function () {
+    if (!validateForm()) return;
+
+    var email    = document.getElementById("email").value.trim();
+    var planRadio = document.querySelector('input[name="plan_slug"]:checked');
+    var planSlug = planRadio ? planRadio.value : "basic";
+    var amount   = Math.round((PLAN_PRICES[planSlug] || 0) * 100); // pesewas
+
+    if (!PAYSTACK_KEY) {
+      // No Paystack key configured — submit anyway (server will redirect to /subscribe/)
+      form.submit(); return;
+    }
+
     btn.disabled = true;
-    btn.textContent = "Creating account…";
+    btn.textContent = "Opening Paystack…";
+
+    var handler = PaystackPop.setup({
+      key:      PAYSTACK_KEY,
+      email:    email,
+      amount:   amount,
+      currency: "GHS",
+      callback: function (response) {
+        document.getElementById("paystack_reference").value = response.reference;
+        btn.textContent = "Verifying payment…";
+        form.submit();
+      },
+      onClose: function () {
+        btn.disabled = false;
+        btn.textContent = "Create Account & Pay with Paystack →";
+      }
+    });
+    handler.openIframe();
   });
 
   cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });
@@ -382,9 +421,9 @@
   // Password eye toggle
   document.querySelectorAll(".pw-toggle").forEach(function (b) {
     b.addEventListener("click", function () {
-      var id    = b.getAttribute("data-target");
-      var inp   = document.getElementById(id);
-      var icon  = document.getElementById("icon-" + id);
+      var id   = b.getAttribute("data-target");
+      var inp  = document.getElementById(id);
+      var icon = document.getElementById("icon-" + id);
       if (inp.type === "password") {
         inp.type = "text";
         icon.classList.replace("fa-eye", "fa-eye-slash");

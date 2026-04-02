@@ -1,0 +1,235 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}NMC Mastery - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .hot-page { max-width: 920px; margin: 0 auto; }
+  .hot-hero {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
+    padding: 22px 24px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  }
+  .hot-hero h4 { font-size: 1.15rem; font-weight: 800; color: #1f2d40; margin: 0 0 8px; }
+  .hot-hero p { font-size: 0.87rem; color: #7b8599; margin: 0; line-height: 1.65; }
+  .hot-pillar {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
+    padding: 20px 22px 22px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.03);
+  }
+  .hot-pillar__title {
+    font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #8892a4; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #edf0f7;
+  }
+  .hot-sub {
+    font-size: 0.9rem; font-weight: 800; color: #1f2d40; margin: 18px 0 10px;
+  }
+  .hot-sub:first-of-type { margin-top: 0; }
+  .hot-list {
+    margin: 0 0 0 1.1rem; padding: 0;
+    font-size: 0.84rem; color: #4a5268; line-height: 1.7;
+  }
+  .hot-list li { margin-bottom: 6px; }
+  .hot-list--plain { list-style: disc; }
+  .hot-note { font-size: 0.78rem; color: #9098b0; font-style: italic; margin-top: 10px; }
+  @media (max-width: 576px) {
+    .hot-pillar { padding: 16px 16px 18px; }
+  }
+</style>
+
+<div class="hot-page">
+  <div class="hot-hero">
+    <h4><i class="bx bx-bolt"></i> NMC Mastery</h4>
+    <p>High-yield topic map for nursing registration-style exams—grouped by clinical area so you can plan revision with purpose. (Educational guide only; not an NMC official syllabus.)</p>
+  </div>
+
+  <!-- SURGERY -->
+  <article class="hot-pillar">
+    <h2 class="hot-pillar__title">Surgery</h2>
+
+    <h3 class="hot-sub">Urology</h3>
+    <ol class="hot-list">
+      <li>Prostate hypertrophy</li>
+      <li>Urine retention</li>
+      <li>Bladder irrigation</li>
+    </ol>
+
+    <h3 class="hot-sub">Gynaecological</h3>
+    <ol class="hot-list">
+      <li>Breast cancer and mastectomy</li>
+      <li>Cervical cancer, fibroid and hysterectomy</li>
+      <li>Ectopic pregnancy, dysmenorrhoea and caesarean section</li>
+    </ol>
+
+    <h3 class="hot-sub">Gastrointestinal</h3>
+    <ol class="hot-list">
+      <li>Peritonitis, appendicitis and appendectomy</li>
+      <li>PUD and gastrectomy</li>
+      <li>Cholecystitis and cholecystectomy; inflammatory bowel disease and ileostomy</li>
+      <li>Intestinal obstruction, colorectal cancer and colostomy</li>
+      <li>Hernia and herniorrhaphy</li>
+      <li>Haemorrhoids and haemorrhoidectomy</li>
+    </ol>
+
+    <h3 class="hot-sub">Respiratory</h3>
+    <ol class="hot-list">
+      <li>Lobectomy and underwater seal drainage</li>
+      <li>Empyema thoracis, haemothorax and pulmonary embolism</li>
+      <li>Laryngectomy and tracheostomy</li>
+    </ol>
+
+    <h3 class="hot-sub">Integumentary</h3>
+    <ol class="hot-list">
+      <li>Wound healing (factors, first and second intention)</li>
+      <li>Burns and skin grafting</li>
+      <li>Cellulitis and diabetic foot management</li>
+      <li>Amputation and wound debridement</li>
+    </ol>
+
+    <h3 class="hot-sub">Musculoskeletal</h3>
+    <ol class="hot-list">
+      <li>Osteomyelitis</li>
+      <li>Fracture (types, healing process and management—internal and external fixation)</li>
+      <li>Craniotomy</li>
+    </ol>
+
+    <h3 class="hot-sub">EENT</h3>
+    <ol class="hot-list">
+      <li>Glaucoma, corneal laceration, cataract and pterygium extraction</li>
+      <li>Otosclerosis, quinsy and ear syringing</li>
+      <li>Sinusitis, tonsillitis and tonsillectomy</li>
+    </ol>
+
+    <h3 class="hot-sub">Endocrine</h3>
+    <ul class="hot-list hot-list--plain">
+      <li>Goitre and thyroidectomy</li>
+    </ul>
+
+    <h3 class="hot-sub">Procedures</h3>
+    <ol class="hot-list">
+      <li>Blood transfusion and intravenous infusions</li>
+      <li>Preparation of patient for LP, EEG, ECG, intravenous pyelography, X-ray, etc.</li>
+      <li>Incision and drainage</li>
+    </ol>
+
+    <h3 class="hot-sub">Miscellaneous</h3>
+    <ol class="hot-list">
+      <li>Stages (phases) of general anaesthesia</li>
+      <li>Steps in scrubbing</li>
+      <li>Uses of surgical instruments, sterilisation/disinfection, storage</li>
+      <li>Pharmacology of surgical drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+    </ol>
+  </article>
+
+  <!-- OBSTETRICS -->
+  <article class="hot-pillar">
+    <h2 class="hot-pillar__title">Obstetrics</h2>
+    <ol class="hot-list">
+      <li>Diagram and descriptions (vulva, cervix, uterus, oviduct, placenta, breast and foetal skull)</li>
+      <li>ANC—importance, components and physical examination</li>
+      <li>STIs (Hep. B, HIV, gonorrhoea, candidiasis and syphilis)</li>
+      <li>Management of minor disorders during pregnancy (N&amp;V, constipation and varicose veins)</li>
+      <li>PIH, pre-eclampsia and eclampsia</li>
+      <li>Hyperemesis gravidarum and anaemia</li>
+      <li>Abortion—causes, types, signs &amp; symptoms and management</li>
+      <li>Management and complications of the stages of labour, partography and APGAR score</li>
+      <li>Birth injuries and asphyxia neonatorum</li>
+      <li>Breastfeeding—physiology, importance, health education, care of the breast and management of breastfeeding problems</li>
+      <li>Puerperium—normal and abnormal (sepsis, PPH)</li>
+      <li>Pemphigus neonatorum</li>
+      <li>Family planning—importance, various methods of contraception</li>
+      <li>Health education—nutrition and personal hygiene</li>
+      <li>Preterm</li>
+      <li>Pharmacology of obstetric drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+    </ol>
+  </article>
+
+  <!-- PAEDIATRICS -->
+  <article class="hot-pillar">
+    <h2 class="hot-pillar__title">Paediatrics</h2>
+
+    <h3 class="hot-sub">Peri-operative nursing</h3>
+    <p class="hot-note" style="margin-top:0;">Core principles and nursing care around paediatric surgery.</p>
+
+    <h3 class="hot-sub">Gastrointestinal and nutrition</h3>
+    <ol class="hot-list">
+      <li>Acute abdomen (appendicitis), gastroenteritis (acute diarrhoea)</li>
+      <li>Intestinal obstruction and pyloric stenosis</li>
+      <li>Hirschsprung&rsquo;s disease</li>
+      <li>Protein&ndash;calorie malnutrition</li>
+    </ol>
+
+    <h3 class="hot-sub">Respiratory</h3>
+    <ul class="hot-list hot-list--plain">
+      <li>Asthma and pneumonia</li>
+    </ul>
+
+    <h3 class="hot-sub">Infections and infestations</h3>
+    <ol class="hot-list">
+      <li>Tetanus and meningitis</li>
+      <li>Measles and scabies</li>
+      <li>Malaria and febrile convulsion</li>
+    </ol>
+
+    <h3 class="hot-sub">Enteric feeding</h3>
+    <ul class="hot-list hot-list--plain">
+      <li>Indications and procedure for passage and removal of NG tube</li>
+    </ul>
+
+    <h3 class="hot-sub">Miscellaneous</h3>
+    <ol class="hot-list">
+      <li>Worm infestations, UTI and HIV/AIDS</li>
+      <li>Anaemia (sickle cell anaemia) and jaundice</li>
+      <li>Nephritic syndrome and fracture</li>
+      <li>Burns</li>
+      <li>Repair of cleft lip and palate; imperforate anus; tonsillitis</li>
+      <li>Preterm baby and accident prevention</li>
+    </ol>
+  </article>
+
+  <!-- PUBLIC HEALTH -->
+  <article class="hot-pillar">
+    <h2 class="hot-pillar__title">Public health</h2>
+    <ol class="hot-list">
+      <li>Health promotion and health education</li>
+      <li>Personal and environmental hygiene</li>
+      <li>Prevention and control of communicable diseases</li>
+      <li>Population issues and family planning</li>
+      <li>Medical statistics and disease surveillance</li>
+      <li>Immunisation and cold chain system</li>
+      <li>Home visiting</li>
+      <li>Reproductive child health (child welfare clinic)</li>
+      <li>Home—definition, types, etc.</li>
+      <li>Family—definition, types, roles</li>
+      <li>School health</li>
+      <li>Community assessment</li>
+      <li>Primary health care and CHPS</li>
+    </ol>
+  </article>
+
+  <!-- PSYCHIATRY -->
+  <article class="hot-pillar">
+    <h2 class="hot-pillar__title">Psychiatry</h2>
+    <ol class="hot-list">
+      <li>Characteristics of mentally healthy person</li>
+      <li>Promotion of mental health and prevention of mental illnesses</li>
+      <li>Delirium and dementia</li>
+      <li>Anxiety disorders and coping mechanisms</li>
+      <li>Mood disorders</li>
+      <li>Eating disorders (anorexia nervosa and bulimia)</li>
+      <li>Conversion and dissociative disorders</li>
+      <li>Psychosomatic disorders—definition, signs &amp; symptoms and management</li>
+      <li>Personality disorders</li>
+      <li>Schizophrenia</li>
+      <li>Mental retardation</li>
+      <li>Substance abuse</li>
+      <li>Aggression and violence</li>
+      <li>Suicide</li>
+      <li>Seizures and epilepsy</li>
+      <li>Grieving process</li>
+      <li>Psychiatric assessment (MSE)</li>
+      <li>Therapies used in psychiatry (ECT, psychotherapy and social therapy)</li>
+      <li>Role of the CPN</li>
+      <li>Patient&rsquo;s bill of rights and other legal aspects</li>
+      <li>Pharmacology of psychotropic drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+    </ol>
+  </article>
+</div>
+{% endblock %}

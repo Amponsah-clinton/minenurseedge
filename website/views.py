@@ -2,9 +2,12 @@ import json
 import random
 import re
 import secrets
+import csv
 from datetime import datetime, timedelta, timezone
+from io import StringIO
 
 from django.conf import settings
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect, render
 
 from supabase import create_client
@@ -34,6 +37,29 @@ def _supabase():
 def _supabase_admin():
     """Service-role key – bypasses RLS, used for all DB writes."""
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+
+def _find_auth_user_by_email(email):
+    """Find an orphaned Supabase auth user by email via the admin REST API."""
+    import json, urllib.parse, urllib.request
+    base = (getattr(settings, "SUPABASE_URL", "") or "").rstrip("/")
+    key  = (getattr(settings, "SUPABASE_SERVICE_KEY", "") or "").strip()
+    if not base or not key:
+        return None
+    try:
+        params = urllib.parse.urlencode({"filter": email, "page": 1, "per_page": 10})
+        req = urllib.request.Request(
+            f"{base}/auth/v1/admin/users?{params}",
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read().decode())
+        for u in data.get("users", []):
+            if (u.get("email") or "").lower() == email.lower():
+                return u
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +261,12 @@ def _score_message(percentage):
 # ---------------------------------------------------------------------------
 
 def home(request):
-    return render(request, "index.html")
+    plans = _get_plans()
+    context = {
+        "basic": plans.get("basic", {}),
+        "premium": plans.get("premium", {}),
+    }
+    return render(request, "index.html", context)
 
 
 def about(request):
@@ -278,6 +309,8 @@ def login_page(request):
 
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
+            if not subscription_allows_dashboard(user_id):
+                return redirect("/subscribe/")
             return redirect("/dashboard/")
 
         except Exception as exc:
@@ -356,26 +389,58 @@ def signup_page(request):
                 "premium": plans.get("premium", {}),
             })
 
+        paystack_reference = request.POST.get("paystack_reference", "").strip()
+        paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
+
+        def _signup_err(msg):
+            return render(request, "signup.html", {
+                "errors": [msg],
+                "form_data": form_data,
+                "plans": plans,
+                "basic": plans.get("basic", {}),
+                "premium": plans.get("premium", {}),
+                "paystack_pub_key": paystack_pub,
+            })
+
         try:
             admin = _supabase_admin()
 
-            auth_resp = admin.auth.admin.create_user({
-                "email": email,
-                "password": password,
-                "email_confirm": True,
-                "user_metadata": {"full_name": full_name, "role": "student"},
-            })
+            # Check Supabase profiles table only
+            existing = admin.table("profiles").select("id").eq("email", email).limit(1).execute()
+            if existing.data:
+                return _signup_err("This email is already registered. Please log in instead.")
 
-            if not auth_resp.user:
-                return render(request, "signup.html", {
-                    "errors": ["Failed to create account. Please try again."],
-                    "form_data": form_data,
-                    "plans": plans,
-                    "basic": plans.get("basic", {}),
-                    "premium": plans.get("premium", {}),
+            try:
+                auth_resp = admin.auth.admin.create_user({
+                    "email": email,
+                    "password": password,
+                    "email_confirm": True,
+                    "user_metadata": {"full_name": full_name, "role": "student"},
                 })
-
-            user_id = str(auth_resp.user.id)
+                if not auth_resp.user:
+                    return _signup_err("Failed to create account. Please try again.")
+                user_id = str(auth_resp.user.id)
+            except Exception as auth_exc:
+                emsg = str(auth_exc).lower()
+                if "already" in emsg or "registered" in emsg or "exists" in emsg:
+                    # Orphaned auth user (no profile row) — recover it
+                    orphan = _find_auth_user_by_email(email)
+                    if not orphan:
+                        return _signup_err(
+                            "This email exists in our system but is incomplete. "
+                            "Please contact support or try a different email."
+                        )
+                    user_id = str(orphan["id"])
+                    # Update password so new credentials work
+                    try:
+                        admin.auth.admin.update_user_by_id(
+                            user_id,
+                            {"password": password, "email_confirm": True},
+                        )
+                    except Exception:
+                        pass
+                else:
+                    return _signup_err(f"Registration failed: {auth_exc}")
             plan    = plans.get(plan_slug, {})
 
             # Upsert profile with plan info
@@ -392,8 +457,8 @@ def signup_page(request):
                 "subscription_status": "pending_payment",
             }).execute()
 
-            # Create pending subscription record
-            admin.table("subscriptions").insert({
+            # Create pending subscription record and capture its id
+            sub_resp = admin.table("subscriptions").insert({
                 "user_id": user_id,
                 "user_email": email,
                 "user_name": full_name,
@@ -402,32 +467,36 @@ def signup_page(request):
                 "currency": plan.get("currency", "GHS"),
                 "status": "pending_payment",
             }).execute()
+            sub_id = (sub_resp.data or [{}])[0].get("id")
+
+            # If Paystack reference provided, verify and activate immediately
+            paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+            if paystack_reference and paystack_secret and sub_id:
+                import urllib.parse as _up
+                vresp, verr = _paystack_request(
+                    "GET", "/transaction/verify/" + _up.quote(paystack_reference, safe="")
+                )
+                if (vresp and vresp.get("status")
+                        and (vresp.get("data") or {}).get("status") == "success"):
+                    amount_paid = float((vresp["data"].get("amount") or 0)) / 100
+                    _apply_successful_subscription_payment(
+                        user_id, sub_id, plan_slug, amount_paid, paystack_reference
+                    )
+                    _create_session(request, user_id, email, full_name, "student")
+                    return redirect("/payment/")
 
             _create_session(request, user_id, email, full_name, "student")
-            return redirect("/payment/")
+            return redirect("/subscribe/")
 
         except Exception as exc:
-            msg = str(exc).lower()
-            if "already" in msg or "registered" in msg or "duplicate" in msg:
-                return render(request, "signup.html", {
-                    "errors": ["This email is already registered. Please log in instead."],
-                    "form_data": form_data,
-                    "plans": plans,
-                    "basic": plans.get("basic", {}),
-                    "premium": plans.get("premium", {}),
-                })
-            return render(request, "signup.html", {
-                "errors": ["Registration failed. Please try again."],
-                "form_data": form_data,
-                "plans": plans,
-                "basic": plans.get("basic", {}),
-                "premium": plans.get("premium", {}),
-            })
+            return _signup_err(f"Registration failed: {exc}")
 
+    paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
     return render(request, "signup.html", {
         "plans": plans,
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
+        "paystack_pub_key": paystack_pub,
     })
 
 
@@ -610,6 +679,25 @@ def user_dashboard(request):
         "sub_expires": (sub_expires or "")[:10] if sub_expires else "",
     }
     return render(request, "dashboard/user_dashboard.html", context)
+
+
+def student_nmc_mastery(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    user_id = request.session.get("user_id")
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "nmc_mastery",
+        "student_unread_notifications": _student_unread_count(user_id),
+        "community_unread": _community_unread_count(user_id),
+    }
+    return render(request, "dashboard/student_nmc_mastery.html", context)
 
 
 def student_messages(request):
@@ -4100,6 +4188,34 @@ def _get_plans():
         }
 
 
+# Legacy MTN boilerplate saved in Supabase (any amount) — strip from student /payment/ only.
+_LEGACY_MOMO_INSTRUCTION_RE = re.compile(
+    r"Pay\s+GHS\s+[\d.]+\s+via\s+MTN\s+Mobile\s+Money\s+to\s+024\s+000\s+0000\s*"
+    r"\(Account\s+name:\s*NurseEdge\)\.\s*"
+    r"Use\s+your\s+registered\s+email\s+address\s+as\s+the\s+payment\s+reference\.",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _scrub_student_payment_instructions(text):
+    """Remove obsolete boilerplate still stored in subscription_plans.payment_instructions."""
+    if not text:
+        return ""
+    s = _LEGACY_MOMO_INSTRUCTION_RE.sub("", str(text))
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
+
+
+def _plan_row_for_payment_page(plan_row):
+    if not plan_row:
+        return {}
+    out = dict(plan_row)
+    out["payment_instructions"] = _scrub_student_payment_instructions(
+        out.get("payment_instructions") or ""
+    )
+    return out
+
+
 def _get_active_subscription(user_id):
     """Return the user's most recent subscription row, or None."""
     try:
@@ -4118,8 +4234,378 @@ def _get_active_subscription(user_id):
         return None
 
 
+def _expires_at_still_valid(expires_at):
+    if not expires_at:
+        return True
+    try:
+        raw = str(expires_at).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt > datetime.now(timezone.utc)
+    except Exception:
+        return True
+
+
+def subscription_allows_dashboard(user_id):
+    """Active subscription required for /dashboard/ (student)."""
+    sub = _get_active_subscription(user_id)
+    if not sub or sub.get("status") != "active":
+        return False
+    return _expires_at_still_valid(sub.get("expires_at"))
+
+
+def _public_site_origin(request):
+    base = getattr(settings, "PUBLIC_SITE_URL", "") or ""
+    base = base.strip().rstrip("/")
+    if base:
+        return base
+    return request.build_absolute_uri("/").rstrip("/")
+
+
+def _paystack_request(method, path, body_dict=None):
+    import json
+    import urllib.error
+    import urllib.request
+
+    secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+    if not secret:
+        return None, "paystack_not_configured"
+
+    url = "https://api.paystack.co" + path
+    payload = None
+    if method != "GET":
+        payload = json.dumps(body_dict if body_dict is not None else {}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, method=method)
+    req.add_header("Authorization", f"Bearer {secret}")
+    if method != "GET":
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            return json.loads(resp.read().decode()), None
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode()), None
+        except Exception:
+            return None, f"http_{e.code}"
+    except Exception as e:
+        return None, str(e)
+
+
+def _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, payment_reference):
+    user_id = str(user_id)
+    if plan_slug not in ("basic", "premium"):
+        plan_slug = "basic"
+    plans = _get_plans()
+    plan = plans.get(plan_slug, plans.get("basic", {}))
+    dur = int(plan.get("duration_days") or 365)
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(days=dur)
+
+    db = _supabase_admin()
+    db.table("subscriptions").update({
+        "status": "active",
+        "started_at": now.isoformat(),
+        "expires_at": expires.isoformat(),
+        "amount_due": plan.get("price", 0),
+        "amount_paid": amount_paid,
+        "currency": (plan.get("currency") or "GHS"),
+        "payment_reference": payment_reference,
+        "plan_slug": plan_slug,
+    }).eq("id", sub_id).eq("user_id", user_id).execute()
+
+    db.table("profiles").update({
+        "plan_slug": plan_slug,
+        "subscription_status": "active",
+    }).eq("id", user_id).execute()
+
+
+def _subscription_history_for_user(user_id, limit=50):
+    try:
+        return (
+            _supabase_admin()
+            .table("subscriptions")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        return []
+
+
+def _ensure_pending_checkout_row(request, plans, selected_plan_slug=None):
+    """Return the subscription row Stripe checkout should attach to (pending_payment)."""
+    user_id = str(request.session.get("user_id", ""))
+    db = _supabase_admin()
+    profile_rows = (
+        db.table("profiles")
+        .select("plan_slug")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    profile_plan = profile_rows[0].get("plan_slug") if profile_rows else "basic"
+
+    if selected_plan_slug in ("basic", "premium"):
+        plan_slug = selected_plan_slug
+    else:
+        plan_slug = profile_plan if profile_plan in ("basic", "premium") else "basic"
+
+    sub = _get_active_subscription(user_id)
+    if sub and sub.get("status") == "pending_payment":
+        pl = plans.get(plan_slug, {})
+        if sub.get("plan_slug") != plan_slug or str(sub.get("amount_due")) != str(pl.get("price", 0)):
+            db.table("subscriptions").update({
+                "plan_slug": plan_slug,
+                "amount_due": pl.get("price", 0),
+                "currency": pl.get("currency", "GHS"),
+            }).eq("id", sub["id"]).execute()
+            db.table("profiles").update({"plan_slug": plan_slug}).eq("id", user_id).execute()
+            sub = _get_active_subscription(user_id)
+        return sub
+
+    if subscription_allows_dashboard(user_id):
+        return None
+
+    pl = plans.get(plan_slug, {})
+    ins = (
+        db.table("subscriptions")
+        .insert({
+            "user_id": user_id,
+            "user_email": request.session.get("email", ""),
+            "user_name": request.session.get("full_name", ""),
+            "plan_slug": plan_slug,
+            "amount_due": pl.get("price", 0),
+            "currency": pl.get("currency", "GHS"),
+            "status": "pending_payment",
+        })
+        .execute()
+    )
+    rows = ins.data or []
+    return rows[0] if rows else None
+
+
+def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error=""):
+    """Shared context dict for all student_subscribe render() calls."""
+    return {
+        "full_name": request.session.get("full_name", ""),
+        "email": request.session.get("email", ""),
+        "role": request.session.get("role", "student"),
+        "active_page": "subscribe",
+        "student_unread_notifications": _student_unread_count(user_id),
+        "community_unread": _community_unread_count(user_id),
+        "plans": plans,
+        "basic": _plan_row_for_payment_page(plans.get("basic")),
+        "premium": _plan_row_for_payment_page(plans.get("premium")),
+        "checkout_row": checkout_row,
+        "config_error": config_error,
+        "error": error,
+        "paystack_pub_key": (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip(),
+        "using_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
+    }
+
+
+def student_subscribe(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") != "student":
+        return redirect("/admin-panel/dashboard/")
+
+    user_id = request.session.get("user_id")
+    plans = _get_plans()
+    error = request.GET.get("error", "")
+
+    if subscription_allows_dashboard(user_id):
+        return redirect("/payment/")
+
+    selected = None
+    if request.method == "POST":
+        selected = request.POST.get("plan_slug", "").strip()
+        if selected not in ("basic", "premium"):
+            selected = "basic"
+
+    checkout_row = _ensure_pending_checkout_row(request, plans, selected)
+    if checkout_row is None:
+        return redirect("/subscribe/?error=setup")
+
+    if request.method == "POST" and request.POST.get("start_checkout"):
+        paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+        stripe_secret = (getattr(settings, "STRIPE_SECRET_KEY", None) or "").strip()
+
+        if not paystack_secret and not stripe_secret:
+            return render(
+                request,
+                "subscribe.html",
+                _subscribe_ctx(request, user_id, plans, checkout_row,
+                    config_error=(
+                        "Online payments are not configured. "
+                        "Add PAYSTACK_SECRET_KEY to your .env and restart the server."
+                    ), error=error),
+            )
+
+        plan_slug = checkout_row.get("plan_slug", "basic")
+        plan = plans.get(plan_slug, plans.get("basic", {}))
+        price = float(plan.get("price") or 0)
+        if price <= 0:
+            return render(request, "subscribe.html",
+                _subscribe_ctx(request, user_id, plans, checkout_row,
+                    config_error="Plan price must be greater than zero. Ask your admin to set it.",
+                    error=error))
+
+        amount_minor = int(round(price * 100))
+        cur = (plan.get("currency") or "GHS").upper()
+        if cur not in ("GHS", "NGN", "ZAR", "KES", "XOF"):
+            cur = "GHS"
+
+        if paystack_secret:
+            try:
+                origin = _public_site_origin(request)
+                callback_url = f"{origin}/subscribe/success/"
+                email_addr = (request.session.get("email") or "").strip()
+                if not email_addr:
+                    raise ValueError("Your account needs an email address to use Paystack.")
+
+                resp, perr = _paystack_request("POST", "/transaction/initialize", {
+                    "email": email_addr,
+                    "amount": amount_minor,
+                    "currency": cur,
+                    "callback_url": callback_url,
+                    "metadata": {
+                        "user_id": str(user_id),
+                        "subscription_id": str(checkout_row.get("id")),
+                        "plan_slug": plan_slug,
+                    },
+                })
+                if perr and perr != "paystack_not_configured":
+                    raise RuntimeError(perr)
+                if not resp or not resp.get("status"):
+                    raise RuntimeError((resp or {}).get("message", "Paystack initialize failed"))
+                pay_url = (resp.get("data") or {}).get("authorization_url")
+                if not pay_url:
+                    raise RuntimeError("Paystack did not return a checkout URL.")
+                return HttpResponseRedirect(pay_url)
+            except Exception as exc:
+                return render(request, "subscribe.html",
+                    _subscribe_ctx(request, user_id, plans, checkout_row,
+                        config_error=str(exc), error=error))
+
+        # Stripe fallback (only used if STRIPE_SECRET_KEY is set and Paystack is not)
+        try:
+            import stripe
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            origin = _public_site_origin(request)
+            product_data = {"name": str(plan.get("name") or plan_slug.title())}
+            tag = str(plan.get("tagline") or "").strip()
+            if tag:
+                product_data["description"] = tag[:500]
+            session = stripe.checkout.Session.create(
+                mode="payment",
+                customer_email=request.session.get("email") or None,
+                client_reference_id=str(user_id),
+                success_url=f"{origin}/subscribe/success/?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{origin}/subscribe/cancel/",
+                line_items=[{"price_data": {"currency": cur.lower(), "unit_amount": amount_minor,
+                    "product_data": product_data}, "quantity": 1}],
+                metadata={"user_id": str(user_id),
+                    "subscription_id": str(checkout_row.get("id")), "plan_slug": plan_slug},
+            )
+            return HttpResponseRedirect(session.url)
+        except Exception as exc:
+            return render(request, "subscribe.html",
+                _subscribe_ctx(request, user_id, plans, checkout_row,
+                    config_error=str(exc), error=error))
+
+    return render(request, "subscribe.html",
+        _subscribe_ctx(request, user_id, plans, checkout_row, error=error))
+
+
+def student_subscribe_success(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    import urllib.parse
+
+    user_id = str(request.session.get("user_id", ""))
+    reference = (request.GET.get("reference") or request.GET.get("trxref") or "").strip()
+    session_id = (request.GET.get("session_id") or "").strip()
+    paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+    stripe_secret = (getattr(settings, "STRIPE_SECRET_KEY", None) or "").strip()
+
+    if reference and paystack_secret:
+        path = "/transaction/verify/" + urllib.parse.quote(reference, safe="")
+        resp, err = _paystack_request("GET", path)
+        if err == "paystack_not_configured" or resp is None:
+            return redirect("/subscribe/?error=verify_failed")
+        if not resp.get("status"):
+            msg = urllib.parse.quote((resp.get("message") or "verify")[:120], safe="")
+            return redirect(f"/subscribe/?error={msg}")
+        data = resp.get("data") or {}
+        if data.get("status") != "success":
+            return redirect("/subscribe/?error=unpaid")
+        meta = data.get("metadata") or {}
+        if str(meta.get("user_id") or "") != user_id:
+            return redirect("/subscribe/?error=forbidden")
+        plan_slug = (meta.get("plan_slug") or "basic").strip()
+        sub_id = meta.get("subscription_id")
+        if not sub_id:
+            return redirect("/subscribe/?error=missing_subscription")
+        amount_minor = int(data.get("amount") or 0)
+        amount_paid = amount_minor / 100.0
+        try:
+            _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
+        except Exception:
+            return redirect("/subscribe/?error=save_failed")
+        return redirect("/payment/")
+
+    if session_id and stripe_secret:
+        try:
+            import stripe
+
+            stripe.api_key = settings.STRIPE_SECRET_KEY
+            session = stripe.checkout.Session.retrieve(session_id)
+        except Exception:
+            return redirect("/subscribe/?error=stripe_session")
+
+        if str(session.metadata.get("user_id") or "") != user_id:
+            return redirect("/subscribe/?error=forbidden")
+        if session.payment_status != "paid":
+            return redirect("/subscribe/?error=unpaid")
+
+        plan_slug = (session.metadata.get("plan_slug") or "basic").strip()
+        sub_id = session.metadata.get("subscription_id")
+        if not sub_id:
+            return redirect("/subscribe/?error=missing_subscription")
+        amount_paid = (session.amount_total or 0) / 100.0
+        try:
+            _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, session_id)
+        except Exception:
+            return redirect("/subscribe/?error=save_failed")
+        return redirect("/payment/")
+
+    if reference:
+        return redirect("/subscribe/?error=paystack_not_configured")
+    if session_id:
+        return redirect("/subscribe/?error=stripe_not_configured")
+    return redirect("/subscribe/?error=missing_session")
+
+
+def student_subscribe_cancel(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    return redirect("/subscribe/?reason=cancelled")
+
+
 # ---------------------------------------------------------------------------
-# Student: payment / subscription page (shown after signup or on demand)
+# Student: subscription / payment history (/payment/)
 # ---------------------------------------------------------------------------
 
 def payment_page(request):
@@ -4128,47 +4614,10 @@ def payment_page(request):
         return guard
 
     user_id = request.session.get("user_id")
-    db = _supabase_admin()
     plans = _get_plans()
-    subscription = _get_active_subscription(user_id)
-    error = None
-    success = None
-
-    if request.method == "POST":
-        payment_ref = request.POST.get("payment_reference", "").strip()[:200]
-        plan_slug   = request.POST.get("plan_slug", "basic").strip()
-        if plan_slug not in ("basic", "premium"):
-            plan_slug = "basic"
-
-        plan = plans.get(plan_slug, plans.get("basic", {}))
-        amount_due = plan.get("price", 0)
-
-        try:
-            if subscription:
-                db.table("subscriptions").update({
-                    "payment_reference": payment_ref or None,
-                    "plan_slug": plan_slug,
-                    "amount_due": amount_due,
-                }).eq("id", subscription["id"]).execute()
-            else:
-                db.table("subscriptions").insert({
-                    "user_id": str(user_id),
-                    "user_email": request.session.get("email", ""),
-                    "user_name": request.session.get("full_name", ""),
-                    "plan_slug": plan_slug,
-                    "amount_due": amount_due,
-                    "currency": plan.get("currency", "GHS"),
-                    "payment_reference": payment_ref or None,
-                    "status": "pending_payment",
-                }).execute()
-            subscription = _get_active_subscription(user_id)
-            success = "Payment reference submitted. Your account will be activated after verification."
-        except Exception:
-            error = "Failed to save payment details. Please try again."
-
-    current_plan_slug = "basic"
-    if subscription:
-        current_plan_slug = subscription.get("plan_slug", "basic")
+    history = _subscription_history_for_user(user_id)
+    latest = history[0] if history else None
+    paid_ok = subscription_allows_dashboard(user_id)
 
     ctx = {
         "full_name": request.session.get("full_name", ""),
@@ -4177,13 +4626,12 @@ def payment_page(request):
         "active_page": "payment",
         "student_unread_notifications": _student_unread_count(user_id),
         "community_unread": _community_unread_count(user_id),
+        "payment_history": history,
+        "latest_subscription": latest,
+        "subscription_access_ok": paid_ok,
         "plans": plans,
-        "subscription": subscription,
-        "current_plan_slug": current_plan_slug,
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
-        "error": error,
-        "success": success,
     }
     return render(request, "payment.html", ctx)
 
@@ -4262,6 +4710,7 @@ def admin_payments(request):
                 error = f"Cancellation failed: {exc}"
 
     subscribers = []
+    selected_filter = (request.GET.get("filter", "") or "").strip().lower()
     counts = {"total": 0, "active": 0, "pending": 0, "basic": 0, "premium": 0}
     try:
         subscribers = (
@@ -4285,6 +4734,49 @@ def admin_payments(request):
     except Exception:
         pass
 
+    if selected_filter == "active":
+        filtered_subscribers = [s for s in subscribers if (s.get("status") or "").strip() == "active"]
+    elif selected_filter == "pending":
+        filtered_subscribers = [s for s in subscribers if (s.get("status") or "").strip() == "pending_payment"]
+    else:
+        filtered_subscribers = subscribers
+
+    export_type = (request.GET.get("export", "") or "").strip().lower()
+    if export_type == "csv":
+        out = StringIO()
+        writer = csv.writer(out)
+        writer.writerow([
+            "Name",
+            "Email",
+            "Plan",
+            "Amount Due (GHS)",
+            "Amount Paid (GHS)",
+            "Payment Reference",
+            "Status",
+            "Start Date",
+            "Expiry Date",
+            "Created At",
+        ])
+        for s in filtered_subscribers:
+            writer.writerow([
+                s.get("user_name") or "",
+                s.get("user_email") or "",
+                s.get("plan_slug") or "",
+                s.get("amount_due") or "",
+                s.get("amount_paid") or "",
+                s.get("payment_reference") or "",
+                s.get("status") or "",
+                (s.get("started_at") or "")[:19],
+                (s.get("expires_at") or "")[:19],
+                (s.get("created_at") or "")[:19],
+            ])
+
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = selected_filter if selected_filter in {"active", "pending"} else "all"
+        response = HttpResponse(out.getvalue(), content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="subscribers_{suffix}_{stamp}.csv"'
+        return response
+
     ctx = {
         "full_name": request.session.get("full_name", "Admin"),
         "email": request.session.get("email", ""),
@@ -4295,7 +4787,9 @@ def admin_payments(request):
         "plans": plans,
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
-        "subscribers": subscribers,
+        "subscribers": filtered_subscribers,
+        "all_subscribers_count": len(subscribers),
+        "selected_filter": selected_filter,
         "counts": counts,
         "error": error,
         "success": success,

@@ -2,8 +2,8 @@ import threading
 
 from django.shortcuts import redirect
 
-# Paths that require the session check (dashboard routes)
-_PROTECTED_PREFIXES = ("/dashboard/", "/admin-panel/")
+# Paths that require the session check (dashboard routes + paid-area account pages)
+_PROTECTED_PREFIXES = ("/dashboard/", "/admin-panel/", "/payment/", "/subscribe/")
 
 # Paths always allowed without a session
 _SKIP_PREFIXES = ("/static/", "/css/", "/js/", "/images/", "/media/", "/sneat-assets/", "/admin/")
@@ -66,6 +66,33 @@ class SingleSessionMiddleware:
             pass
 
         return self.get_response(request)
+
+
+class StudentSubscriptionGateMiddleware:
+    """
+    Students must have an active, non-expired subscription to use /dashboard/.
+    Redirects to Stripe checkout entry at /subscribe/ when payment is still required.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path
+        if not path.startswith("/dashboard/"):
+            return self.get_response(request)
+        if request.session.get("role") != "student":
+            return self.get_response(request)
+        if not request.session.get("user_id"):
+            return self.get_response(request)
+        try:
+            from website.views import subscription_allows_dashboard
+
+            if subscription_allows_dashboard(request.session.get("user_id")):
+                return self.get_response(request)
+        except Exception:
+            return self.get_response(request)
+        return redirect("/subscribe/?reason=payment_required")
 
 
 class VisitTrackerMiddleware:

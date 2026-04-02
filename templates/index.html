@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
 
     <!--Page Title-->
-    <title>Namari - Free Landing Page Template</title>
+    <title>NurseEdge</title>
 
     <!--Meta Keywords and Description-->
     <meta name="keywords" content="">
@@ -12,12 +12,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 
     <!--Favicon-->
-    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" title="Favicon"/>
+    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" title="NurseEdge Favicon"/>
 
     <!-- Main CSS Files -->
     <link rel="stylesheet" href="css/style.css">
 
-    <!-- Namari Color CSS -->
+    <!-- NurseEdge Color CSS -->
     <link rel="stylesheet" href="css/namari-color.css">
 
     <!--Icon Fonts - Font Awesome Icons-->
@@ -109,6 +109,10 @@
             line-height: 1.75;
             color: #3f3f46;
         }
+        #pricing .price {
+            font-size: 34px !important;
+            line-height: 1.2;
+        }
         @media only screen and (max-width: 767px) {
             .landing-disclaimer-wrap {
                 padding: 32px 0 8px;
@@ -122,6 +126,9 @@
             }
             .landing-disclaimer-text {
                 font-size: 14px;
+            }
+            #pricing .price {
+                font-size: 30px !important;
             }
         }
     </style>
@@ -302,71 +309,67 @@
 
                 <div class="section-heading">
                     <h3>YOUR CHOICE</h3>
-                    <h2 class="section-title">We have the right package for you</h2>
+                    <h2 class="section-title">We have the right standardized test package for you</h2>
                 </div>
 
+                <div class="col-1" style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
                 <!--Pricing Block-->
-                <div class="pricing-block col-3 wow fadeInUp" data-wow-delay="0.4s">
+                <div class="pricing-block wow fadeInUp" data-wow-delay="0.4s" style="flex:1 1 300px;max-width:340px;">
                     <div class="pricing-block-content">
-                        <h3>Personal</h3>
-                        <p class="pricing-sub">The standard version</p>
+                        <h3>{{ basic.name|default:"Basic" }}</h3>
+                        <p class="pricing-sub">{{ basic.tagline|default:"Essential study tools to get you started" }}</p>
                         <div class="pricing">
-                            <div class="price"><span>$</span>19</div>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+                            <div class="price">GHS {{ basic.price|default:"50.0" }}</div>
+                            <p>/ {{ basic.duration_days|default:365 }} days</p>
                         </div>
                         <ul>
-                            <li>5 Downloads</li>
-                            <li>2 Extensions</li>
-                            <li>Tutorials</li>
-                            <li>Forum Support</li>
-                            <li>1 year free updates</li>
+                            <li>Standardized Test Preparation</li>
+                            {% if basic.features %}
+                                {% for f in basic.features %}
+                                <li>{{ f }}</li>
+                                {% endfor %}
+                            {% else %}
+                                <li>Access to all Practice Questions</li>
+                                <li>Mock Exams &amp; Leaderboard</li>
+                                <li>Drug Cards Reference</li>
+                                <li>Dosage Calculator</li>
+                                <li>Admin Announcements</li>
+                            {% endif %}
                         </ul>
-                        <a href="#" class="button">BUY TODAY</a>
+                        <a href="/login/" class="button">GET STARTED</a>
                     </div>
                 </div>
                 <!--End Pricing Block-->
 
                 <!--Pricing Block-->
-                <div class="pricing-block featured col-3 wow fadeInUp" data-wow-delay="0.6s">
+                <div class="pricing-block featured wow fadeInUp" data-wow-delay="0.6s" style="flex:1 1 300px;max-width:340px;">
                     <div class="pricing-block-content">
-                        <h3>Student</h3>
-                        <p class="pricing-sub">Most popular choice</p>
+                        <h3>{{ premium.name|default:"Premium" }}</h3>
+                        <p class="pricing-sub">{{ premium.tagline|default:"Full unlimited access to every NurseEdge feature" }}</p>
                         <div class="pricing">
-                            <div class="price"><span>$</span>29</div>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
+                            <div class="price">GHS {{ premium.price|default:"200.0" }}</div>
+                            <p>/ {{ premium.duration_days|default:365 }} days</p>
                         </div>
                         <ul>
-                            <li>15 Downloads</li>
-                            <li>5 Extensions</li>
-                            <li>Tutorials with Files</li>
-                            <li>Forum Support</li>
-                            <li>2 years free updates</li>
+                            <li>Advanced Standardized Test Preparation</li>
+                            {% if premium.features %}
+                                {% for f in premium.features %}
+                                <li>{{ f }}</li>
+                                {% endfor %}
+                            {% else %}
+                                <li>Everything in Basic</li>
+                                <li>Lecture Notes (all years)</li>
+                                <li>Flashcards &amp; Spaced Repetition</li>
+                                <li>AI Study Assistant</li>
+                                <li>Community Forums</li>
+                                <li>Detailed Performance Analytics</li>
+                            {% endif %}
                         </ul>
-                        <a href="#" class="button">BUY TODAY</a>
+                        <a href="/login/" class="button">GET STARTED</a>
                     </div>
                 </div>
                 <!--End Pricing Block-->
-
-                <!--Pricing Block-->
-                <div class="pricing-block col-3 wow fadeInUp" data-wow-delay="0.8s">
-                    <div class="pricing-block-content">
-                        <h3>Business</h3>
-                        <p class="pricing-sub">For the whole team</p>
-                        <div class="pricing">
-                            <div class="price"><span>$</span>49</div>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit</p>
-                        </div>
-                        <ul>
-                            <li>Unlimited Downloads</li>
-                            <li>Unlimited Extensions</li>
-                            <li>HD Video Tutorials</li>
-                            <li>Chat Support</li>
-                            <li>Lifetime free updates</li>
-                        </ul>
-                        <a href="#" class="button">BUY TODAY</a>
-                    </div>
                 </div>
-                <!--End Pricing Block-->
 
             </div>
         </section>
@@ -441,7 +444,7 @@
                 <blockquote class="col-3 testimonial classic">
                     <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775051590/1_zwx0ue.png" alt="Abena Mensah"/>
                     <q>Dosage calculations used to be my biggest fear. With NurseEdge's drills and step-by-step breakdowns, I now solve them confidently. The performance dashboard also showed me exactly where to focus.</q>
-                    <footer>Abena Mensaht</footer>
+                    <footer>Rosemary Mansah</footer>
                 </blockquote>
                 <!-- End of Testimonial-->
 

@@ -457,6 +457,13 @@
             </a>
           </li>
 
+          <li class="menu-item {% if active_page == 'nmc_mastery' %}active{% endif %}">
+            <a href="/dashboard/nmc-mastery/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-bolt-circle"></i>
+              <div data-i18n="NMC Mastery">NMC Mastery</div>
+            </a>
+          </li>
+
           <li class="menu-item {% if active_page == 'drug_cards' %}active{% endif %}">
             <a href="/dashboard/drug-cards/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-capsule"></i>
@@ -566,7 +573,7 @@
           <li class="menu-item {% if active_page == 'payment' %}active{% endif %}">
             <a href="/payment/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-credit-card"></i>
-              <div data-i18n="My Subscription">My Subscription</div>
+              <div data-i18n="Payment history">Payment history</div>
             </a>
           </li>
 
@@ -831,30 +838,231 @@
         return bubble;
       }
 
+      // Simple replies for greetings / non-nursing input so BERT isn't called needlessly.
+      var GREETINGS = {
+        "hi": "Hello! I'm the NurseEdge AI Assistant. Ask me any nursing question — medications, procedures, diseases, mock exam topics, or dosage calculations.",
+        "hello": "Hello! Ready to help with your nursing studies. What would you like to know?",
+        "hey": "Hey! Ask me anything about nursing — pharmacology, anatomy, clinical procedures, or exam strategy.",
+        "good morning": "Good morning! Ready to study? Ask me any nursing question.",
+        "good evening": "Good evening! Let's make the most of your study time. What's your question?",
+        "good afternoon": "Good afternoon! What nursing topic can I help you with today?",
+        "how are you": "I'm always ready to help! Ask me any nursing or exam question.",
+        "what can you do": "I can help with nursing notes, drug cards, mock exam strategy, dosage calculations, disease processes, procedures, and revision planning. Just ask!",
+        "help": "I can answer questions on pharmacology, anatomy, diseases, nursing procedures, dosage calculations, and NMC exam topics. Type your question."
+      };
+
+      function quickReply(q) {
+        var lower = q.trim().toLowerCase().replace(/[?.!,]+$/, '');
+        return GREETINGS[lower] || null;
+      }
+
+      // SENTENCES is built lazily on first use so NURSING_CONTEXT is always defined first.
+      var SENTENCES = null;
+      function getSentences() {
+        if (!SENTENCES) {
+          SENTENCES = NURSING_CONTEXT.split('. ')
+            .map(function(s){ return s.trim(); })
+            .filter(function(s){ return s.length > 10; });
+        }
+        return SENTENCES;
+      }
+
+      // Extract the subject from common question patterns.
+      function extractSubject(q) {
+        q = q.trim().toLowerCase().replace(/[?.!]+$/, '');
+        var patterns = [
+          /^what (?:is|are) (?:a |an |the )?(.+)$/,
+          /^define (?:a |an |the )?(.+)$/,
+          /^(?:tell me about|explain) (?:a |an |the )?(.+)$/,
+          /^what (?:is|are) the (?:signs?|symptoms?|causes?|treatment|management|dose|dosage|formula|normal|function) (?:of|for) (?:a |an |the )?(.+)$/,
+          /^how (?:do you|do we|to) (?:treat|manage|calculate|use) (?:a |an |the )?(.+)$/,
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+          var m = q.match(patterns[i]);
+          if (m) return m[m.length - 1].trim();
+        }
+        return null;
+      }
+
+      // Search context sentences for the best match for a subject keyword.
+      function findBestSentence(subject) {
+        if (!subject) return null;
+        var sentences = getSentences();
+        var subjectWords = subject.split(/\s+/);
+        var best = null, bestScore = 0;
+
+        for (var i = 0; i < sentences.length; i++) {
+          var s = sentences[i];
+          var sl = s.toLowerCase();
+          var score = 0;
+
+          // Strong match: sentence starts with or directly defines the subject
+          if (sl.indexOf(subject + ' is ') === 0 ||
+              sl.indexOf(subject + ' are ') === 0 ||
+              sl.indexOf('the ' + subject + ' is ') === 0 ||
+              sl.indexOf('a ' + subject + ' is ') === 0 ||
+              sl.indexOf('an ' + subject + ' is ') === 0) {
+            score = 100;
+          } else if (sl.indexOf(subject) >= 0 &&
+                     (sl.indexOf(subject + ' is ') >= 0 || sl.indexOf(subject + ' are ') >= 0)) {
+            score = 80;
+          } else {
+            // Partial: count how many subject words appear
+            var hits = 0;
+            for (var j = 0; j < subjectWords.length; j++) {
+              if (subjectWords[j].length > 2 && sl.indexOf(subjectWords[j]) >= 0) hits++;
+            }
+            if (hits > 0) score = hits * 10;
+          }
+
+          if (score > bestScore) { bestScore = score; best = s; }
+        }
+        return bestScore >= 10 ? (best.endsWith('.') ? best : best + '.') : null;
+      }
+
+      // Expand a short BERT answer into its full sentence from the context.
+      function expandShortAnswer(answer) {
+        if (!answer) return null;
+        var sentences = getSentences();
+        var al = answer.trim().toLowerCase();
+        for (var i = 0; i < sentences.length; i++) {
+          var sl = sentences[i].toLowerCase();
+          // The answer must appear as a meaningful substring, not just any word
+          if (sl.indexOf(al) >= 0 && al.length >= 4) {
+            var full = sentences[i];
+            return full.endsWith('.') ? full : full + '.';
+          }
+        }
+        return null;
+      }
+
+      // All answers are extracted from this context by the BERT QA model.
+      // Never invents answers — only returns text that exists here.
+      var NURSING_CONTEXT =
+        // Platform
+        "NurseEdge is an exam preparation platform for nursing students in Ghana preparing for the NMC licensure exam. " +
+        "Programmes include Registered General Nursing (RGN), Registered Midwifery (RM), Nurse Assistant Clinical (NAC/NAP), Registered Mental Health Nursing (RMHN), and Registered Public Health Nursing (RPHN). " +
+        // Disease
+        "A disease is a condition that impairs the normal functioning of the body or mind and has a specific cause and characteristic symptoms. " +
+        "Communicable diseases are diseases that spread from person to person through direct or indirect contact. " +
+        "Non-communicable diseases are diseases that are not infectious and cannot be transmitted between people, such as diabetes, hypertension, and cancer. " +
+        "An infection is the invasion and multiplication of microorganisms such as bacteria, viruses, or fungi in body tissues. " +
+        "Signs of infection include fever, redness, swelling, warmth, pain, and pus at the site of infection. " +
+        "Sepsis is a life-threatening condition caused by the body's extreme response to an infection, leading to organ failure. " +
+        // Vital Signs
+        "Normal body temperature is 36.1 to 37.2 degrees Celsius. Fever is defined as a body temperature above 38 degrees Celsius. " +
+        "Normal pulse rate is 60 to 100 beats per minute. Bradycardia is a pulse below 60 beats per minute. Tachycardia is a pulse above 100 beats per minute. " +
+        "Normal respiratory rate is 12 to 20 breaths per minute. " +
+        "Normal blood pressure is 120 over 80 mmHg. Hypertension is a blood pressure consistently above 140 over 90 mmHg. Hypotension is a blood pressure below 90 over 60 mmHg. " +
+        "Normal oxygen saturation is 95 to 100 percent. " +
+        // Pharmacology
+        "Pharmacology is the study of drugs, their properties, effects, and interactions with living organisms. " +
+        "Paracetamol is an analgesic and antipyretic drug used to relieve pain and reduce fever. The adult dose of Paracetamol is 500mg to 1g every 4 to 6 hours, with a maximum of 4g per day. " +
+        "Ibuprofen is a non-steroidal anti-inflammatory drug used to relieve pain, inflammation, and fever. The adult dose of Ibuprofen is 200mg to 400mg every 4 to 6 hours. " +
+        "Aspirin is used as an analgesic, antipyretic, anti-inflammatory, and antiplatelet drug. Aspirin should not be given to children under 12 due to the risk of Reye syndrome. " +
+        "Amoxicillin is a broad-spectrum penicillin antibiotic used to treat bacterial infections including chest, urinary tract, and ear infections. " +
+        "Metronidazole is an antibiotic used to treat anaerobic bacterial and protozoal infections including Trichomonas, Giardia, and bacterial vaginosis. " +
+        "Ciprofloxacin is a fluoroquinolone antibiotic used for urinary tract infections, respiratory infections, and skin infections. " +
+        "Erythromycin is a macrolide antibiotic used as an alternative to penicillin for patients with penicillin allergy. " +
+        "Gentamicin is an aminoglycoside antibiotic used for serious gram-negative infections. It is nephrotoxic and ototoxic. " +
+        "Morphine is an opioid analgesic used for severe pain. Side effects of morphine include respiratory depression, constipation, and sedation. " +
+        "Metformin is an oral antidiabetic drug used as first-line treatment for type 2 diabetes. It works by reducing hepatic glucose output. " +
+        "Insulin is a hormone used to treat diabetes mellitus. Types of insulin include rapid-acting, short-acting, intermediate-acting, and long-acting insulin. " +
+        "Amlodipine is a calcium channel blocker used to treat hypertension and angina. " +
+        "Lisinopril is an ACE inhibitor used to treat hypertension and heart failure. " +
+        "Furosemide is a loop diuretic used to treat oedema and hypertension by increasing urine output. " +
+        "Digoxin is a cardiac glycoside used to treat heart failure and atrial fibrillation. Signs of digoxin toxicity include nausea, vomiting, and visual disturbances. " +
+        "Warfarin is an oral anticoagulant used to prevent and treat blood clots. Its effects are monitored using the INR test. " +
+        "Heparin is an anticoagulant used for the prevention and treatment of deep vein thrombosis and pulmonary embolism. " +
+        "Salbutamol is a short-acting beta-2 agonist bronchodilator used to relieve acute asthma attacks. " +
+        "Prednisolone is a corticosteroid used to treat inflammatory and autoimmune conditions. " +
+        // Dosage
+        "The dosage formula is: Dose required equals Desired dose divided by Stock dose multiplied by Volume. " +
+        "IV drip rate formula: drops per minute equals Volume in mL multiplied by Drop factor divided by Time in minutes. " +
+        "Standard giving set drop factor is 20 drops per mL. Blood giving set drop factor is 15 drops per mL. Micro drip giving set drop factor is 60 drops per mL. " +
+        // Anatomy
+        "The heart has four chambers: the right atrium, right ventricle, left atrium, and left ventricle. " +
+        "The kidneys filter blood to produce urine, regulate blood pressure, and maintain electrolyte balance. " +
+        "The liver produces bile, metabolises drugs and toxins, stores glycogen, and produces clotting factors. " +
+        "Normal urine output is 0.5 to 1 mL per kilogram per hour. Oliguria is urine output below 30 mL per hour in adults. " +
+        // Procedures
+        "Hand hygiene is the most important measure for preventing healthcare-associated infections. " +
+        "The five moments for hand hygiene are: before patient contact, before aseptic procedures, after body fluid exposure, after patient contact, and after contact with patient surroundings. " +
+        "Catheterisation is the insertion of a catheter into the bladder to drain urine. It must be performed using an aseptic technique. " +
+        "CPR stands for cardiopulmonary resuscitation. The compression to ventilation ratio for adults is 30 compressions to 2 breaths. " +
+        "Compression depth during adult CPR should be 5 to 6 cm at a rate of 100 to 120 compressions per minute. " +
+        // Medical Conditions
+        "Diabetes mellitus is a chronic metabolic disease characterised by elevated blood glucose due to insufficient insulin production or action. " +
+        "Type 1 diabetes is caused by autoimmune destruction of pancreatic beta cells resulting in absolute insulin deficiency. " +
+        "Type 2 diabetes is caused by insulin resistance and relative insulin deficiency and is the most common type of diabetes. " +
+        "Signs and symptoms of diabetes include polyuria, polydipsia, polyphagia, weight loss, and fatigue. " +
+        "Hypoglycaemia is a blood glucose level below 4 mmol/L. Signs include sweating, trembling, confusion, and loss of consciousness. " +
+        "Malaria is a parasitic disease caused by Plasmodium species and transmitted by the female Anopheles mosquito. Symptoms include fever, chills, headache, and anaemia. " +
+        "Tuberculosis is a bacterial infection caused by Mycobacterium tuberculosis, primarily affecting the lungs. Symptoms include persistent cough, night sweats, weight loss, and haemoptysis. " +
+        "Anaemia is a condition in which the blood does not have enough healthy red blood cells to carry adequate oxygen to tissues. " +
+        "Asthma is a chronic inflammatory disease of the airways causing wheezing, breathlessness, chest tightness, and cough. " +
+        "Stroke is caused by interruption of blood supply to part of the brain. Symptoms include sudden weakness, facial drooping, and speech difficulty. " +
+        "Pneumonia is an infection that inflames the air sacs in one or both lungs, causing cough, fever, and difficulty breathing. " +
+        "Cholera is an acute diarrhoeal infection caused by ingesting Vibrio cholerae. Treatment is oral rehydration and antibiotics. " +
+        // Obstetrics
+        "The normal duration of pregnancy is 40 weeks or 280 days from the last menstrual period. " +
+        "Stages of labour: the first stage is from onset of labour to full cervical dilation of 10 cm. The second stage is from full dilation to delivery of the baby. The third stage is from delivery of the baby to delivery of the placenta. " +
+        "Pre-eclampsia is a pregnancy complication characterised by high blood pressure and damage to another organ system, often the kidneys. " +
+        "Eclampsia is the onset of seizures in a woman with pre-eclampsia. It is treated with magnesium sulphate. " +
+        "Postpartum haemorrhage is blood loss of more than 500 mL after vaginal delivery or more than 1000 mL after caesarean section. " +
+        // Mental Health
+        "Schizophrenia is a severe mental disorder characterised by hallucinations, delusions, flat affect, and social withdrawal. " +
+        "Depression is characterised by persistent low mood, loss of interest, fatigue, sleep disturbance, and in severe cases, suicidal ideation. " +
+        "Therapeutic communication techniques include active listening, open-ended questions, reflection, clarification, and empathy. " +
+        // Public Health
+        "Primary prevention aims to prevent disease before it occurs through health education, vaccination, and sanitation. " +
+        "Secondary prevention involves early detection and treatment of disease through screening programmes. " +
+        "The most common routes of disease transmission are airborne, droplet, contact, faeco-oral, vector-borne, and bloodborne.";
+
       async function answerWithBytez(question) {
+        // Step 1: direct context lookup for definitional questions — fast & accurate.
+        var subject = extractSubject(question);
+        if (subject) {
+          var direct = findBestSentence(subject);
+          if (direct) return direct;
+        }
+
+        // Step 2: call Bytez BERT for everything else.
         const BytezModule = await import("https://unpkg.com/bytez.js@3.0.0/dist/index.mjs");
         const Bytez = BytezModule.default;
-
-        const sdk = new Bytez(bytezApiKey);
-        const model = sdk.model("hung200504/bert-31");
-
-        const context =
-          "You are NurseEdge AI Assistant for nursing students. " +
-          "Answer in clear plain English, concise exam-ready format. " +
-          "If relevant, include a brief rationale. Avoid emojis.";
+        const sdk   = new Bytez(bytezApiKey);
+        const model = sdk.model("innuendo142857/bert-finetuned-squad");
 
         const { error, output } = await model.run({
-          "context": context,
+          "context": NURSING_CONTEXT,
           "question": question
         });
 
-        if (output !== undefined && output !== null && String(output).trim()) {
-          return String(output);
+        // bert-finetuned-squad returns: { answer, score, start, end }
+        if (output !== undefined && output !== null) {
+          if (typeof output === 'object' && !Array.isArray(output)) {
+            var raw = output.answer || output.text || output.generated_text || output.response;
+            if (raw) {
+              var ans = String(raw).trim();
+              // If the answer is too short (single word / vague), expand to full sentence.
+              if (ans.length > 0 && ans.split(' ').length < 4) {
+                var expanded = expandShortAnswer(ans);
+                if (expanded) return expanded;
+              }
+              if (ans.length > 1) return ans;
+            }
+          }
+          if (typeof output === 'string' && output.trim().length > 1) return output.trim();
         }
-        if (error !== undefined && error !== null && String(error).trim()) {
-          return String(error);
+
+        if (error !== undefined && error !== null) {
+          var errMsg = (typeof error === 'object')
+            ? (error.message || error.error || JSON.stringify(error))
+            : String(error);
+          if (errMsg && errMsg.trim()) return "API error: " + errMsg.trim();
         }
-        return "No response returned.";
+
+        return "I could not find an answer to that. Try asking: 'What is the dose of Paracetamol?' or 'What are the signs of infection?'";
       }
 
       async function handleSend() {
@@ -862,23 +1070,31 @@
         if (!question) return;
         inputEl.value = '';
 
+        addBubble('You: ' + question, 'user');
+
+        // Fast-path: greetings / simple phrases get an instant reply
+        var instant = quickReply(question);
+        if (instant) {
+          addBubble(instant, 'assistant');
+          inputEl.focus();
+          return;
+        }
+
         sendBtn.disabled = true;
         inputEl.disabled = true;
-
-        addBubble('You: ' + question, 'user');
         var thinkingBubble = addBubble('Thinking...', 'assistant');
 
         try {
           if (!bytezApiKey) {
-            thinkingBubble.textContent = 'Bytez key missing from this page. Hard refresh (Ctrl+F5) and try again.';
-            try { console.log('[NurseEdge Assistant] bytezApiKey present:', !!bytezApiKey, 'len:', bytezApiKey ? bytezApiKey.length : 0); } catch (e) {}
+            thinkingBubble.textContent = 'AI key is not configured. Please contact the admin.';
             return;
           }
           var answer = await answerWithBytez(question);
           thinkingBubble.textContent = answer;
         } catch (e) {
-          thinkingBubble.textContent = 'Sorry, I could not get an answer right now.';
-          window.showAppMessageModal('Assistant error: ' + (e && e.message ? e.message : 'Unknown error'));
+          var msg = (e && e.message) ? e.message : String(e);
+          thinkingBubble.textContent = 'Sorry, I could not get an answer right now. Please try again.';
+          try { console.error('[NurseEdge Bot]', msg); } catch (_) {}
         } finally {
           sendBtn.disabled = false;
           inputEl.disabled = false;

@@ -1,324 +1,194 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}Payment - NurseEdge{% endblock %}
+{% block title %}Payment History - NurseEdge{% endblock %}
 
 {% block content %}
 <style>
-  /* ── Page layout ── */
-  .pay-wrap { max-width:860px; margin:0 auto; }
-  .pay-header { margin-bottom:28px; }
-  .pay-header h4 { font-size:1.3rem; font-weight:800; color:#1f2d40; margin:0 0 4px; }
-  .pay-header p  { font-size:0.87rem; color:#7b8599; margin:0; }
+  .pay-wrap { max-width: 860px; margin: 0 auto; }
 
-  /* ── Status banner ── */
-  .pay-status {
-    display:flex; align-items:center; gap:14px;
-    background:#fff; border:1px solid #e8eaf0;
-    border-radius:12px; padding:18px 22px; margin-bottom:24px;
-    box-shadow:0 2px 6px rgba(0,0,0,.04);
-  }
-  .pay-status-icon {
-    width:44px; height:44px; border-radius:10px;
-    display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0;
-  }
-  .pay-status-icon.pending { background:#fff8e6; color:#cc8800; }
-  .pay-status-icon.active  { background:#eafff2; color:#3ea76a; }
-  .pay-status-label { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin:0 0 2px; }
-  .pay-status-desc  { font-size:0.84rem; color:#7b8599; margin:0; }
+  .pay-page-header { margin-bottom: 24px; }
+  .pay-page-header h4 { font-size: 1.25rem; font-weight: 800; color: #1f2d40; margin: 0 0 4px; }
+  .pay-page-header p  { font-size: 0.87rem; color: #7b8599; margin: 0; }
 
-  .status-pill {
-    font-size:0.72rem; font-weight:700; border-radius:999px; padding:3px 11px;
-    display:inline-block; margin-left:auto; flex-shrink:0;
+  /* Active plan banner */
+  .active-plan-banner {
+    background: #1a1a2e; color: #fff; border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
   }
-  .status-pill.pending { background:#fff8e6; color:#cc8800; border:1px solid #ffe0a0; }
-  .status-pill.active  { background:#eafff2; color:#3ea76a; border:1px solid #b0f0ca; }
-  .status-pill.cancelled { background:#fff0ef; color:#d93025; border:1px solid #fccac7; }
+  .apb-left { display: flex; align-items: center; gap: 14px; }
+  .apb-icon {
+    width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,.1);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .apb-plan { font-size: 1.15rem; font-weight: 800; margin: 0 0 2px; }
+  .apb-sub  { font-size: 0.78rem; color: rgba(255,255,255,.55); margin: 0; }
+  .apb-pill {
+    font-size: 0.72rem; font-weight: 700; border-radius: 999px;
+    padding: 4px 12px; border: 1px solid rgba(255,255,255,.2); color: #fff;
+  }
+  .apb-pill.active   { background: #3ea76a; border-color: #3ea76a; }
+  .apb-pill.pending  { background: #cc8800; border-color: #cc8800; }
+  .apb-pill.inactive { background: rgba(255,255,255,.15); }
 
-  /* ── Two-column grid ── */
-  .pay-grid { display:grid; grid-template-columns:1fr 340px; gap:20px; align-items:start; }
-  @media(max-width:820px){ .pay-grid { grid-template-columns:1fr; } }
+  .btn-subscribe {
+    font-size: 0.82rem; font-weight: 700; border-radius: 8px;
+    padding: 8px 18px; background: #fff; color: #1a1a2e;
+    border: none; text-decoration: none; display: inline-block; transition: opacity .15s;
+  }
+  .btn-subscribe:hover { opacity: .85; color: #1a1a2e; }
 
-  /* ── Plan cards (choose / switch) ── */
-  .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
-  @media(max-width:500px){ .plan-grid { grid-template-columns:1fr; } }
+  /* History table */
+  .hist-card {
+    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04); overflow: hidden;
+  }
+  .hist-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid #edf0f7; flex-wrap: wrap; gap: 8px;
+  }
+  .hist-card-title { font-size: 1rem; font-weight: 700; color: #1f2d40; margin: 0; }
 
-  .plan-card {
-    position:relative; border:2px solid #e4e8f0; border-radius:10px;
-    padding:18px 16px; cursor:pointer; transition:border-color 0.18s;
-    background:#fff;
+  table.hist-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .hist-table th {
+    padding: 11px 16px; background: #f8f9fc; color: #7b8599;
+    font-weight: 600; text-align: left; border-bottom: 1px solid #edf0f7; white-space: nowrap;
   }
-  .plan-card input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
-  .plan-card.selected { border-color:#1a1a2e; box-shadow:0 0 0 3px rgba(26,26,46,.07); }
-  .plan-card.selected .plan-dot { background:#1a1a2e; border-color:#1a1a2e; }
+  .hist-table td {
+    padding: 13px 16px; color: #4a5268; border-bottom: 1px solid #f2f4f8; vertical-align: middle;
+  }
+  .hist-table tr:last-child td { border-bottom: none; }
+  .hist-table tr:hover td { background: #fafbff; }
 
-  .plan-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .plan-dot {
-    width:17px; height:17px; border-radius:50%;
-    border:2px solid #c8cdd8; flex-shrink:0; transition:all 0.15s; background:#fff;
-  }
-  .plan-badge { font-size:0.67rem; font-weight:700; border-radius:999px; padding:2px 9px; }
-  .plan-badge-basic   { background:#f0f2ff; color:#5a5ce8; }
-  .plan-badge-premium { background:#1a1a2e; color:#fff; }
-  .plan-name  { font-size:0.97rem; font-weight:800; color:#1f2d40; margin:0 0 2px; }
-  .plan-price { font-size:1.5rem; font-weight:800; color:#1a1a2e; }
-  .plan-price small { font-size:0.77rem; color:#9098b0; font-weight:400; }
-  .plan-features { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:4px; }
-  .plan-features li { font-size:0.76rem; color:#4a5268; display:flex; align-items:flex-start; gap:5px; }
-  .plan-features li::before { content:'✓'; color:#3ea76a; font-weight:700; font-size:11px; flex-shrink:0; margin-top:1px; }
+  .s-badge { font-size: 0.69rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
+  .s-active    { background: #eafff2; color: #3ea76a; }
+  .s-pending   { background: #fff8e6; color: #cc8800; }
+  .s-cancelled { background: #fff0ef; color: #d93025; }
+  .s-expired   { background: #f5f5f5; color: #9098b0; }
 
-  /* ── Payment form card ── */
-  .pay-card {
-    background:#fff; border:1px solid #e8eaf0; border-radius:12px;
-    padding:22px; box-shadow:0 2px 6px rgba(0,0,0,.04);
-  }
-  .pay-card-title { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#8892a4; margin:0 0 16px; }
+  .plan-chip { font-size: 0.69rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
+  .plan-basic   { background: #f0f2ff; color: #5a5ce8; }
+  .plan-premium { background: #1a1a2e; color: #fff; }
 
-  .instr-box {
-    background:#f8f9fc; border:1px solid #e4e8f0; border-radius:8px;
-    padding:14px 16px; font-size:0.84rem; color:#4a5268; line-height:1.65;
-    margin-bottom:18px; white-space:pre-wrap; word-break:break-word;
-  }
-  .instr-amount {
-    font-size:1.3rem; font-weight:800; color:#1a1a2e; margin-bottom:8px; display:block;
-  }
-
-  .pay-field label { font-size:0.82rem; font-weight:700; color:#2d3a52; display:block; margin-bottom:5px; }
-  .pay-field input {
-    width:100%; box-sizing:border-box; height:42px; padding:0 12px;
-    border:1px solid #dde1ec; border-radius:8px; font-size:0.87rem;
-    background:#fafbff; color:#2d3a52; transition:border-color 0.15s;
-  }
-  .pay-field input:focus { outline:none; border-color:#1a1a2e; }
-
-  .btn-pay {
-    width:100%; height:46px; border:none; border-radius:9px;
-    background:#1a1a2e; color:#fff; font-size:0.92rem; font-weight:700;
-    cursor:pointer; margin-top:14px; transition:background 0.15s;
-  }
-  .btn-pay:hover { background:#2a2a4e; }
-  .btn-pay:disabled { opacity:0.6; cursor:not-allowed; }
-
-  /* ── Sidebar summary ── */
-  .sum-card {
-    background:#fff; border:1px solid #e8eaf0; border-radius:12px;
-    padding:22px; box-shadow:0 2px 6px rgba(0,0,0,.04); margin-bottom:14px;
-  }
-  .sum-title { font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#8892a4; margin:0 0 14px; }
-  .sum-row { display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; margin-bottom:10px; }
-  .sum-row:last-child { margin-bottom:0; border-top:1px solid #f2f4f8; padding-top:10px; }
-  .sum-label { color:#7b8599; }
-  .sum-value { font-weight:700; color:#1f2d40; }
-  .sum-total { font-size:1rem; color:#1a1a2e; }
-  .sum-plan-chip {
-    display:inline-block; font-size:0.73rem; font-weight:700;
-    border-radius:999px; padding:3px 11px; margin-top:2px;
-  }
+  .empty-state { text-align: center; padding: 48px 24px; color: #9098b0; }
+  .empty-state i { font-size: 2.4rem; display: block; margin-bottom: 10px; color: #c8cdd8; }
+  .empty-state p { font-size: 0.87rem; margin: 0 0 16px; }
 </style>
 
 <div class="pay-wrap">
-  <div class="pay-header">
-    <h4>Complete Your Payment</h4>
-    <p>Choose a plan and submit your payment reference to activate your account.</p>
+
+  <div class="pay-page-header">
+    <h4>Payment History</h4>
+    <p>All your subscription payments and their current status.</p>
   </div>
 
-  {% if success %}
-  <div class="alert alert-success d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
-    <i class="bx bx-check-circle fs-5"></i> {{ success }}
-    <a href="/dashboard/" class="ms-auto btn btn-sm btn-success" style="border-radius:7px;font-weight:700;">Go to Dashboard</a>
-  </div>
-  {% endif %}
-  {% if error %}
-  <div class="alert alert-danger d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
-    <i class="bx bx-error-circle fs-5"></i> {{ error }}
-  </div>
-  {% endif %}
-
-  <!-- Current status banner -->
-  {% if subscription %}
-  <div class="pay-status">
-    <div class="pay-status-icon {% if subscription.status == 'active' %}active{% else %}pending{% endif %}">
-      <i class="bx {% if subscription.status == 'active' %}bx-check-shield{% else %}bx-time{% endif %}"></i>
-    </div>
-    <div>
-      <p class="pay-status-label">{{ subscription.status|title|cut:"_" }}</p>
-      <p class="pay-status-desc">
-        {% if subscription.status == 'active' %}
-          Your {{ subscription.plan_slug|title }} plan is active until {{ subscription.expires_at|slice:":10" }}.
-        {% elif subscription.status == 'pending_payment' %}
-          Waiting for payment verification. Submit your reference below to speed this up.
-        {% else %}
-          Your subscription is {{ subscription.status }}.
-        {% endif %}
-      </p>
-    </div>
-    <span class="status-pill {{ subscription.status }}">
-      {% if subscription.status == 'pending_payment' %}Pending{% else %}{{ subscription.status|title }}{% endif %}
-    </span>
-  </div>
-  {% endif %}
-
-  <div class="pay-grid">
-    <!-- Left: plan selector + payment form -->
-    <div>
-      <form method="post" action="/payment/" id="payForm">
-        {% csrf_token %}
-
-        <!-- Plan selector -->
-        <div class="pay-card" style="margin-bottom:16px;">
-          <p class="pay-card-title">Select Plan</p>
-          <div class="plan-grid">
-
-            <!-- Basic -->
-            <label class="plan-card {% if current_plan_slug == 'basic' %}selected{% endif %}"
-                   id="pc-basic" for="pp-basic">
-              <input type="radio" id="pp-basic" name="plan_slug" value="basic"
-                     {% if current_plan_slug == 'basic' %}checked{% endif %}
-                     onchange="switchPlan('basic')">
-              <div class="plan-top">
-                <span class="plan-badge plan-badge-basic">Basic</span>
-                <div class="plan-dot"></div>
-              </div>
-              <div class="plan-name">{{ basic.name|default:"Basic" }}</div>
-              <div class="plan-price">GHS {{ basic.price|default:"0" }}<small> / yr</small></div>
-              <ul class="plan-features">
-                {% for f in basic.features %}<li>{{ f }}</li>{% empty %}
-                <li>Practice Questions</li><li>Mock Exams</li><li>Drug Cards</li>
-                {% endfor %}
-              </ul>
-            </label>
-
-            <!-- Premium -->
-            <label class="plan-card {% if current_plan_slug == 'premium' %}selected{% endif %}"
-                   id="pc-premium" for="pp-premium">
-              <input type="radio" id="pp-premium" name="plan_slug" value="premium"
-                     {% if current_plan_slug == 'premium' %}checked{% endif %}
-                     onchange="switchPlan('premium')">
-              <div class="plan-top">
-                <span class="plan-badge plan-badge-premium">Premium</span>
-                <div class="plan-dot"></div>
-              </div>
-              <div class="plan-name">{{ premium.name|default:"Premium" }}</div>
-              <div class="plan-price">GHS {{ premium.price|default:"0" }}<small> / yr</small></div>
-              <ul class="plan-features">
-                {% for f in premium.features %}<li>{{ f }}</li>{% empty %}
-                <li>Everything in Basic</li><li>Lecture Notes</li><li>AI Assistant</li>
-                {% endfor %}
-              </ul>
-            </label>
-
-          </div>
-        </div>
-
-        <!-- Payment instructions + reference form -->
-        <div class="pay-card">
-          <p class="pay-card-title">Payment Instructions</p>
-
-          <div id="instr-basic" {% if current_plan_slug != 'basic' %}style="display:none;"{% endif %}>
-            <span class="instr-amount">GHS {{ basic.price|default:"0.00" }}</span>
-            <div class="instr-box">{{ basic.payment_instructions|default:"Payment instructions will appear here." }}</div>
-          </div>
-          <div id="instr-premium" {% if current_plan_slug != 'premium' %}style="display:none;"{% endif %}>
-            <span class="instr-amount">GHS {{ premium.price|default:"0.00" }}</span>
-            <div class="instr-box">{{ premium.payment_instructions|default:"Payment instructions will appear here." }}</div>
-          </div>
-
-          <div class="pay-field mb-3">
-            <label for="payment_reference">Payment Reference / Transaction ID</label>
-            <input type="text" id="payment_reference" name="payment_reference"
-                   placeholder="e.g. MTN ref: 1234567890"
-                   value="{{ subscription.payment_reference|default:'' }}">
-          </div>
-
-          <button type="submit" class="btn-pay" id="payBtn">
-            <i class="bx bx-send me-1"></i> Submit Payment Reference
-          </button>
-          <p style="font-size:0.75rem;color:#9098b0;text-align:center;margin-top:10px;">
-            Your account will be activated after admin verifies your payment, usually within 24 hours.
-          </p>
-        </div>
-      </form>
-    </div>
-
-    <!-- Right: order summary -->
-    <div style="position:sticky;top:80px;">
-      <div class="sum-card">
-        <p class="sum-title">Order Summary</p>
-        <div class="sum-row">
-          <span class="sum-label">Account</span>
-          <span class="sum-value">{{ email }}</span>
-        </div>
-        <div class="sum-row">
-          <span class="sum-label">Plan</span>
-          <span class="sum-value">
-            <span id="summary-plan-name">
-              {% if current_plan_slug == 'premium' %}{{ premium.name|default:"Premium" }}{% else %}{{ basic.name|default:"Basic" }}{% endif %}
-            </span>
-            <br>
-            <span class="sum-plan-chip {% if current_plan_slug == 'premium' %}plan-badge-premium{% else %}plan-badge-basic{% endif %}"
-                  id="summary-plan-chip">
-              {{ current_plan_slug|title }}
-            </span>
-          </span>
-        </div>
-        <div class="sum-row">
-          <span class="sum-label">Duration</span>
-          <span class="sum-value" id="summary-duration">
-            {% if current_plan_slug == 'premium' %}{{ premium.duration_days|default:365 }}{% else %}{{ basic.duration_days|default:365 }}{% endif %} days
-          </span>
-        </div>
-        <div class="sum-row">
-          <span class="sum-label sum-total">Total Due</span>
-          <span class="sum-value sum-total" id="summary-price">
-            GHS {% if current_plan_slug == 'premium' %}{{ premium.price|default:"0" }}{% else %}{{ basic.price|default:"0" }}{% endif %}
-          </span>
-        </div>
-      </div>
-
-      <div class="sum-card">
-        <p class="sum-title">Need Help?</p>
-        <p style="font-size:0.82rem;color:#7b8599;margin:0;">
-          Contact us at <strong>support@nurseedge.com</strong> if you have trouble completing payment.
+  <!-- Current subscription banner -->
+  {% if latest_subscription %}
+  <div class="active-plan-banner">
+    <div class="apb-left">
+      <div class="apb-icon"><i class="bx bx-shield-quarter"></i></div>
+      <div>
+        <p class="apb-plan">{{ latest_subscription.plan_slug|title }} Plan</p>
+        <p class="apb-sub">
+          {% if latest_subscription.status == 'active' %}
+            Active until {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
+          {% elif latest_subscription.status == 'pending_payment' %}
+            Awaiting payment verification
+          {% else %}
+            {{ latest_subscription.status|title }}
+          {% endif %}
         </p>
-        <a href="/dashboard/" class="btn btn-sm btn-outline-secondary w-100 mt-3" style="border-radius:8px;font-size:0.82rem;">
-          Go to Dashboard →
-        </a>
       </div>
     </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span class="apb-pill {% if latest_subscription.status == 'active' %}active{% elif latest_subscription.status == 'pending_payment' %}pending{% else %}inactive{% endif %}">
+        {% if latest_subscription.status == 'pending_payment' %}Pending{% else %}{{ latest_subscription.status|title }}{% endif %}
+      </span>
+      {% if latest_subscription.status != 'active' %}
+      <a href="/subscribe/" class="btn-subscribe">Complete Payment →</a>
+      {% else %}
+      <a href="/subscribe/" class="btn-subscribe">Upgrade / Renew</a>
+      {% endif %}
+    </div>
   </div>
+  {% else %}
+  <div class="active-plan-banner" style="background:#2a2a4e;">
+    <div class="apb-left">
+      <div class="apb-icon"><i class="bx bx-credit-card"></i></div>
+      <div>
+        <p class="apb-plan">No active subscription</p>
+        <p class="apb-sub">Choose a plan to unlock your full dashboard.</p>
+      </div>
+    </div>
+    <a href="/subscribe/" class="btn-subscribe">Choose a Plan →</a>
+  </div>
+  {% endif %}
+
+  <!-- History table -->
+  <div class="hist-card">
+    <div class="hist-card-header">
+      <h5 class="hist-card-title">
+        All Transactions
+        <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">
+          {{ payment_history|length }} record{{ payment_history|length|pluralize }}
+        </span>
+      </h5>
+    </div>
+
+    {% if payment_history %}
+    <div style="overflow-x:auto;">
+      <table class="hist-table">
+        <thead>
+          <tr>
+            <th>Plan</th>
+            <th>Amount Due</th>
+            <th>Amount Paid</th>
+            <th>Reference / Session</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Expires</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in payment_history %}
+          <tr>
+            <td>
+              <span class="plan-chip {% if row.plan_slug == 'premium' %}plan-premium{% else %}plan-basic{% endif %}">
+                {{ row.plan_slug|title|default:"—" }}
+              </span>
+            </td>
+            <td style="font-weight:700;">{{ row.currency|default:"GHS" }} {{ row.amount_due|default:"—" }}</td>
+            <td>
+              {% if row.amount_paid %}{{ row.currency|default:"GHS" }} {{ row.amount_paid }}
+              {% else %}<span style="color:#c0c8d8;">—</span>{% endif %}
+            </td>
+            <td style="font-size:0.76rem;color:#7b8599;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="{{ row.payment_reference|default:'' }}">
+              {{ row.payment_reference|default:"—"|truncatechars:26 }}
+            </td>
+            <td>
+              <span class="s-badge {% if row.status == 'active' %}s-active{% elif row.status == 'pending_payment' %}s-pending{% elif row.status == 'cancelled' %}s-cancelled{% else %}s-expired{% endif %}">
+                {% if row.status == 'pending_payment' %}Pending{% else %}{{ row.status|title }}{% endif %}
+              </span>
+            </td>
+            <td style="font-size:0.78rem;white-space:nowrap;">{{ row.started_at|slice:":10"|default:"—" }}</td>
+            <td style="font-size:0.78rem;white-space:nowrap;">{{ row.expires_at|slice:":10"|default:"—" }}</td>
+            <td style="font-size:0.78rem;white-space:nowrap;color:#9098b0;">{{ row.created_at|slice:":10"|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bx bx-receipt"></i>
+      <p>No payment records yet.</p>
+      <a href="/subscribe/" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:0.84rem;font-weight:700;text-decoration:none;display:inline-block;">
+        Subscribe Now
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
-
-{% block scripts %}
-<script>
-var PLANS = {
-  basic:   { name: "{{ basic.name|default:'Basic'|escapejs }}", price: "GHS {{ basic.price|default:'0' }}", duration: "{{ basic.duration_days|default:365 }}", chip: "plan-badge-basic" },
-  premium: { name: "{{ premium.name|default:'Premium'|escapejs }}", price: "GHS {{ premium.price|default:'0' }}", duration: "{{ premium.duration_days|default:365 }}", chip: "plan-badge-premium" }
-};
-
-function switchPlan(slug) {
-  // Update plan cards
-  document.querySelectorAll(".plan-card").forEach(function(c){ c.classList.remove("selected"); });
-  var card = document.getElementById("pc-" + slug);
-  if (card) card.classList.add("selected");
-
-  // Show correct instructions
-  document.getElementById("instr-basic").style.display   = (slug === "basic")   ? "" : "none";
-  document.getElementById("instr-premium").style.display = (slug === "premium") ? "" : "none";
-
-  // Update summary
-  var p = PLANS[slug] || PLANS.basic;
-  document.getElementById("summary-plan-name").textContent = p.name;
-  document.getElementById("summary-price").textContent     = p.price;
-  document.getElementById("summary-duration").textContent  = p.duration + " days";
-  var chip = document.getElementById("summary-plan-chip");
-  chip.textContent = slug.charAt(0).toUpperCase() + slug.slice(1);
-  chip.className   = "sum-plan-chip " + p.chip;
-}
-
-// Prevent double-submit
-document.getElementById("payForm").addEventListener("submit", function() {
-  var btn = document.getElementById("payBtn");
-  btn.disabled = true;
-  btn.textContent = "Submitting…";
-});
-</script>
-{% endblock %}
 {% endblock %}

@@ -1,4 +1,6 @@
 from django.urls import path
+from django.views.generic import RedirectView
+
 from . import views
 
 urlpatterns = [
@@ -14,6 +16,11 @@ urlpatterns = [
 
     # Student dashboard
     path("dashboard/", views.user_dashboard, name="user_dashboard"),
+    path("dashboard/nmc-mastery/", views.student_nmc_mastery, name="student_nmc_mastery"),
+    path(
+        "dashboard/hot-areas/",
+        RedirectView.as_view(pattern_name="student_nmc_mastery", permanent=False),
+    ),
     path("dashboard/messages/", views.student_messages, name="student_messages"),
     path("dashboard/messages/read/<uuid:message_id>/", views.student_mark_message_read, name="student_mark_message_read"),
     path("dashboard/messages/read-all/", views.student_mark_all_messages_read, name="student_mark_all_messages_read"),
@@ -51,6 +58,9 @@ urlpatterns = [
 
     # Payment / Subscription
     path("payment/", views.payment_page, name="payment_page"),
+    path("subscribe/", views.student_subscribe, name="student_subscribe"),
+    path("subscribe/success/", views.student_subscribe_success, name="student_subscribe_success"),
+    path("subscribe/cancel/", views.student_subscribe_cancel, name="student_subscribe_cancel"),
 
     # Community — Student
     path("dashboard/community/", views.community_home, name="community_home"),
