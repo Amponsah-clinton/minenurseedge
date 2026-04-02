@@ -8,7 +8,11 @@
       "Bash(python -c \"import supabase; print\\(supabase.__version__\\)\")",
       "Bash(timeout 5 python manage.py runserver 8000)",
       "Bash(ls c:\\\\Users\\\\user\\\\Desktop\\\\namari-gh-pages\\\\templates\\\\dashboard\\\\community*.html)",
-      "Bash(python -c \"import stripe; from django.conf import settings; import os; from dotenv import load_dotenv; load_dotenv\\('.env'\\); key=os.getenv\\('STRIPE_SECRET_KEY',''\\); print\\('Stripe key loaded:', bool\\(key\\), '| starts with:', key[:12] if key else 'MISSING'\\)\")"
+      "Bash(python -c \"import stripe; from django.conf import settings; import os; from dotenv import load_dotenv; load_dotenv\\('.env'\\); key=os.getenv\\('STRIPE_SECRET_KEY',''\\); print\\('Stripe key loaded:', bool\\(key\\), '| starts with:', key[:12] if key else 'MISSING'\\)\")",
+      "Bash(git -C /c/Users/user/Desktop/namari-gh-pages log --oneline --all --grep=\"identifier\")",
+      "Bash(git -C /c/Users/user/Desktop/namari-gh-pages log --oneline --all -- \"*identifier*\")",
+      "Bash(git -C /c/Users/user/Desktop/namari-gh-pages log --oneline -20)",
+      "Bash(git -C /c/Users/user/Desktop/namari-gh-pages log --all --oneline)"
     ]
   }
 }
