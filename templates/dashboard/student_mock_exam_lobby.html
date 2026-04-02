@@ -1,0 +1,92 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ exam.title }} – Ready? - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row g-4 justify-content-center">
+
+  {# ── Exam info card ──────────────────────────────────────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body text-center py-4">
+        <h3 class="mb-1">{{ exam.title }}</h3>
+        <p class="text-muted mb-3">
+          {{ exam.question_count }} questions &nbsp;·&nbsp; {{ exam.duration_minutes }} minutes
+        </p>
+        <p class="text-muted mb-4">
+          Review the leaderboard below, then click <strong>Begin Exam</strong> when you are ready.
+          The countdown will start only after you click Begin.
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="begin" />
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            Begin Exam
+          </button>
+          <a href="/dashboard/mock-exams/" class="btn btn-outline-secondary btn-lg ms-2">Back</a>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {# ── Leaderboard ─────────────────────────────────────────────────────────── #}
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ exam.title }} Leaderboard</h5>
+        {% if my_rank %}
+          <span class="badge bg-label-primary fs-6">Your rank: #{{ my_rank }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if leaderboard_rows %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th style="width:60px">#</th>
+                  <th>Student</th>
+                  <th class="text-end" style="width:100px">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in leaderboard_rows %}
+                <tr {% if row.is_me %}class="table-primary fw-semibold"{% endif %}>
+                  <td>
+                    {% if row.rank == 1 %}<span title="1st">🥇</span>
+                    {% elif row.rank == 2 %}<span title="2nd">🥈</span>
+                    {% elif row.rank == 3 %}<span title="3rd">🥉</span>
+                    {% else %}{{ row.rank }}{% endif %}
+                  </td>
+                  <td>
+                    {{ row.student_name }}
+                    {% if row.is_me %}<span class="badge bg-primary ms-1">You</span>{% endif %}
+                  </td>
+                  <td class="text-end">{{ row.percentage|floatformat:0 }}%</td>
+                </tr>
+                {% endfor %}
+
+                {# Show student's own row if they're outside top 10 #}
+                {% if my_row %}
+                <tr>
+                  <td colspan="3" class="text-center text-muted py-1" style="font-size:.8rem">· · ·</td>
+                </tr>
+                <tr class="table-primary fw-semibold">
+                  <td>{{ my_row.rank }}</td>
+                  <td>{{ my_row.student_name }} <span class="badge bg-primary ms-1">You</span></td>
+                  <td class="text-end">{{ my_row.percentage|floatformat:0 }}%</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-5">
+            <p class="mb-0">No one has completed this mock yet. Be the first!</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

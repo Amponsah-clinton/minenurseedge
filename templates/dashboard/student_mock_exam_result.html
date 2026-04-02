@@ -41,12 +41,22 @@
                 </thead>
                 <tbody>
                   {% for row in leaderboard_rows %}
-                  <tr {% if row.is_me %}class="table-primary"{% endif %}>
+                  <tr {% if row.is_me %}class="table-primary fw-semibold"{% endif %}>
                     <td>{{ row.rank }}</td>
-                    <td>{{ row.student_name }} {% if row.is_me %}<strong>(You)</strong>{% endif %}</td>
+                    <td>{{ row.student_name }} {% if row.is_me %}<span class="badge bg-primary ms-1">You</span>{% endif %}</td>
                     <td class="text-end">{{ row.percentage|floatformat:0 }}%</td>
                   </tr>
                   {% endfor %}
+                  {% if my_row %}
+                  <tr>
+                    <td colspan="3" class="text-center text-muted py-1" style="font-size:.8rem">· · ·</td>
+                  </tr>
+                  <tr class="table-primary fw-semibold">
+                    <td>{{ my_row.rank }}</td>
+                    <td>{{ my_row.student_name }} <span class="badge bg-primary ms-1">You</span></td>
+                    <td class="text-end">{{ my_row.percentage|floatformat:0 }}%</td>
+                  </tr>
+                  {% endif %}
                 </tbody>
               </table>
             </div>

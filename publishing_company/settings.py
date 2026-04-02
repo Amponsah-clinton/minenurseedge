@@ -107,14 +107,22 @@ STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()
 # Used in Stripe Checkout success/cancel URLs if request.build_absolute_uri is wrong behind a proxy
 PUBLIC_SITE_URL = os.getenv("PUBLIC_SITE_URL", "").strip().rstrip("/")
 
+
+def _normalize_paystack_secret(raw):
+    """Strip whitespace, optional quotes, and accidental 'Bearer ' prefix from .env values."""
+    if not raw:
+        return ""
+    s = str(raw).strip()
+    if len(s) >= 2 and s[0] in "'\"" and s[-1] == s[0]:
+        s = s[1:-1].strip()
+    if s.lower().startswith("bearer "):
+        s = s[7:].strip()
+    return s
+
+
 # Paystack (preferred for /subscribe/ when secret is set)
-PAYSTACK_SECRET_KEY = (
-    os.getenv("PAYSTACK_SECRET_KEY", "").strip()
-    or os.getenv("VITE_PAYSTACK_SECRET_KEY", "").strip()
-)
-PAYSTACK_PUBLIC_KEY = (
-    os.getenv("PAYSTACK_PUBLIC_KEY", "").strip()
-    or os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "").strip()
+PAYSTACK_SECRET_KEY = _normalize_paystack_secret(
+    os.getenv("PAYSTACK_SECRET_KEY", "") or os.getenv("VITE_PAYSTACK_SECRET_KEY", "")
 )
 PAYSTACK_PUBLIC_KEY = (
     os.getenv("PAYSTACK_PUBLIC_KEY", "").strip()

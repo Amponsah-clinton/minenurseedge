@@ -19,6 +19,9 @@
 {% if success %}
 <div class="alert alert-success" role="alert">{{ success }}</div>
 {% endif %}
+{% if warning %}
+<div class="alert alert-warning" role="alert">{{ warning }}</div>
+{% endif %}
 {% if error %}
 <div class="alert alert-danger" role="alert">{{ error }}</div>
 {% endif %}
@@ -160,8 +163,9 @@
         <h5 class="mb-2">Better JSON Bulk Example</h5>
         <p class="text-muted mb-3">
           You can upload either an array directly or use <code>{ "questions": [...] }</code>.
-          Use one programme for each item. If <strong>paper_title</strong> is <strong>General Paper</strong>,
-          that question is automatically copied to all programmes.
+          Programme is required for specialty papers. For <strong>General Paper</strong>, leave
+          <code>programme</code> empty or omit it — the question is saved for every programme automatically.
+          Paper title matching is case-insensitive (e.g. <code>general paper</code> works).
         </p>
         <pre class="mb-0" style="white-space:pre-wrap;">{
   "questions": [
@@ -214,7 +218,6 @@
       "explanation": "EPS is a known adverse effect of many antipsychotics."
     },
     {
-      "programme": "Registered Public Health Nursing (RPHN)",
       "paper_title": "General Paper",
       "question": "Primary prevention mainly focuses on what?",
       "options": {

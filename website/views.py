@@ -5,6 +5,7 @@ import secrets
 import csv
 from datetime import datetime, timedelta, timezone
 from io import StringIO
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseRedirect
@@ -37,6 +38,154 @@ def _supabase():
 def _supabase_admin():
     """Service-role key – bypasses RLS, used for all DB writes."""
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+
+def _filter_duplicate_questions(supabase_client, rows):
+    """
+    Remove rows that already exist in question_bank.
+
+    Duplicate = same (programme, paper_title, question_text), compared
+    case-insensitively after stripping whitespace.
+
+    Also de-duplicates within the batch itself so the same question
+    cannot appear twice in a single JSON upload.
+
+    Returns (unique_rows, skipped_texts) where skipped_texts is a list
+    of (question_text_snippet, reason) pairs for reporting.
+    """
+    from collections import defaultdict
+
+    if not rows:
+        return [], []
+
+    # Group rows by (programme, paper_title) to minimise DB round-trips.
+    groups = defaultdict(list)
+    for row in rows:
+        key = (row["programme"], row["paper_title"])
+        groups[key].append(row)
+
+    unique_rows = []
+    skipped_texts = []
+
+    for (programme, paper_title), group_rows in groups.items():
+        # Fetch every existing question_text for this paper + programme.
+        result = (
+            supabase_client
+            .table("question_bank")
+            .select("question_text")
+            .eq("programme", programme)
+            .eq("paper_title", paper_title)
+            .execute()
+        )
+        existing_texts = {
+            r["question_text"].strip().lower()
+            for r in (result.data or [])
+        }
+
+        for row in group_rows:
+            key_text = row["question_text"].strip().lower()
+            snippet = row["question_text"][:80]
+
+            if key_text in existing_texts:
+                skipped_texts.append((snippet, "already exists in the database"))
+            else:
+                unique_rows.append(row)
+                # Prevent the same text from being inserted twice within
+                # the same batch (e.g. duplicate entries in JSON upload).
+                existing_texts.add(key_text)
+
+    return unique_rows, skipped_texts
+
+
+def _build_mock_leaderboard(supabase_client, exam_id, current_user_id, top_n=10):
+    """
+    Build a ranked leaderboard for a mock exam.
+
+    Returns (leaderboard_rows, my_rank, my_row):
+      - leaderboard_rows: top_n entries as dicts with rank/student_name/percentage/is_me
+      - my_rank: int rank of current_user_id (None if not on board)
+      - my_row: the student's own row dict if outside top_n, else None
+    """
+    try:
+        all_attempts = (
+            supabase_client
+            .table("mock_attempts")
+            .select("student_id, percentage, submitted_at")
+            .eq("mock_exam_id", exam_id)
+            .not_.is_("submitted_at", "null")
+            .order("percentage", desc=True)
+            .order("submitted_at", desc=False)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        return [], None, None
+
+    # Keep only each student's best score.
+    best_by_student = {}
+    for row in all_attempts:
+        sid = row.get("student_id")
+        pct = float(row.get("percentage") or 0)
+        if sid not in best_by_student or pct > float(best_by_student[sid].get("percentage") or 0):
+            best_by_student[sid] = row
+
+    ranking = sorted(
+        best_by_student.values(),
+        key=lambda r: float(r.get("percentage") or 0),
+        reverse=True,
+    )
+
+    # Fetch display names for everyone in the top_n + current user.
+    top_entries = ranking[:top_n]
+    ids_needed = {r.get("student_id") for r in top_entries if r.get("student_id")}
+    if current_user_id:
+        ids_needed.add(current_user_id)
+    names_map = {}
+    if ids_needed:
+        try:
+            profiles = (
+                supabase_client
+                .table("profiles")
+                .select("id, full_name")
+                .in_("id", list(ids_needed))
+                .execute()
+                .data
+                or []
+            )
+            names_map = {p["id"]: (p.get("full_name") or "Student") for p in profiles}
+        except Exception:
+            pass
+
+    my_rank = None
+    for idx, row in enumerate(ranking, start=1):
+        if row.get("student_id") == current_user_id:
+            my_rank = idx
+            break
+
+    leaderboard_rows = [
+        {
+            "rank": idx,
+            "student_name": names_map.get(row.get("student_id"), "Student"),
+            "percentage": float(row.get("percentage") or 0),
+            "is_me": row.get("student_id") == current_user_id,
+        }
+        for idx, row in enumerate(top_entries, start=1)
+    ]
+
+    # If the current user is outside the top_n, build a separate row for them.
+    my_row = None
+    if my_rank is not None and my_rank > top_n:
+        user_entry = best_by_student.get(current_user_id)
+        if user_entry:
+            my_row = {
+                "rank": my_rank,
+                "student_name": names_map.get(current_user_id, "Student"),
+                "percentage": float(user_entry.get("percentage") or 0),
+                "is_me": True,
+            }
+
+    return leaderboard_rows, my_rank, my_row
 
 
 def _find_auth_user_by_email(email):
@@ -183,10 +332,55 @@ PROGRAMME_PAPERS = {
 PROGRAMME_NAMES = list(PROGRAMME_PAPERS.keys())
 ALL_PAPERS = sorted({paper for papers in PROGRAMME_PAPERS.values() for paper in papers})
 
+GENERAL_PAPER_TITLE = "General Paper"
+
+
+def _is_general_paper(paper_title):
+    """True when this is the shared General Paper (all programmes); programme may be omitted."""
+    return (paper_title or "").strip().casefold() == GENERAL_PAPER_TITLE.casefold()
+
+
+def _general_paper_row_ids_for_same_question(admin_client, question_text):
+    """IDs of all programme copies of one General Paper question (same question_text)."""
+    qt = (question_text or "").strip()
+    if not qt:
+        return []
+    rows = (
+        admin_client.table("question_bank")
+        .select("id, paper_title")
+        .eq("question_text", qt)
+        .execute()
+        .data
+        or []
+    )
+    return [r["id"] for r in rows if _is_general_paper(r.get("paper_title"))]
+
+
+MANAGE_QUESTIONS_PER_PAGE = 25
+MANAGE_QUESTIONS_MAX_FETCH = 8000
+
+
+def _dedupe_general_paper_rows_for_admin_list(rows):
+    """Show one row per General Paper question; label programme as shared."""
+    seen_text = set()
+    out = []
+    for r in rows:
+        r = dict(r)
+        r["general_paper_grouped"] = False
+        if _is_general_paper(r.get("paper_title")):
+            key = (r.get("question_text") or "").strip()
+            if key in seen_text:
+                continue
+            seen_text.add(key)
+            r["programme"] = "All programmes"
+            r["general_paper_grouped"] = True
+        out.append(r)
+    return out
+
 
 def _programmes_for_paper(programme, paper_title):
     """General Paper should be available for all programmes."""
-    if paper_title == "General Paper":
+    if _is_general_paper(paper_title):
         return PROGRAMME_NAMES
     return [programme]
 
@@ -213,7 +407,8 @@ def _normalize_question_payload(item):
 
     if not paper_title:
         raise ValueError("Paper title is required.")
-    if paper_title == "General Paper":
+    if _is_general_paper(paper_title):
+        paper_title = GENERAL_PAPER_TITLE
         if programme and programme not in PROGRAMME_PAPERS:
             raise ValueError(f"Invalid programme: {programme}")
     else:
@@ -240,8 +435,8 @@ def _normalize_question_payload(item):
     }
 
 
-MOCK_QUESTION_BATCH_SIZE = 180
-MOCK_DURATION_MINUTES = 90
+MOCK_QUESTION_BATCH_SIZE = 60
+MOCK_DURATION_MINUTES = 30
 GLOBAL_MOCK_PROGRAMME = "All Programmes"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
@@ -309,6 +504,8 @@ def login_page(request):
 
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
+            if role == "student":
+                _reconcile_pending_subscription_from_paystack(user_id, force=True)
             if not subscription_allows_dashboard(user_id):
                 return redirect("/subscribe/")
             return redirect("/dashboard/")
@@ -469,6 +666,19 @@ def signup_page(request):
             }).execute()
             sub_id = (sub_resp.data or [{}])[0].get("id")
 
+            # Keep Paystack reference on the row even if server-side verify fails (wrong key, 403, etc.)
+            # so login /subscribe/ can retry verification without asking the user to pay again.
+            if paystack_reference and sub_id:
+                admin.table("subscriptions").update({
+                    "payment_reference": paystack_reference,
+                }).eq("id", sub_id).execute()
+
+            price_val = float(plan.get("price") or 0)
+            if price_val <= 0 and sub_id:
+                _apply_successful_subscription_payment(user_id, sub_id, plan_slug, 0, "complimentary")
+                _create_session(request, user_id, email, full_name, "student")
+                return redirect("/dashboard/")
+
             # If Paystack reference provided, verify and activate immediately
             paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
             if paystack_reference and paystack_secret and sub_id:
@@ -483,7 +693,7 @@ def signup_page(request):
                         user_id, sub_id, plan_slug, amount_paid, paystack_reference
                     )
                     _create_session(request, user_id, email, full_name, "student")
-                    return redirect("/payment/")
+                    return redirect("/dashboard/")
 
             _create_session(request, user_id, email, full_name, "student")
             return redirect("/subscribe/")
@@ -1062,8 +1272,29 @@ def admin_upload_questions(request):
         else:
             raise ValueError("Invalid upload mode selected.")
 
-        _supabase_admin().table("question_bank").insert(rows_to_insert).execute()
-        context["success"] = f"Upload successful. Saved {len(rows_to_insert)} question record(s)."
+        db = _supabase_admin()
+        unique_rows, skipped_texts = _filter_duplicate_questions(db, rows_to_insert)
+
+        if skipped_texts:
+            skip_summary = "; ".join(
+                f'"{s[:60]}…" ({reason})' if len(s) > 60 else f'"{s}" ({reason})'
+                for s, reason in skipped_texts
+            )
+            context["warning"] = (
+                f"Skipped {len(skipped_texts)} duplicate question(s): {skip_summary}"
+            )
+
+        if not unique_rows:
+            raise ValueError(
+                "No new questions to save — all submitted question(s) are duplicates "
+                "of existing records (matched by programme + paper + question text)."
+            )
+
+        db.table("question_bank").insert(unique_rows).execute()
+        saved_msg = f"Upload successful. Saved {len(unique_rows)} question record(s)."
+        if skipped_texts:
+            saved_msg += f" ({len(skipped_texts)} duplicate(s) skipped.)"
+        context["success"] = saved_msg
     except Exception as exc:
         context["error"] = str(exc)
         context["form_data"] = {**EMPTY_QUESTION_FORM, **request.POST.dict()}
@@ -1078,6 +1309,11 @@ def admin_manage_questions(request):
 
     query = request.GET.get("q", "").strip()
     edit_id = request.GET.get("edit", "").strip()
+    try:
+        page = int(request.GET.get("page", "1"))
+    except ValueError:
+        page = 1
+    page = max(1, page)
 
     context = {
         "full_name": request.session.get("full_name", "Admin"),
@@ -1089,6 +1325,10 @@ def admin_manage_questions(request):
         "programmes": PROGRAMME_NAMES,
         "query": query,
         "questions": [],
+        "question_bank_count": 0,
+        "question_list_shown": 0,
+        "question_list_total_logical": 0,
+        "pagination": None,
         "form_data": EMPTY_QUESTION_FORM.copy(),
     }
 
@@ -1133,7 +1373,15 @@ def admin_manage_questions(request):
                 if not question_id:
                     raise ValueError("Question ID is required for update.")
 
-                existing_rows = admin.table("question_bank").select("id, programme").eq("id", question_id).limit(1).execute().data or []
+                existing_rows = (
+                    admin.table("question_bank")
+                    .select("id, programme, paper_title, question_text")
+                    .eq("id", question_id)
+                    .limit(1)
+                    .execute()
+                    .data
+                    or []
+                )
                 existing_row = existing_rows[0] if existing_rows else None
                 if not existing_row:
                     raise ValueError("Question not found for update.")
@@ -1151,48 +1399,177 @@ def admin_manage_questions(request):
                     "explanation": request.POST.get("explanation", "").strip(),
                 })
 
-                # During single-row edit, keep the row's programme when General Paper is selected without a programme.
-                target_programme = payload["programme"] or existing_row.get("programme", "")
+                old_pt = existing_row.get("paper_title") or ""
+                old_qt = (existing_row.get("question_text") or "").strip()
+                if _is_general_paper(old_pt) and not _is_general_paper(payload["paper_title"]):
+                    raise ValueError(
+                        "This item is shared across all programmes as General Paper. "
+                        "Keep paper as General Paper, or delete it and create a programme-specific question."
+                    )
 
-                admin.table("question_bank").update({
-                    "programme": target_programme,
+                update_body = {
                     "paper_title": payload["paper_title"],
                     "question_text": payload["question_text"],
                     "options": payload["options"],
                     "correct_option": payload["correct_option"],
                     "explanation": payload["explanation"],
-                }).eq("id", question_id).execute()
-                context["success"] = "Question updated successfully."
+                }
+
+                if _is_general_paper(old_pt):
+                    sibling_ids = _general_paper_row_ids_for_same_question(admin, old_qt)
+                    if not sibling_ids:
+                        sibling_ids = [question_id]
+                    elif question_id not in sibling_ids:
+                        sibling_ids = sibling_ids + [question_id]
+                    admin.table("question_bank").update(update_body).in_("id", sibling_ids).execute()
+                    n = len(sibling_ids)
+                    context["success"] = (
+                        f"Question updated for all programmes ({n} copies)."
+                        if n > 1
+                        else "Question updated successfully."
+                    )
+                else:
+                    target_programme = payload["programme"] or existing_row.get("programme", "")
+                    admin.table("question_bank").update({
+                        **update_body,
+                        "programme": target_programme,
+                    }).eq("id", question_id).execute()
+                    context["success"] = "Question updated successfully."
 
             elif action == "delete":
                 question_id = request.POST.get("question_id", "").strip()
                 if not question_id:
                     raise ValueError("Question ID is required for delete.")
-                admin.table("question_bank").delete().eq("id", question_id).execute()
-                context["success"] = "Question deleted successfully."
+                del_rows = (
+                    admin.table("question_bank")
+                    .select("id, paper_title, question_text")
+                    .eq("id", question_id)
+                    .limit(1)
+                    .execute()
+                    .data
+                    or []
+                )
+                del_row = del_rows[0] if del_rows else None
+                if del_row and _is_general_paper(del_row.get("paper_title")):
+                    ids = _general_paper_row_ids_for_same_question(
+                        admin, del_row.get("question_text") or ""
+                    )
+                    if ids:
+                        admin.table("question_bank").delete().in_("id", ids).execute()
+                        context["success"] = (
+                            f"Deleted {len(ids)} programme copies of this General Paper question."
+                            if len(ids) > 1
+                            else "Question deleted successfully."
+                        )
+                    else:
+                        admin.table("question_bank").delete().eq("id", question_id).execute()
+                        context["success"] = "Question deleted successfully."
+                else:
+                    admin.table("question_bank").delete().eq("id", question_id).execute()
+                    context["success"] = "Question deleted successfully."
                 if edit_id == question_id:
                     edit_id = ""
             else:
                 raise ValueError("Invalid action.")
 
-        # Keep listing lightweight for faster page load; fetch full row only for edit.
+        # Fetch a bounded set, dedupe General Paper copies, then paginate the logical list.
+        escaped = query.replace("%", "").replace(",", " ").strip() if query else ""
         list_query = (
             admin.table("question_bank")
             .select("id, programme, paper_title, question_text, correct_option, created_at")
             .order("created_at", desc=True)
-            .limit(50)
+            .limit(MANAGE_QUESTIONS_MAX_FETCH)
         )
-        if query:
-            escaped = query.replace("%", "").replace(",", " ").strip()
-            list_query = list_query.or_(
-                f"question_text.ilike.%{escaped}%,programme.ilike.%{escaped}%,paper_title.ilike.%{escaped}%"
+        count_query = admin.table("question_bank").select("id", count="exact", head=True)
+        if escaped:
+            filt = (
+                f"question_text.ilike.%{escaped}%,programme.ilike.%{escaped}%,"
+                f"paper_title.ilike.%{escaped}%"
             )
-        questions = list_query.execute().data or []
+            list_query = list_query.or_(filt)
+            count_query = count_query.or_(filt)
+        try:
+            context["question_bank_count"] = count_query.execute().count or 0
+        except Exception:
+            context["question_bank_count"] = 0
+
+        questions_raw = list_query.execute().data or []
+        truncated_fetch = len(questions_raw) >= MANAGE_QUESTIONS_MAX_FETCH
+        questions_deduped = _dedupe_general_paper_rows_for_admin_list(questions_raw)
+        total_logical = len(questions_deduped)
+        context["question_list_total_logical"] = total_logical
+
+        per_page = MANAGE_QUESTIONS_PER_PAGE
+        num_pages = max(1, (total_logical + per_page - 1) // per_page) if total_logical else 1
+        page_clamped = min(page, num_pages)
+        start = (page_clamped - 1) * per_page
+        questions = questions_deduped[start : start + per_page]
         context["questions"] = questions
+        context["question_list_shown"] = len(questions)
+
+        def _mq_url(page_num=1):
+            params = {}
+            if page_num and page_num > 1:
+                params["page"] = page_num
+            if query:
+                params["q"] = query
+            return "/admin-panel/manage-questions/" + ("?" + urlencode(params) if params else "")
+
+        def _manage_q_pagelist(cur, total, radius=2):
+            if total <= 0:
+                return []
+            if total <= 7:
+                return list(range(1, total + 1))
+            nums = set()
+            for n in range(1, total + 1):
+                if n <= 2 or n > total - 2 or abs(n - cur) <= radius:
+                    nums.add(n)
+            ordered = sorted(nums)
+            out = []
+            prev = None
+            for n in ordered:
+                if prev is not None and n > prev + 1:
+                    out.append(None)
+                out.append(n)
+                prev = n
+            return out
+
+        nav_pages = _manage_q_pagelist(page_clamped, num_pages)
+        nav_items = []
+        for item in nav_pages:
+            if item is None:
+                nav_items.append({"ellipsis": True})
+            else:
+                nav_items.append(
+                    {"n": item, "url": _mq_url(item), "current": item == page_clamped}
+                )
+
+        context["pagination"] = {
+            "page": page_clamped,
+            "num_pages": num_pages,
+            "per_page": per_page,
+            "total_logical": total_logical,
+            "has_prev": page_clamped > 1,
+            "has_next": page_clamped < num_pages,
+            "prev_url": _mq_url(page_clamped - 1),
+            "next_url": _mq_url(page_clamped + 1),
+            "cancel_url": _mq_url(page_clamped),
+            "nav_items": nav_items,
+            "truncated_fetch": truncated_fetch,
+            "max_fetch": MANAGE_QUESTIONS_MAX_FETCH,
+        }
 
         if edit_id:
             fetch = admin.table("question_bank").select("*").eq("id", edit_id).limit(1).execute().data or []
-            context["edit_item"] = fetch[0] if fetch else None
+            ei = fetch[0] if fetch else None
+            if ei and _is_general_paper(ei.get("paper_title")):
+                n_copies = len(_general_paper_row_ids_for_same_question(admin, ei.get("question_text") or ""))
+                ei = {
+                    **ei,
+                    "general_paper_copy_count": n_copies,
+                    "programme": "",
+                }
+            context["edit_item"] = ei
 
     except Exception as exc:
         context["error"] = str(exc)
@@ -1205,17 +1582,136 @@ def admin_manage_questions(request):
 # Mock Exams
 # ---------------------------------------------------------------------------
 
+MOCK_POOL_PAGE_SIZE = 40
+
+
+def _delete_mock_pool_questions(admin_client):
+    """
+    Delete all questions from the mock pool (programme = GLOBAL_MOCK_PROGRAMME)
+    together with every child record that references them, so FK constraints
+    don't block the delete.
+    """
+    # 1. Collect every question ID in the pool.
+    rows = (
+        admin_client.table("question_bank")
+        .select("id")
+        .eq("programme", GLOBAL_MOCK_PROGRAMME)
+        .execute()
+        .data
+        or []
+    )
+    qids = [r["id"] for r in rows if r.get("id")]
+    if not qids:
+        return 0
+
+    # 2. Remove child FK rows in batches of 100 (PostgREST IN limit).
+    for i in range(0, len(qids), 100):
+        batch = qids[i:i + 100]
+        admin_client.table("mock_attempt_answers").delete().in_("question_id", batch).execute()
+        admin_client.table("mock_attempt_questions").delete().in_("question_id", batch).execute()
+
+    # 3. Now safe to delete the questions themselves.
+    admin_client.table("question_bank").delete().eq("programme", GLOBAL_MOCK_PROGRAMME).execute()
+    return len(qids)
+
+
+def _delete_mock_exam_cascade(admin_client, exam_id):
+    exam_id = str(exam_id).strip()
+    if not exam_id:
+        raise ValueError("Exam id is required.")
+    attempts = (
+        admin_client.table("mock_attempts")
+        .select("id")
+        .eq("mock_exam_id", exam_id)
+        .execute()
+        .data
+        or []
+    )
+    for att in attempts:
+        aid = att.get("id")
+        if not aid:
+            continue
+        admin_client.table("mock_attempt_answers").delete().eq("attempt_id", aid).execute()
+        admin_client.table("mock_attempt_questions").delete().eq("attempt_id", aid).execute()
+    admin_client.table("mock_attempts").delete().eq("mock_exam_id", exam_id).execute()
+    admin_client.table("mock_exams").delete().eq("id", exam_id).execute()
+
+
+def _assert_mock_pool_question(admin_client, question_id):
+    rows = (
+        admin_client.table("question_bank")
+        .select("id, programme")
+        .eq("id", str(question_id))
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    row = rows[0] if rows else None
+    if not row or row.get("programme") != GLOBAL_MOCK_PROGRAMME:
+        raise ValueError("Question not found or not part of the mock exam pool.")
+    return row
+
+
+def _mock_pool_question_payload_from_post(request):
+    question_text = request.POST.get("question_text", "").strip()
+    option_a = request.POST.get("option_a", "").strip()
+    option_b = request.POST.get("option_b", "").strip()
+    option_c = request.POST.get("option_c", "").strip()
+    correct_option = request.POST.get("correct_option", "").strip().upper()
+    explanation = request.POST.get("explanation", "").strip()
+    paper_title = (request.POST.get("paper_title") or "Mock Paper").strip() or "Mock Paper"
+    if not question_text:
+        raise ValueError("Question text is required.")
+    options = {}
+    if option_a:
+        options["A"] = option_a
+    if option_b:
+        options["B"] = option_b
+    if option_c:
+        options["C"] = option_c
+    if len(options) < 2:
+        raise ValueError("At least two options (A, B, or C) are required.")
+    if correct_option not in options:
+        raise ValueError("Correct option must match one of the provided options.")
+    return {
+        "programme": GLOBAL_MOCK_PROGRAMME,
+        "paper_title": paper_title,
+        "question_text": question_text,
+        "options": options,
+        "correct_option": correct_option,
+        "explanation": explanation,
+    }
+
+
 def admin_mock_exams(request):
     guard = _require_admin(request)
     if guard:
         return guard
 
     admin = _supabase_admin()
+    try:
+        mq_page = int(request.GET.get("mq_page", "1"))
+    except ValueError:
+        mq_page = 1
+    mq_page = max(1, mq_page)
+    mq_edit = request.GET.get("mq_edit", "").strip()
+
     context = {
         "full_name": request.session.get("full_name", "Admin"),
         "email": request.session.get("email", ""),
         "role": "admin",
         "active_page": "mock_exams",
+        "mock_pool_questions": [],
+        "mock_pool_total": 0,
+        "mock_pool_page": mq_page,
+        "mock_pool_num_pages": 1,
+        "mock_pool_prev_page": None,
+        "mock_pool_next_page": None,
+        "mock_pool_page_size": MOCK_POOL_PAGE_SIZE,
+        "edit_mock_question": None,
+        "mock_question_batch": MOCK_QUESTION_BATCH_SIZE,
+        "mock_duration_minutes": MOCK_DURATION_MINUTES,
     }
 
     try:
@@ -1268,54 +1764,136 @@ def admin_mock_exams(request):
                             "uploaded_by": request.session.get("user_id"),
                             "source_type": "mock_json",
                         })
-                    admin.table("question_bank").insert(rows_to_insert).execute()
 
-                count_resp = (
-                    admin.table("question_bank")
-                    .select("id", count="exact", head=True)
-                    .eq("programme", GLOBAL_MOCK_PROGRAMME)
-                    .execute()
-                )
-                total_questions = count_resp.count or 0
-                possible_batches = total_questions // MOCK_QUESTION_BATCH_SIZE
-                if possible_batches <= 0:
-                    raise ValueError("Not enough questions for this programme. Need at least 180 questions.")
+                    force = request.POST.get("force_upload") == "1"
 
-                existing = (
-                    admin.table("mock_exams")
-                    .select("id")
-                    .eq("programme", GLOBAL_MOCK_PROGRAMME)
-                    .order("mock_number", desc=False)
-                    .execute()
-                    .data
-                    or []
-                )
-                existing_count = len(existing)
-                create_count = max(0, possible_batches - existing_count)
-                if create_count <= 0 and action == "generate":
-                    raise ValueError("All possible mocks for this programme are already created.")
+                    if force:
+                        # Wipe the existing mock pool (with FK cascade), then insert fresh.
+                        _delete_mock_pool_questions(admin)
+                        to_insert = rows_to_insert
+                        skipped = []
+                    else:
+                        to_insert, skipped = _filter_duplicate_questions(admin, rows_to_insert)
+                        if skipped:
+                            context["warning"] = (
+                                f"{len(skipped)} duplicate question(s) were skipped. "
+                                f"Tick 'Force re-upload' to wipe the pool and re-upload everything."
+                            )
+                        if not to_insert:
+                            raise ValueError(
+                                "All questions already exist in the mock pool. "
+                                "Tick 'Force re-upload' below the textarea to replace them."
+                            )
 
-                for batch_index in range(existing_count + 1, existing_count + create_count + 1):
-                    admin.table("mock_exams").insert({
-                        "title": f"Mock {batch_index}",
-                        "programme": GLOBAL_MOCK_PROGRAMME,
-                        "mock_number": batch_index,
-                        "question_count": MOCK_QUESTION_BATCH_SIZE,
-                        "duration_minutes": MOCK_DURATION_MINUTES,
-                        "is_published": True,
-                        "created_by": request.session.get("user_id"),
-                    }).execute()
+                    admin.table("question_bank").insert(to_insert).execute()
 
-                if action == "upload_json":
-                    context["success"] = f"Questions uploaded via JSON. Created {create_count} new mock exam(s)."
-                else:
+                    # Auto-generate any new mock slots from the updated pool.
+                    total_q = admin.table("question_bank").select("id", count="exact", head=True).eq("programme", GLOBAL_MOCK_PROGRAMME).execute().count or 0
+                    possible = total_q // MOCK_QUESTION_BATCH_SIZE
+                    existing_mocks = admin.table("mock_exams").select("id").eq("programme", GLOBAL_MOCK_PROGRAMME).execute().data or []
+                    existing_count = len(existing_mocks)
+                    new_mocks = max(0, possible - existing_count)
+                    for batch_index in range(existing_count + 1, existing_count + new_mocks + 1):
+                        admin.table("mock_exams").insert({
+                            "title": f"Mock {batch_index}",
+                            "programme": GLOBAL_MOCK_PROGRAMME,
+                            "mock_number": batch_index,
+                            "question_count": MOCK_QUESTION_BATCH_SIZE,
+                            "duration_minutes": MOCK_DURATION_MINUTES,
+                            "is_published": True,
+                            "created_by": request.session.get("user_id"),
+                        }).execute()
+
+                    msg = f"{'Force-uploaded' if force else 'Uploaded'} {len(to_insert)} question(s) to the mock pool."
+                    if new_mocks:
+                        msg += f" Auto-created {new_mocks} new mock exam(s)."
+                    context["success"] = msg
+
+                elif action == "generate":
+                    count_resp = (
+                        admin.table("question_bank")
+                        .select("id", count="exact", head=True)
+                        .eq("programme", GLOBAL_MOCK_PROGRAMME)
+                        .execute()
+                    )
+                    total_questions = count_resp.count or 0
+                    possible_batches = total_questions // MOCK_QUESTION_BATCH_SIZE
+                    if possible_batches <= 0:
+                        raise ValueError("Not enough questions for this programme. Need at least 60 questions.")
+
+                    existing = (
+                        admin.table("mock_exams")
+                        .select("id")
+                        .eq("programme", GLOBAL_MOCK_PROGRAMME)
+                        .order("mock_number", desc=False)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    existing_count = len(existing)
+                    create_count = max(0, possible_batches - existing_count)
+                    if create_count <= 0:
+                        raise ValueError("All possible mocks for this programme are already created.")
+
+                    for batch_index in range(existing_count + 1, existing_count + create_count + 1):
+                        admin.table("mock_exams").insert({
+                            "title": f"Mock {batch_index}",
+                            "programme": GLOBAL_MOCK_PROGRAMME,
+                            "mock_number": batch_index,
+                            "question_count": MOCK_QUESTION_BATCH_SIZE,
+                            "duration_minutes": MOCK_DURATION_MINUTES,
+                            "is_published": True,
+                            "created_by": request.session.get("user_id"),
+                        }).execute()
+
                     context["success"] = f"Created {create_count} mock exam(s)."
+
+            elif action == "clear_mock_pool":
+                deleted = _delete_mock_pool_questions(admin)
+                context["success"] = f"Mock pool cleared — {deleted} question(s) deleted (including linked attempt records). You can now upload a fresh set."
 
             elif action == "toggle_publish":
                 exam_id = request.POST.get("exam_id", "").strip()
                 publish_to = request.POST.get("publish_to", "true").strip().lower() == "true"
                 admin.table("mock_exams").update({"is_published": publish_to}).eq("id", exam_id).execute()
                 context["success"] = "Mock exam publish status updated."
+
+            elif action == "delete_exam":
+                exam_id = request.POST.get("exam_id", "").strip()
+                if not exam_id:
+                    raise ValueError("Exam id is required.")
+                _delete_mock_exam_cascade(admin, exam_id)
+                context["success"] = "Mock exam and related attempts were deleted."
+
+            elif action == "delete_mock_question":
+                qid = request.POST.get("question_id", "").strip()
+                if not qid:
+                    raise ValueError("Question id is required.")
+                _assert_mock_pool_question(admin, qid)
+                try:
+                    admin.table("question_bank").delete().eq("id", qid).execute()
+                except Exception as del_exc:
+                    raise ValueError(
+                        "Could not delete this question. It may still be linked to student mock attempts."
+                    ) from del_exc
+                context["success"] = "Mock pool question deleted."
+
+            elif action == "create_mock_question":
+                body = _mock_pool_question_payload_from_post(request)
+                body["uploaded_by"] = request.session.get("user_id")
+                body["source_type"] = "mock_admin"
+                admin.table("question_bank").insert(body).execute()
+                context["success"] = "Mock pool question created."
+
+            elif action == "update_mock_question":
+                qid = request.POST.get("question_id", "").strip()
+                if not qid:
+                    raise ValueError("Question id is required.")
+                _assert_mock_pool_question(admin, qid)
+                body = _mock_pool_question_payload_from_post(request)
+                admin.table("question_bank").update(body).eq("id", qid).execute()
+                context["success"] = "Mock pool question updated."
+
             else:
                 raise ValueError("Invalid action.")
     except Exception as exc:
@@ -1333,6 +1911,54 @@ def admin_mock_exams(request):
         )
     except Exception:
         exams = []
+
+    try:
+        cnt_resp = (
+            admin.table("question_bank")
+            .select("id", count="exact", head=True)
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .execute()
+        )
+        pool_total = cnt_resp.count or 0
+        context["mock_pool_total"] = pool_total
+        num_pages = max(1, (pool_total + MOCK_POOL_PAGE_SIZE - 1) // MOCK_POOL_PAGE_SIZE) if pool_total else 1
+        page_use = min(mq_page, num_pages)
+        start = (page_use - 1) * MOCK_POOL_PAGE_SIZE
+        end = start + MOCK_POOL_PAGE_SIZE - 1
+        pool_rows = (
+            admin.table("question_bank")
+            .select("id, paper_title, question_text, correct_option, created_at")
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .order("created_at", desc=True)
+            .range(start, end)
+            .execute()
+            .data
+            or []
+        )
+        context["mock_pool_questions"] = pool_rows
+        context["mock_pool_page"] = page_use
+        context["mock_pool_num_pages"] = num_pages
+        context["mock_pool_prev_page"] = page_use - 1 if page_use > 1 else None
+        context["mock_pool_next_page"] = page_use + 1 if page_use < num_pages else None
+    except Exception:
+        pass
+
+    if mq_edit:
+        try:
+            full = (
+                admin.table("question_bank")
+                .select("*")
+                .eq("id", mq_edit)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            row = full[0] if full else None
+            if row and row.get("programme") == GLOBAL_MOCK_PROGRAMME:
+                context["edit_mock_question"] = row
+        except Exception:
+            pass
 
     context["mock_exams"] = exams
     return render(request, "dashboard/admin_mock_exams.html", context)
@@ -1379,70 +2005,26 @@ def student_mock_exams(request):
     except Exception:
         attempts = []
 
-    best_by_exam = {}
+    best_by_exam = {}   # exam_id -> {"pct": float, "attempt_id": str}
     for attempt in attempts:
-        exam_id = attempt.get("mock_exam_id")
+        eid = attempt.get("mock_exam_id")
         pct = float(attempt.get("percentage") or 0)
-        old = best_by_exam.get(exam_id)
-        if old is None or pct > old:
-            best_by_exam[exam_id] = pct
+        existing = best_by_exam.get(eid)
+        if existing is None or pct > existing["pct"]:
+            best_by_exam[eid] = {"pct": pct, "attempt_id": attempt.get("id")}
     for exam in exams:
-        exam["my_best"] = best_by_exam.get(exam["id"])
+        best = best_by_exam.get(exam["id"])
+        exam["my_best"] = best["pct"] if best else None
+        exam["best_attempt_id"] = best["attempt_id"] if best else None
         exam["leaderboard_rows"] = []
         exam["my_rank"] = None
 
     # Build leaderboard preview per mock (top 10 + current user's rank)
     for exam in exams:
-        try:
-            attempts_exam = (
-                admin.table("mock_attempts")
-                .select("student_id, percentage")
-                .eq("mock_exam_id", exam["id"])
-                .not_.is_("submitted_at", "null")
-                .order("percentage", desc=True)
-                .order("submitted_at", desc=False)
-                .limit(300)
-                .execute()
-                .data
-                or []
-            )
-            top_by_student = {}
-            for row in attempts_exam:
-                sid = row.get("student_id")
-                pct = float(row.get("percentage") or 0)
-                if sid not in top_by_student or pct > float(top_by_student[sid].get("percentage") or 0):
-                    top_by_student[sid] = row
-
-            ranking = sorted(
-                top_by_student.values(),
-                key=lambda r: float(r.get("percentage") or 0),
-                reverse=True,
-            )
-
-            for idx, row in enumerate(ranking, start=1):
-                if row.get("student_id") == user_id:
-                    exam["my_rank"] = idx
-                    break
-
-            top_ten = ranking[:10]
-            ids = [r.get("student_id") for r in top_ten if r.get("student_id")]
-            names_map = {}
-            if ids:
-                p_rows = admin.table("profiles").select("id, full_name").in_("id", ids).execute().data or []
-                names_map = {p["id"]: (p.get("full_name") or "Student") for p in p_rows}
-
-            exam["leaderboard_rows"] = [
-                {
-                    "rank": idx,
-                    "student_name": names_map.get(row.get("student_id"), "Student"),
-                    "percentage": float(row.get("percentage") or 0),
-                    "is_me": row.get("student_id") == user_id,
-                }
-                for idx, row in enumerate(top_ten, start=1)
-            ]
-        except Exception:
-            exam["leaderboard_rows"] = []
-            exam["my_rank"] = None
+        rows, my_rank, my_row = _build_mock_leaderboard(admin, exam["id"], user_id)
+        exam["leaderboard_rows"] = rows
+        exam["my_rank"] = my_rank
+        exam["my_row"] = my_row
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
@@ -1489,20 +2071,55 @@ def student_take_mock_exam(request, exam_id):
         or []
     )
 
-    if attempt_rows:
-        attempt = attempt_rows[0]
-    else:
-        new_attempt = (
-            admin.table("mock_attempts")
-            .insert({
+    # ── No retake: if a completed attempt exists, send to review ─────────────
+    completed = (
+        admin.table("mock_attempts")
+        .select("id")
+        .eq("mock_exam_id", str(exam_id))
+        .eq("student_id", user_id)
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if completed:
+        return redirect(f"/dashboard/performance/review/mock/{completed[0]['id']}/")
+
+    # ── Pre-exam lobby ────────────────────────────────────────────────────────
+    # Show the leaderboard before the timer starts.  The attempt (and therefore
+    # the clock) is only created when the student explicitly clicks "Begin Exam".
+    if not attempt_rows:
+        if request.method == "POST" and request.POST.get("action") == "begin":
+            # Student clicked Begin — create attempt now and redirect to exam.
+            admin.table("mock_attempts").insert({
                 "mock_exam_id": str(exam_id),
                 "student_id": user_id,
                 "time_limit_minutes": int(exam.get("duration_minutes") or MOCK_DURATION_MINUTES),
                 "total_questions": int(exam.get("question_count") or MOCK_QUESTION_BATCH_SIZE),
-            })
-            .execute()
+            }).execute()
+            return redirect(f"/dashboard/mock-exams/{exam_id}/start/")
+
+        # Build leaderboard for the lobby page.
+        lobby_leaderboard, lobby_my_rank, lobby_my_row = _build_mock_leaderboard(
+            admin, str(exam_id), user_id
         )
-        attempt = new_attempt.data[0]
+        lobby_context = {
+            "full_name": request.session.get("full_name", "Student"),
+            "email": request.session.get("email", ""),
+            "role": "student",
+            "active_page": "mock_exams",
+            "student_unread_notifications": unread_count,
+            "has_unread_notifications": unread_count > 0,
+            "exam": exam,
+            "leaderboard_rows": lobby_leaderboard,
+            "my_rank": lobby_my_rank,
+            "my_row": lobby_my_row,
+        }
+        return render(request, "dashboard/student_mock_exam_lobby.html", lobby_context)
+
+    attempt = attempt_rows[0]
 
     links = (
         admin.table("mock_attempt_questions")
@@ -1515,26 +2132,42 @@ def student_take_mock_exam(request, exam_id):
     )
 
     if not links:
+        needed = int(exam.get("question_count") or MOCK_QUESTION_BATCH_SIZE)
+        mock_number = int(exam.get("mock_number") or 1)
+
+        # Each mock owns a non-overlapping slice of the pool ordered by
+        # creation date.  Mock 1 → rows 0-59, Mock 2 → rows 60-119, etc.
+        # This guarantees every student sitting the same mock gets the same
+        # 60 questions; only the display order is shuffled per attempt.
+        range_start = (mock_number - 1) * needed
+        range_end   = range_start + needed - 1   # Supabase range is inclusive
+
         pool = (
             admin.table("question_bank")
             .select("id")
             .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .order("created_at", desc=False)
+            .range(range_start, range_end)
             .execute()
             .data
             or []
         )
-        needed = int(exam.get("question_count") or MOCK_QUESTION_BATCH_SIZE)
+
         if len(pool) < needed:
+            # Not enough questions in this mock's slice — redirect gracefully.
             return redirect("/dashboard/mock-exams/")
+
+        # Shuffle display order so each student sees questions in a unique
+        # sequence, but the underlying set is always the same 60.
         random.shuffle(pool)
-        selected = pool[:needed]
-        attempt_questions = []
-        for idx, item in enumerate(selected, start=1):
-            attempt_questions.append({
+        attempt_questions = [
+            {
                 "attempt_id": attempt["id"],
                 "question_id": item["id"],
                 "question_order": idx,
-            })
+            }
+            for idx, item in enumerate(pool, start=1)
+        ]
         admin.table("mock_attempt_questions").insert(attempt_questions).execute()
         links = (
             admin.table("mock_attempt_questions")
@@ -1583,7 +2216,9 @@ def student_take_mock_exam(request, exam_id):
         is_bookmarked = request.POST.get("is_bookmarked") == "1"
         is_flagged = request.POST.get("is_flagged") == "1"
         target = next((q for q in questions if q["id"] == qid), None)
-        if target:
+        # For "skip": only write a record if there is a selected option or one already exists
+        save_answer = (action != "skip") or bool(selected_option) or bool(answer_map.get(qid))
+        if target and save_answer:
             payload = {
                 "attempt_id": attempt["id"],
                 "question_id": qid,
@@ -1601,7 +2236,7 @@ def student_take_mock_exam(request, exam_id):
 
         if action == "prev":
             current_index = max(1, current_index - 1)
-        elif action == "next":
+        elif action in ("next", "skip"):
             current_index = min(len(questions), current_index + 1)
         elif action == "submit":
             final_answers = (
@@ -1645,9 +2280,23 @@ def student_take_mock_exam(request, exam_id):
 
     current_question = questions[current_index - 1]
     current_answer = answer_map.get(current_question["id"], {})
-    answered_count = sum(1 for q in questions if q["id"] in answer_map and (answer_map[q["id"]].get("selected_option") or ""))
+    answered_ids = {
+        q["id"] for q in questions
+        if answer_map.get(q["id"], {}).get("selected_option")
+    }
+    answered_count = len(answered_ids)
     bookmarked_count = sum(1 for a in answer_map.values() if a.get("is_bookmarked"))
     flagged_count = sum(1 for a in answer_map.values() if a.get("is_flagged"))
+
+    questions_status = [
+        {
+            "order": q["order"],
+            "id": q["id"],
+            "is_answered": q["id"] in answered_ids,
+            "is_current": q["id"] == current_question["id"],
+        }
+        for q in questions
+    ]
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
@@ -1660,6 +2309,8 @@ def student_take_mock_exam(request, exam_id):
         "exam": exam,
         "attempt": attempt,
         "questions": questions,
+        "answered_ids": answered_ids,
+        "questions_status_json": json.dumps(questions_status),
         "current_question": current_question,
         "current_index": current_index,
         "current_answer": current_answer,
@@ -1701,46 +2352,7 @@ def student_mock_exam_result(request, exam_id):
         return redirect(f"/dashboard/mock-exams/{exam_id}/start/")
     attempt = attempt_rows[0]
 
-    attempts_all = (
-        admin.table("mock_attempts")
-        .select("student_id, percentage")
-        .eq("mock_exam_id", str(exam_id))
-        .not_.is_("submitted_at", "null")
-        .order("percentage", desc=True)
-        .execute()
-        .data
-        or []
-    )
-    top_by_student = {}
-    for row in attempts_all:
-        sid = row.get("student_id")
-        pct = float(row.get("percentage") or 0)
-        if sid not in top_by_student or pct > float(top_by_student[sid].get("percentage") or 0):
-            top_by_student[sid] = row
-    leaderboard = sorted(top_by_student.values(), key=lambda r: float(r.get("percentage") or 0), reverse=True)
-    profile_ids = [row.get("student_id") for row in leaderboard if row.get("student_id")]
-    names_map = {}
-    if profile_ids:
-        try:
-            profiles = admin.table("profiles").select("id, full_name").in_("id", profile_ids).execute().data or []
-            names_map = {p["id"]: (p.get("full_name") or "Student") for p in profiles}
-        except Exception:
-            names_map = {}
-
-    leaderboard_rows = []
-    for idx, row in enumerate(leaderboard[:10], start=1):
-        leaderboard_rows.append({
-            "rank": idx,
-            "student_name": names_map.get(row.get("student_id"), "Student"),
-            "percentage": float(row.get("percentage") or 0),
-            "is_me": row.get("student_id") == user_id,
-        })
-
-    rank = 1
-    for idx, row in enumerate(leaderboard, start=1):
-        if row.get("student_id") == user_id:
-            rank = idx
-            break
+    leaderboard_rows, rank, my_row = _build_mock_leaderboard(admin, str(exam_id), user_id)
 
     percentage = float(attempt.get("percentage") or 0)
     context = {
@@ -1754,13 +2366,14 @@ def student_mock_exam_result(request, exam_id):
         "attempt": attempt,
         "rank": rank,
         "leaderboard_rows": leaderboard_rows,
+        "my_row": my_row,
         "encouragement": _score_message(percentage),
     }
     return render(request, "dashboard/student_mock_exam_result.html", context)
 
 
 def _general_test_duration_minutes(paper_title):
-    return 90 if (paper_title or "").strip() == "General Paper" else 180
+    return 90 if _is_general_paper(paper_title) else 180
 
 
 def _practice_quiz_title_from_sort_index(sort_index):
@@ -3041,6 +3654,66 @@ def student_flashcards(request):
     return render(request, "dashboard/student_flashcards.html", context)
 
 
+LECTURE_NOTE_FONT_SIZES_PX = (12, 14, 16, 18, 20, 22, 24)
+
+# Embedded in content_html so font size persists even if Supabase has no content_font_size_px column.
+_LECTURE_FS_PREFIX = "__LECTURE_FS_"
+_LECTURE_FS_SUFFIX = "__ENDFS__"
+
+
+def _coerce_lecture_note_font_px(raw):
+    allowed = LECTURE_NOTE_FONT_SIZES_PX
+    try:
+        n = int(float(raw))
+    except (TypeError, ValueError):
+        return 16
+    return min(allowed, key=lambda a: abs(a - n))
+
+
+def _lecture_meta_decode(stored):
+    """Split stored HTML into (font_px_or_None, body_for_editor)."""
+    h = stored or ""
+    if not h.startswith(_LECTURE_FS_PREFIX):
+        return None, h
+    start = len(_LECTURE_FS_PREFIX)
+    end = h.find(_LECTURE_FS_SUFFIX, start)
+    if end < 0:
+        return None, h
+    try:
+        px = int(h[start:end])
+    except ValueError:
+        return None, h
+    body = h[end + len(_LECTURE_FS_SUFFIX) :]
+    return _coerce_lecture_note_font_px(px), body
+
+
+def _lecture_meta_encode(font_px, inner_html):
+    """Prefix body with font meta (invisible to students when stripped in view)."""
+    px = _coerce_lecture_note_font_px(font_px)
+    _, body = _lecture_meta_decode(inner_html or "")
+    body = (body or "").strip()
+    return f"{_LECTURE_FS_PREFIX}{px}{_LECTURE_FS_SUFFIX}{body}"
+
+
+def _lecture_display_font_px(note_row):
+    """Resolve font size: embedded meta in content_html first, then DB column."""
+    meta_px, _ = _lecture_meta_decode(note_row.get("content_html") or "")
+    if meta_px is not None:
+        return meta_px
+    col = note_row.get("content_font_size_px")
+    if col is not None and str(col).strip() != "":
+        try:
+            return _coerce_lecture_note_font_px(col)
+        except Exception:
+            pass
+    return 16
+
+
+def _lecture_body_for_render(note_row):
+    _, body = _lecture_meta_decode(note_row.get("content_html") or "")
+    return body
+
+
 def student_lecture_notes(request):
     guard = _require_login(request)
     if guard:
@@ -3052,7 +3725,7 @@ def student_lecture_notes(request):
     unread_count = _student_unread_count(user_id)
     notes = []
     try:
-        notes = (
+        raw_notes = (
             _supabase_admin()
             .table("lecture_notes")
             .select("*")
@@ -3062,6 +3735,14 @@ def student_lecture_notes(request):
             .data
             or []
         )
+        notes = [
+            {
+                **n,
+                "render_html": _lecture_body_for_render(n),
+                "render_font_px": _lecture_display_font_px(n),
+            }
+            for n in raw_notes
+        ]
     except Exception:
         notes = []
 
@@ -3085,6 +3766,8 @@ def admin_lecture_notes(request):
     admin = _supabase_admin()
     success = None
     error = None
+    edit_id = request.GET.get("edit", "").strip()
+    edit_note = None
 
     if request.method == "POST":
         action = request.POST.get("action", "create").strip()
@@ -3095,22 +3778,65 @@ def admin_lecture_notes(request):
                     raise ValueError("Note ID is required.")
                 admin.table("lecture_notes").delete().eq("id", note_id).execute()
                 success = "Lecture note deleted."
-            else:
+                return redirect("/admin-panel/lecture-notes/")
+            if action == "update":
+                note_id = request.POST.get("note_id", "").strip()
+                if not note_id:
+                    raise ValueError("Note ID is required.")
                 topic = request.POST.get("topic", "").strip()
                 subtopic = request.POST.get("subtopic", "").strip()
                 content_html = request.POST.get("content_html", "").strip()
                 if not topic or not content_html:
                     raise ValueError("Topic and content are required.")
-                admin.table("lecture_notes").insert({
+                font_px = _coerce_lecture_note_font_px(request.POST.get("content_font_size_px"))
+                stored_html = _lecture_meta_encode(font_px, content_html)
+                row = {
                     "topic": topic,
                     "subtopic": subtopic or None,
-                    "content_html": content_html,
-                    "is_published": True,
-                    "created_by": request.session.get("user_id"),
-                }).execute()
-                success = "Lecture note saved."
+                    "content_html": stored_html,
+                    "content_font_size_px": font_px,
+                }
+                try:
+                    admin.table("lecture_notes").update(row).eq("id", note_id).execute()
+                except Exception as first_exc:
+                    err_txt = str(first_exc).lower()
+                    if "content_font_size_px" in err_txt or "pgrst204" in err_txt or "schema cache" in err_txt:
+                        row.pop("content_font_size_px", None)
+                        admin.table("lecture_notes").update(row).eq("id", note_id).execute()
+                    else:
+                        raise
+                success = "Lecture note updated."
+                return redirect("/admin-panel/lecture-notes/")
+            topic = request.POST.get("topic", "").strip()
+            subtopic = request.POST.get("subtopic", "").strip()
+            content_html = request.POST.get("content_html", "").strip()
+            if not topic or not content_html:
+                raise ValueError("Topic and content are required.")
+            font_px = _coerce_lecture_note_font_px(request.POST.get("content_font_size_px"))
+            stored_html = _lecture_meta_encode(font_px, content_html)
+            ins = {
+                "topic": topic,
+                "subtopic": subtopic or None,
+                "content_html": stored_html,
+                "is_published": True,
+                "created_by": request.session.get("user_id"),
+                "content_font_size_px": font_px,
+            }
+            try:
+                admin.table("lecture_notes").insert(ins).execute()
+            except Exception as first_exc:
+                err_txt = str(first_exc).lower()
+                if "content_font_size_px" in err_txt or "pgrst204" in err_txt or "schema cache" in err_txt:
+                    ins.pop("content_font_size_px", None)
+                    admin.table("lecture_notes").insert(ins).execute()
+                else:
+                    raise
+            success = "Lecture note saved."
+            return redirect("/admin-panel/lecture-notes/")
         except Exception as exc:
             error = str(exc)
+        if request.method == "POST" and error:
+            edit_id = request.POST.get("preserved_edit_id", "").strip() or edit_id
 
     notes = []
     try:
@@ -3126,6 +3852,44 @@ def admin_lecture_notes(request):
     except Exception as exc:
         error = error or str(exc)
 
+    if edit_id:
+        try:
+            rows = (
+                admin.table("lecture_notes")
+                .select("*")
+                .eq("id", edit_id)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            edit_note = rows[0] if rows else None
+        except Exception:
+            edit_note = None
+        if not edit_note:
+            edit_id = ""
+
+    if edit_note:
+        disp_px = _lecture_display_font_px(edit_note)
+        body_only = _lecture_body_for_render(edit_note)
+        edit_note = {
+            **edit_note,
+            "content_html": body_only,
+            "content_font_size_px": disp_px,
+        }
+
+    edit_form_initial = None
+    if edit_note:
+        edit_form_initial = {
+            "id": str(edit_note.get("id")),
+            "topic": edit_note.get("topic") or "",
+            "subtopic": edit_note.get("subtopic") or "",
+            "content_html": edit_note.get("content_html") or "",
+            "font_px": int(edit_note.get("content_font_size_px") or 16),
+        }
+
+    notes = [{**n, "display_font_px": _lecture_display_font_px(n)} for n in notes]
+
     context = {
         "full_name": request.session.get("full_name", "Admin"),
         "email": request.session.get("email", ""),
@@ -3134,6 +3898,9 @@ def admin_lecture_notes(request):
         "notes": notes,
         "success": success,
         "error": error,
+        "edit_note": edit_note,
+        "edit_form_initial": edit_form_initial,
+        "lecture_note_font_sizes": LECTURE_NOTE_FONT_SIZES_PX,
     }
     return render(request, "dashboard/admin_lecture_notes.html", context)
 
@@ -4255,12 +5022,97 @@ def subscription_allows_dashboard(user_id):
     return _expires_at_still_valid(sub.get("expires_at"))
 
 
+_PAYSTACK_RECONCILE_THROTTLE_SEC = 45.0
+_PAYSTACK_RECONCILE_LAST_TS = {}
+
+
+def _reconcile_pending_subscription_from_paystack(user_id, *, force=False):
+    """
+    If the latest subscription is pending_payment but has a stored Paystack reference,
+    call Paystack verify and activate when the charge succeeded. Use after signup verify
+    failed (e.g. bad secret key) or on login/subscribe so fixing the key unlocks access
+    without charging again.
+    """
+    user_id = str(user_id)
+    if not (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip():
+        return
+    sub = _get_active_subscription(user_id)
+    if not sub or sub.get("status") != "pending_payment":
+        return
+    ref = (sub.get("payment_reference") or "").strip()
+    if not ref or ref == "complimentary":
+        return
+
+    import time
+    import urllib.parse as _up
+
+    now = time.time()
+    if not force:
+        last = _PAYSTACK_RECONCILE_LAST_TS.get(user_id, 0.0)
+        if now - last < _PAYSTACK_RECONCILE_THROTTLE_SEC:
+            return
+    _PAYSTACK_RECONCILE_LAST_TS[user_id] = now
+
+    vresp, verr = _paystack_request("GET", "/transaction/verify/" + _up.quote(ref, safe=""))
+    if verr == "paystack_not_configured" or not vresp or not vresp.get("status"):
+        return
+    data = vresp.get("data") or {}
+    if data.get("status") != "success":
+        return
+    plan_slug = (sub.get("plan_slug") or "basic").strip()
+    sub_id = sub.get("id")
+    if not sub_id:
+        return
+    amount_paid = float((data.get("amount") or 0)) / 100
+    try:
+        _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, ref)
+    except Exception:
+        pass
+
+
 def _public_site_origin(request):
     base = getattr(settings, "PUBLIC_SITE_URL", "") or ""
     base = base.strip().rstrip("/")
     if base:
         return base
     return request.build_absolute_uri("/").rstrip("/")
+
+
+def _paystack_api_error_message(err):
+    """Turn _paystack_request() error codes into text for the subscribe UI."""
+    if not err or err == "paystack_not_configured":
+        return None
+    if err == "paystack_public_key_used_as_secret":
+        return (
+            "PAYSTACK_SECRET_KEY is set to a public key (pk_test_… or pk_live_…). "
+            "Open Paystack Dashboard → Settings → API Keys and copy the Secret key (sk_test_… or sk_live_…)."
+        )
+    if err == "paystack_secret_bad_format":
+        return (
+            "PAYSTACK_SECRET_KEY does not look like a Paystack secret (expected sk_test_… or sk_live_…). "
+            "Check for typos, extra spaces, or a truncated copy in your .env file."
+        )
+    if err.startswith("http_401"):
+        return (
+            "Paystack refused authentication (HTTP 401). Check that PAYSTACK_SECRET_KEY in your "
+            ".env is the secret key from Paystack Dashboard → Settings → API Keys (not the public key)."
+        )
+    if err.startswith("http_403"):
+        return (
+            "Paystack returned HTTP 403. If your secret key is correct, this is often Cloudflare "
+            "blocking the request (now mitigated in the app). Also verify: sk_test_/sk_live_ secret "
+            "matches the same mode as your public key, no extra quotes in .env, and the key was "
+            "copied from Paystack → Settings → API Keys."
+        )
+    if err.startswith("http_404"):
+        return "Paystack could not find this transaction (HTTP 404). The reference may be invalid or expired."
+    if err.startswith("http_"):
+        head, _, tail = err.partition(":")
+        code = head.replace("http_", "", 1)
+        tail = tail.strip()
+        base = f"Paystack returned HTTP {code}."
+        return f"{base} {tail}".strip() if tail else base
+    return err
 
 
 def _paystack_request(method, path, body_dict=None):
@@ -4272,21 +5124,39 @@ def _paystack_request(method, path, body_dict=None):
     if not secret:
         return None, "paystack_not_configured"
 
+    sk = secret.lower()
+    if sk.startswith("pk_test_") or sk.startswith("pk_live_"):
+        return None, "paystack_public_key_used_as_secret"
+    if not (sk.startswith("sk_test_") or sk.startswith("sk_live_")):
+        return None, "paystack_secret_bad_format"
+
+    # Paystack is behind Cloudflare; default User-Agent "Python-urllib/…" is often blocked with HTTP 403.
+    _paystack_ua = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 NurseEdge/1.0"
+    )
+
     url = "https://api.paystack.co" + path
     payload = None
     if method != "GET":
         payload = json.dumps(body_dict if body_dict is not None else {}).encode("utf-8")
     req = urllib.request.Request(url, data=payload, method=method)
     req.add_header("Authorization", f"Bearer {secret}")
+    req.add_header("User-Agent", _paystack_ua)
+    req.add_header("Accept", "application/json")
     if method != "GET":
         req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, timeout=45) as resp:
             return json.loads(resp.read().decode()), None
     except urllib.error.HTTPError as e:
+        raw = e.read().decode(errors="replace")
         try:
-            return json.loads(e.read().decode()), None
+            return json.loads(raw), None
         except Exception:
+            snippet = " ".join(raw.split())[:280]
+            if snippet:
+                return None, f"http_{e.code}:{snippet}"
             return None, f"http_{e.code}"
     except Exception as e:
         return None, str(e)
@@ -4419,11 +5289,12 @@ def student_subscribe(request):
         return redirect("/admin-panel/dashboard/")
 
     user_id = request.session.get("user_id")
+    _reconcile_pending_subscription_from_paystack(user_id, force=True)
     plans = _get_plans()
     error = request.GET.get("error", "")
 
     if subscription_allows_dashboard(user_id):
-        return redirect("/payment/")
+        return redirect("/dashboard/")
 
     selected = None
     if request.method == "POST":
@@ -4484,7 +5355,7 @@ def student_subscribe(request):
                     },
                 })
                 if perr and perr != "paystack_not_configured":
-                    raise RuntimeError(perr)
+                    raise RuntimeError(_paystack_api_error_message(perr) or perr)
                 if not resp or not resp.get("status"):
                     raise RuntimeError((resp or {}).get("message", "Paystack initialize failed"))
                 pay_url = (resp.get("data") or {}).get("authorization_url")
@@ -4563,7 +5434,7 @@ def student_subscribe_success(request):
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
         except Exception:
             return redirect("/subscribe/?error=save_failed")
-        return redirect("/payment/")
+        return redirect("/dashboard/")
 
     if session_id and stripe_secret:
         try:
@@ -4588,7 +5459,7 @@ def student_subscribe_success(request):
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, session_id)
         except Exception:
             return redirect("/subscribe/?error=save_failed")
-        return redirect("/payment/")
+        return redirect("/dashboard/")
 
     if reference:
         return redirect("/subscribe/?error=paystack_not_configured")
@@ -4614,6 +5485,7 @@ def payment_page(request):
         return guard
 
     user_id = request.session.get("user_id")
+    _reconcile_pending_subscription_from_paystack(user_id, force=True)
     plans = _get_plans()
     history = _subscription_history_for_user(user_id)
     latest = history[0] if history else None

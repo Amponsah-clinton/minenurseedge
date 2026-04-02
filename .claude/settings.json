@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import django; import sys; sys.path.insert\\(0, 'c:/Users/USER/Desktop/minenurseedge'\\); import os; os.environ['DJANGO_SETTINGS_MODULE'] = 'publishing_company.settings'; django.setup\\(\\); from django.apps import apps; [print\\(m.__module__, m.__name__\\) for m in apps.get_models\\(\\)]\")",
+      "Bash(python -c ':*)"
+    ]
+  }
+}

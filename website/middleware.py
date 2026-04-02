@@ -86,9 +86,14 @@ class StudentSubscriptionGateMiddleware:
         if not request.session.get("user_id"):
             return self.get_response(request)
         try:
-            from website.views import subscription_allows_dashboard
+            from website.views import (
+                _reconcile_pending_subscription_from_paystack,
+                subscription_allows_dashboard,
+            )
 
-            if subscription_allows_dashboard(request.session.get("user_id")):
+            uid = request.session.get("user_id")
+            _reconcile_pending_subscription_from_paystack(uid)
+            if subscription_allows_dashboard(uid):
                 return self.get_response(request)
         except Exception:
             return self.get_response(request)

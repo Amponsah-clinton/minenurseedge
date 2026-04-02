@@ -7,18 +7,22 @@
     <div class="card">
       <div class="card-body">
         <h4 class="mb-1">Mock Exam Builder</h4>
-        <p class="text-muted mb-0">Create timed 180-question mocks (1 hour 30 minutes) from your Question Bank.</p>
+        <p class="text-muted mb-0">
+          Each mock exam uses <strong>{{ mock_question_batch }}</strong> random questions from the pool ({{ mock_duration_minutes }} minutes).
+          Manage the pool below; use <em>Generate</em> to create Mock 1, Mock 2, … slots from the pool size.
+        </p>
       </div>
     </div>
   </div>
 </div>
 
 {% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+{% if warning %}<div class="alert alert-warning">{{ warning }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
 
 <div class="row g-4">
   <div class="col-lg-5">
-    <div class="card h-100">
+    <div class="card h-100 mb-4">
       <div class="card-header"><h5 class="mb-0">Upload Mock Questions (JSON)</h5></div>
       <div class="card-body">
         <form method="post">
@@ -26,7 +30,7 @@
           <input type="hidden" name="action" value="upload_json" />
           <div class="mb-3">
             <label class="form-label">JSON Payload</label>
-            <textarea class="form-control" name="json_payload" rows="12" placeholder='[
+            <textarea class="form-control" name="json_payload" rows="10" placeholder='[
   {
     "question": "A normal adult resting respiratory rate is?",
     "options": { "A": "6-10", "B": "12-20", "C": "25-35" },
@@ -34,17 +38,48 @@
     "explanation": "Normal adult respiratory rate is 12-20 breaths/min."
   }
 ]'></textarea>
-            <small class="text-muted">Fields supported: question/question_text, options(A-C), answer or correct_option, explanation.</small>
+            <small class="text-muted">Fields: question/question_text, options (A–C), answer or correct_option, explanation.</small>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="force_upload" value="1" id="forceUploadCheck">
+            <label class="form-check-label text-danger small fw-semibold" for="forceUploadCheck">
+              Force re-upload (clears existing mock pool first, then inserts all questions fresh)
+            </label>
           </div>
           <button class="btn btn-primary" type="submit">Upload JSON Questions</button>
         </form>
       </div>
     </div>
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">Generate mock exam slots</h5></div>
+      <div class="card-body">
+        <p class="text-muted small">Creates one mock exam per {{ mock_question_batch }} questions in the pool (Mock 1, Mock 2, …) if slots are missing.</p>
+        <p class="text-muted small">Pool currently has <strong>{{ mock_pool_total }}</strong> question(s).</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="generate" />
+          <button class="btn btn-outline-primary" type="submit">Generate / sync mock exams from pool</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3 border-danger">
+      <div class="card-header bg-transparent"><h6 class="mb-0 text-danger">Danger Zone</h6></div>
+      <div class="card-body">
+        <p class="text-muted small mb-2">Permanently deletes <strong>all questions</strong> from the mock pool. Use this to start fresh before re-uploading.</p>
+        <form method="post" onsubmit="return confirm('Delete ALL mock pool questions? This cannot be undone.');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="clear_mock_pool" />
+          <button class="btn btn-outline-danger btn-sm" type="submit">Clear Mock Pool</button>
+        </form>
+      </div>
+    </div>
   </div>
+
   <div class="col-lg-7">
     <div class="card h-100">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Created Mocks</h5>
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0">Created mocks</h5>
       </div>
       <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -54,7 +89,7 @@
               <th>Questions</th>
               <th>Duration</th>
               <th>Status</th>
-              <th>Action</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -72,24 +107,155 @@
                   {% endif %}
                 </td>
                 <td>
-                  <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="toggle_publish" />
-                    <input type="hidden" name="exam_id" value="{{ exam.id }}" />
-                    <input type="hidden" name="publish_to" value="{% if exam.is_published %}false{% else %}true{% endif %}" />
-                    <button class="btn btn-sm {% if exam.is_published %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
-                      {% if exam.is_published %}Unpublish{% else %}Publish{% endif %}
-                    </button>
-                  </form>
+                  <div class="d-flex flex-wrap gap-1">
+                    <form method="post" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="toggle_publish" />
+                      <input type="hidden" name="exam_id" value="{{ exam.id }}" />
+                      <input type="hidden" name="publish_to" value="{% if exam.is_published %}false{% else %}true{% endif %}" />
+                      <button type="submit" class="btn btn-sm {% if exam.is_published %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                        {% if exam.is_published %}Unpublish{% else %}Publish{% endif %}
+                      </button>
+                    </form>
+                    <form method="post" class="d-inline" onsubmit="return confirm('Delete this mock exam permanently? All student attempts and answers for this mock will be removed.');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_exam" />
+                      <input type="hidden" name="exam_id" value="{{ exam.id }}" />
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="5" class="text-center text-muted py-4">No mocks created yet.</td></tr>
+              <tr><td colspan="5" class="text-center text-muted py-4">No mocks created yet. Add pool questions and run Generate.</td></tr>
             {% endif %}
           </tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<hr class="my-4" />
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h5 class="mb-0">{% if edit_mock_question %}Edit pool question{% else %}Add pool question{% endif %}</h5>
+        {% if edit_mock_question %}
+        <a href="/admin-panel/mock-exams/?mq_page={{ mock_pool_page }}" class="btn btn-sm btn-outline-secondary">Cancel edit</a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="{% if edit_mock_question %}update_mock_question{% else %}create_mock_question{% endif %}" />
+          {% if edit_mock_question %}
+          <input type="hidden" name="question_id" value="{{ edit_mock_question.id }}" />
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label">Paper title</label>
+            <input type="text" name="paper_title" class="form-control" value="{% if edit_mock_question %}{{ edit_mock_question.paper_title|default:'Mock Paper' }}{% else %}Mock Paper{% endif %}" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Question *</label>
+            <textarea name="question_text" class="form-control" rows="3" required>{% if edit_mock_question %}{{ edit_mock_question.question_text }}{% endif %}</textarea>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Option A</label>
+              <input type="text" name="option_a" class="form-control" value="{% if edit_mock_question %}{{ edit_mock_question.options.A }}{% endif %}" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Option B</label>
+              <input type="text" name="option_b" class="form-control" value="{% if edit_mock_question %}{{ edit_mock_question.options.B }}{% endif %}" required />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Option C</label>
+              <input type="text" name="option_c" class="form-control" value="{% if edit_mock_question %}{{ edit_mock_question.options.C }}{% endif %}" />
+            </div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col-md-4">
+              <label class="form-label">Correct</label>
+              <select name="correct_option" class="form-select" required>
+                <option value="">—</option>
+                <option value="A" {% if edit_mock_question and edit_mock_question.correct_option == 'A' %}selected{% endif %}>A</option>
+                <option value="B" {% if edit_mock_question and edit_mock_question.correct_option == 'B' %}selected{% endif %}>B</option>
+                <option value="C" {% if edit_mock_question and edit_mock_question.correct_option == 'C' %}selected{% endif %}>C</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Explanation (optional)</label>
+              <input type="text" name="explanation" class="form-control" value="{% if edit_mock_question %}{{ edit_mock_question.explanation }}{% endif %}" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary mt-3">{% if edit_mock_question %}Update question{% else %}Add question{% endif %}</button>
+        </form>
+        <p class="text-muted small mt-3 mb-0">Pool programme is fixed to &quot;All Programmes&quot; for mock exams. Students receive a random subset per attempt.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h5 class="mb-0">Mock question pool</h5>
+        <span class="text-muted small">{{ mock_pool_total }} total</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Paper</th>
+              <th>Question</th>
+              <th>Ans</th>
+              <th style="width:140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if mock_pool_questions %}
+              {% for q in mock_pool_questions %}
+              <tr>
+                <td class="small">{{ q.paper_title|default:"—" }}</td>
+                <td class="small" style="max-width:320px;">{{ q.question_text|truncatechars:90 }}</td>
+                <td><span class="badge bg-label-primary">{{ q.correct_option }}</span></td>
+                <td>
+                  <div class="d-flex flex-wrap gap-1">
+                    <a href="/admin-panel/mock-exams/?mq_edit={{ q.id }}&mq_page={{ mock_pool_page }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form method="post" class="d-inline" onsubmit="return confirm('Delete this question from the mock pool?');">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete_mock_question" />
+                      <input type="hidden" name="question_id" value="{{ q.id }}" />
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4" class="text-center text-muted py-4">No pool questions yet. Upload JSON or add manually.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+      {% if mock_pool_num_pages > 1 %}
+      <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span class="text-muted small">Page {{ mock_pool_page }} of {{ mock_pool_num_pages }}</span>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            {% if mock_pool_prev_page %}
+            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_prev_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}">Prev</a></li>
+            {% endif %}
+            {% if mock_pool_next_page %}
+            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_next_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}">Next</a></li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

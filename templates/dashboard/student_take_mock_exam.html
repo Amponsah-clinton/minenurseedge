@@ -1,96 +1,357 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}{{ exam.title }} - Timed Mock{% endblock %}
+{% block title %}{{ exam.title }} - NurseEdge{% endblock %}
 
 {% block content %}
-<div class="row g-3">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-          <h5 class="mb-1">{{ exam.title }}</h5>
-          <small class="text-muted">Question {{ current_index }} of {{ questions|length }}</small>
-        </div>
-        <div class="d-flex align-items-center gap-3">
-          <span class="badge bg-label-primary">Answered: {{ answered_count }}</span>
-          <span class="badge bg-label-warning">Bookmarked: {{ bookmarked_count }}</span>
-          <span class="badge bg-label-danger">Flagged: {{ flagged_count }}</span>
-          <span class="badge bg-danger" id="timerBadge">--:--</span>
-        </div>
-      </div>
-    </div>
-  </div>
 
+{# ── Sticky top bar ─────────────────────────────────────────────────────────── #}
+<div class="card border-0 shadow-sm mb-3" style="position:sticky;top:0;z-index:100;">
+  <div class="card-body py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+
+    {# Left: exam title + progress #}
+    <div>
+      <h6 class="mb-0 fw-semibold">{{ exam.title }}</h6>
+      <small class="text-muted">Question {{ current_index }} of {{ questions|length }}</small>
+    </div>
+
+    {# Centre: stats #}
+    <div class="d-flex gap-2 flex-wrap">
+      <span class="badge bg-label-success">
+        <i class="bx bx-check-circle me-1"></i>{{ answered_count }} answered
+      </span>
+      <span class="badge bg-label-secondary">
+        {{ questions|length }} total
+      </span>
+      <span class="badge bg-label-warning">
+        <i class="bx bx-bookmark me-1"></i>{{ bookmarked_count }}
+      </span>
+      <span class="badge bg-label-danger">
+        <i class="bx bx-flag me-1"></i>{{ flagged_count }}
+      </span>
+    </div>
+
+    {# Right: clock #}
+    <div id="clockBox"
+         class="d-flex align-items-center gap-2 border border-2 rounded px-3 py-1"
+         style="min-width:110px;transition:border-color .4s,color .4s;">
+      <i class="bx bx-time-five fs-5" id="clockIcon"></i>
+      <span id="timerDisplay"
+            class="fw-bold font-monospace"
+            style="font-size:1.35rem;letter-spacing:.05em;">--:--</span>
+    </div>
+
+  </div>
+</div>
+
+{# ── Main layout ────────────────────────────────────────────────────────────── #}
+<div class="row g-3">
+
+  {# Question card #}
   <div class="col-lg-8">
-    <div class="card">
+    <div class="card shadow-sm">
       <div class="card-body">
-        <h6 class="fw-bold mb-3">Q{{ current_question.order }}. {{ current_question.question_text }}</h6>
+        <p class="text-muted small mb-2">Question {{ current_index }} of {{ questions|length }}</p>
+        <h6 class="fw-semibold mb-4" style="line-height:1.55;">
+          {{ current_question.question_text }}
+        </h6>
+
         <form method="post" id="mockForm">
           {% csrf_token %}
-          <input type="hidden" name="question_id" value="{{ current_question.id }}" />
-          <input type="hidden" name="current_index" value="{{ current_index }}" />
-          <input type="hidden" name="is_bookmarked" id="bookmarkedInput" value="{% if current_answer.is_bookmarked %}1{% else %}0{% endif %}" />
-          <input type="hidden" name="is_flagged" id="flaggedInput" value="{% if current_answer.is_flagged %}1{% else %}0{% endif %}" />
+          <input type="hidden" name="question_id"   value="{{ current_question.id }}" />
+          <input type="hidden" name="current_index" id="currentIndexInput" value="{{ current_index }}" />
+          <input type="hidden" name="is_bookmarked" id="bookmarkedInput"
+                 value="{% if current_answer.is_bookmarked %}1{% else %}0{% endif %}" />
+          <input type="hidden" name="is_flagged"    id="flaggedInput"
+                 value="{% if current_answer.is_flagged %}1{% else %}0{% endif %}" />
 
-          <div class="list-group mb-4">
+          {# Options #}
+          <div class="d-flex flex-column gap-2 mb-4">
             {% for key, value in current_question.options.items %}
-            <label class="list-group-item">
-              <input class="form-check-input me-2" type="radio" name="selected_option" value="{{ key }}"
+            <label class="d-flex align-items-center gap-3 px-3 py-3 rounded border
+                          {% if current_answer.selected_option == key %}border-primary bg-label-primary{% else %}border hover-border-primary{% endif %}"
+                   style="cursor:pointer;transition:all .15s;">
+              <input class="form-check-input m-0 flex-shrink-0"
+                     type="radio" name="selected_option" value="{{ key }}"
                      {% if current_answer.selected_option == key %}checked{% endif %}>
-              <strong>{{ key }}.</strong> {{ value }}
+              <span><strong>{{ key }}.</strong> {{ value }}</span>
             </label>
             {% endfor %}
           </div>
 
-          <div class="d-flex flex-wrap gap-2">
-            <button type="submit" class="btn btn-outline-warning" onclick="document.getElementById('bookmarkedInput').value = document.getElementById('bookmarkedInput').value === '1' ? '0' : '1';">Toggle Bookmark</button>
-            <button type="submit" class="btn btn-outline-danger" onclick="document.getElementById('flaggedInput').value = document.getElementById('flaggedInput').value === '1' ? '0' : '1';">Toggle Flag</button>
-            <button type="submit" name="action" value="prev" class="btn btn-outline-secondary" {% if current_index == 1 %}disabled{% endif %}>Previous</button>
-            <button type="submit" name="action" value="next" class="btn btn-primary" {% if current_index == questions|length %}disabled{% endif %}>Save & Next</button>
-            <button type="submit" name="action" value="submit" class="btn btn-success ms-auto" onclick="return confirm('Submit mock now?');">Submit Mock</button>
+          {# Action buttons #}
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+
+            {# Bookmark / Flag #}
+            <button type="submit"
+                    class="btn btn-sm {% if current_answer.is_bookmarked %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                    id="bookmarkBtn"
+                    onclick="toggleHidden('bookmarkedInput');"
+                    title="Bookmark">
+              <i class="bx bx-bookmark{% if current_answer.is_bookmarked %}-minus{% endif %} me-1"></i>
+              {% if current_answer.is_bookmarked %}Bookmarked{% else %}Bookmark{% endif %}
+            </button>
+
+            <button type="submit"
+                    class="btn btn-sm {% if current_answer.is_flagged %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                    id="flagBtn"
+                    onclick="toggleHidden('flaggedInput');"
+                    title="Flag for review">
+              <i class="bx bx-flag me-1"></i>
+              {% if current_answer.is_flagged %}Flagged{% else %}Flag{% endif %}
+            </button>
+
+            <div class="ms-auto d-flex gap-2">
+              {# Prev #}
+              <button type="submit" name="action" value="prev"
+                      class="btn btn-sm btn-outline-secondary"
+                      {% if current_index == 1 %}disabled{% endif %}>
+                <i class="bx bx-chevron-left"></i> Prev
+              </button>
+
+              {# Skip #}
+              {% if current_index < questions|length %}
+              <button type="submit" name="action" value="skip"
+                      class="btn btn-sm btn-outline-secondary"
+                      title="Skip this question for now">
+                Skip <i class="bx bx-chevron-right"></i>
+              </button>
+              {% endif %}
+
+              {# Next #}
+              {% if current_index < questions|length %}
+              <button type="submit" name="action" value="next"
+                      class="btn btn-sm btn-primary">
+                Save &amp; Next <i class="bx bx-chevron-right"></i>
+              </button>
+              {% endif %}
+
+              {# Review & Submit #}
+              <button type="button"
+                      class="btn btn-sm btn-success"
+                      onclick="openReviewModal()">
+                <i class="bx bx-send me-1"></i>Submit
+              </button>
+            </div>
+
           </div>
         </form>
       </div>
     </div>
   </div>
 
+  {# Question navigator #}
   <div class="col-lg-4">
-    <div class="card">
-      <div class="card-header"><h6 class="mb-0">Question Navigator</h6></div>
+    <div class="card shadow-sm">
+      <div class="card-header border-bottom py-2">
+        <h6 class="mb-0 small fw-semibold">Question Navigator</h6>
+      </div>
       <div class="card-body">
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex flex-wrap gap-1" id="navGrid">
           {% for q in questions %}
-            <span class="badge {% if q.order == current_question.order %}bg-primary{% else %}bg-label-secondary{% endif %}">{{ q.order }}</span>
+          {% with ans=current_answer %}
+          <button type="button"
+                  class="nav-q-btn btn btn-sm
+                         {% if q.order == current_question.order %}btn-dark
+                         {% elif q.id in answered_ids %}btn-primary
+                         {% else %}btn-outline-secondary{% endif %}"
+                  style="width:36px;height:36px;padding:0;font-size:.78rem;"
+                  data-idx="{{ q.order }}"
+                  onclick="goToQuestion({{ q.order }})">
+            {{ q.order }}
+          </button>
+          {% endwith %}
           {% endfor %}
+        </div>
+        <div class="mt-3 d-flex flex-wrap gap-2 small text-muted">
+          <span><span class="badge bg-dark">&nbsp;</span> Current</span>
+          <span><span class="badge bg-primary">&nbsp;</span> Answered</span>
+          <span><span class="badge bg-label-secondary border">&nbsp;</span> Unanswered</span>
         </div>
       </div>
     </div>
   </div>
+
 </div>
+
+{# ── Review & Submit modal ──────────────────────────────────────────────────── #}
+<div class="modal fade" id="reviewSubmitModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow">
+
+      <div class="modal-header border-bottom">
+        <div>
+          <h5 class="modal-title mb-0">Review Before Submitting</h5>
+          <small class="text-muted">Click a question number to go back and answer it.</small>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        {# Summary bar #}
+        <div class="d-flex gap-3 mb-4 flex-wrap">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary px-2 py-1">&nbsp;</span>
+            <span id="modalAnsweredCount" class="fw-semibold">—</span> answered
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-label-danger border border-danger px-2 py-1">&nbsp;</span>
+            <span id="modalUnansweredCount" class="fw-semibold text-danger">—</span> unanswered
+          </div>
+        </div>
+
+        {# Grid of question numbers #}
+        <div id="modalQuestionGrid" class="d-flex flex-wrap gap-2"></div>
+
+      </div>
+
+      <div class="modal-footer border-top d-flex justify-content-between">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bx bx-arrow-back me-1"></i>Go Back &amp; Review
+        </button>
+        <button type="button" class="btn btn-success px-4" onclick="confirmSubmit()">
+          <i class="bx bx-send me-1"></i>Submit Now
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 {% endblock %}
+
 
 {% block scripts %}
 <script>
-  (function () {
-    var remaining = {{ remaining_seconds|default:0 }};
-    var timer = document.getElementById("timerBadge");
-    function render() {
-      var mins = Math.floor(remaining / 60);
-      var secs = remaining % 60;
-      timer.textContent = mins.toString().padStart(2, "0") + ":" + secs.toString().padStart(2, "0");
-      if (remaining <= 0) {
-        showAppMessageModal("Time is up. Submitting your mock now.", "Time Up");
-        var form = document.getElementById("mockForm");
-        var actionInput = document.createElement("input");
-        actionInput.type = "hidden";
-        actionInput.name = "action";
-        actionInput.value = "submit";
-        form.appendChild(actionInput);
-        form.submit();
-      }
-      remaining -= 1;
+(function () {
+  /* ── Question status data from server ─────────────────────────────────── */
+  var questionsStatus = {{ questions_status_json|safe }};
+
+  /* ── Navigator: colour the buttons correctly on load ──────────────────── */
+  questionsStatus.forEach(function (q) {
+    var btn = document.querySelector('.nav-q-btn[data-idx="' + q.order + '"]');
+    if (!btn) return;
+    btn.classList.remove('btn-dark', 'btn-primary', 'btn-outline-secondary');
+    if (q.is_current) {
+      btn.classList.add('btn-dark');
+    } else if (q.is_answered) {
+      btn.classList.add('btn-primary');
+    } else {
+      btn.classList.add('btn-outline-secondary');
     }
-    render();
-    setInterval(render, 1000);
-  })();
+  });
+
+  /* ── Navigate to a question ────────────────────────────────────────────── */
+  window.goToQuestion = function (idx) {
+    document.getElementById('currentIndexInput').value = idx;
+    document.getElementById('mockForm').submit();
+  };
+
+  /* ── Toggle bookmark / flag hidden inputs ─────────────────────────────── */
+  window.toggleHidden = function (inputId) {
+    var el = document.getElementById(inputId);
+    el.value = el.value === '1' ? '0' : '1';
+  };
+
+  /* ── Countdown clock ───────────────────────────────────────────────────── */
+  var remaining  = {{ remaining_seconds|default:0 }};
+  var clockBox   = document.getElementById('clockBox');
+  var timerEl    = document.getElementById('timerDisplay');
+  var totalSecs  = remaining;
+
+  function renderClock() {
+    var mins = Math.floor(remaining / 60);
+    var secs = remaining % 60;
+    timerEl.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+
+    /* colour thresholds */
+    clockBox.classList.remove(
+      'border-success', 'border-warning', 'border-danger',
+      'text-success',   'text-warning',   'text-danger'
+    );
+    if (remaining <= 120) {          /* ≤ 2 min — red + pulse */
+      clockBox.classList.add('border-danger', 'text-danger');
+      clockBox.style.animation = 'clockPulse .8s ease-in-out infinite';
+    } else if (remaining <= 300) {   /* ≤ 5 min — amber */
+      clockBox.classList.add('border-warning', 'text-warning');
+      clockBox.style.animation = '';
+    } else {
+      clockBox.classList.add('border-success', 'text-success');
+      clockBox.style.animation = '';
+    }
+
+    if (remaining <= 0) {
+      showAppMessageModal && showAppMessageModal('Time is up. Submitting your answers now.', 'Time Up');
+      confirmSubmit();
+      return;
+    }
+    remaining -= 1;
+  }
+
+  renderClock();
+  setInterval(renderClock, 1000);
+
+  /* ── Review modal ──────────────────────────────────────────────────────── */
+  window.openReviewModal = function () {
+    var answered   = 0;
+    var unanswered = 0;
+    var grid = document.getElementById('modalQuestionGrid');
+    grid.innerHTML = '';
+
+    questionsStatus.forEach(function (q) {
+      if (q.is_answered) answered++; else unanswered++;
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = q.order;
+      btn.title = q.is_answered ? 'Answered' : 'Not answered — click to go back';
+      btn.style.cssText = 'width:42px;height:42px;padding:0;font-size:.82rem;font-weight:600;border-radius:6px;';
+
+      if (q.is_current) {
+        btn.className = 'btn btn-dark';
+        btn.title += ' (current)';
+      } else if (q.is_answered) {
+        btn.className = 'btn btn-primary';
+      } else {
+        btn.className = 'btn btn-outline-danger';
+      }
+
+      btn.addEventListener('click', function () {
+        /* close modal, then navigate */
+        var modal = bootstrap.Modal.getInstance(document.getElementById('reviewSubmitModal'));
+        if (modal) modal.hide();
+        setTimeout(function () { goToQuestion(q.order); }, 200);
+      });
+
+      grid.appendChild(btn);
+    });
+
+    document.getElementById('modalAnsweredCount').textContent   = answered;
+    document.getElementById('modalUnansweredCount').textContent = unanswered;
+
+    var modal = new bootstrap.Modal(document.getElementById('reviewSubmitModal'));
+    modal.show();
+  };
+
+  /* ── Confirm & submit ──────────────────────────────────────────────────── */
+  window.confirmSubmit = function () {
+    var form = document.getElementById('mockForm');
+    /* remove any stale action inputs */
+    var old = form.querySelectorAll('input[name="action"]');
+    old.forEach(function (el) { el.remove(); });
+    var inp = document.createElement('input');
+    inp.type  = 'hidden';
+    inp.name  = 'action';
+    inp.value = 'submit';
+    form.appendChild(inp);
+    form.submit();
+  };
+})();
 </script>
+
+<style>
+@keyframes clockPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .45; }
+}
+</style>
 {% endblock %}

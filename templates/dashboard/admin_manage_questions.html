@@ -6,8 +6,25 @@
   <div class="col-12">
     <div class="card">
       <div class="card-body">
-        <h4 class="mb-1">Manage Questions</h4>
-        <p class="text-muted mb-0">Create, edit, search and delete question bank items.</p>
+        <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
+          <h4 class="mb-0">Manage Questions</h4>
+          <div class="text-muted small">
+            <span class="fs-5 fw-bold text-body">{{ question_bank_count }}</span>
+            {% if query %}
+            matching row{% if question_bank_count != 1 %}s{% endif %}
+            {% else %}
+            row{% if question_bank_count != 1 %}s{% endif %} in bank
+            {% endif %}
+            {% if pagination %}
+            <span class="mx-1">·</span>
+            page <span class="fw-semibold text-body">{{ pagination.page }}</span> of
+            <span class="fw-semibold text-body">{{ pagination.num_pages }}</span>
+            <span class="mx-1">·</span>
+            <span class="fw-semibold text-body">{{ pagination.total_logical }}</span> in list (deduped)
+            {% endif %}
+          </div>
+        </div>
+        <p class="text-muted mb-0">Create, edit, search and delete question bank items. General Paper questions are listed once (all programmes); edit or delete applies to every programme copy.</p>
       </div>
     </div>
   </div>
@@ -28,6 +45,12 @@
         <h5 class="card-title mb-2">Edit Question</h5>
       </div>
       <div class="card-body">
+        {% if edit_item.general_paper_copy_count %}
+        <div class="alert alert-info py-2 small mb-3" role="alert">
+          General Paper is shared: this question exists as <strong>{{ edit_item.general_paper_copy_count }}</strong> row(s) (one per programme).
+          Saving here updates every copy; delete from the list removes all copies together.
+        </div>
+        {% endif %}
         <form method="post">
           {% csrf_token %}
           <input type="hidden" name="action" value="update" />
@@ -89,7 +112,7 @@
             </div>
             <div class="col-12 d-flex gap-2 pt-1">
               <button type="submit" class="btn btn-primary">Update Question</button>
-              <a href="/admin-panel/manage-questions/" class="btn btn-outline-secondary">Cancel Edit</a>
+              <a href="{% if pagination %}{{ pagination.cancel_url }}{% else %}/admin-panel/manage-questions/{% endif %}" class="btn btn-outline-secondary">Cancel Edit</a>
             </div>
           </div>
         </form>
@@ -106,6 +129,9 @@
           <input type="text" name="q" value="{{ query }}" class="form-control me-2" placeholder="Search question, programme, paper..." />
           <button type="submit" class="btn btn-outline-primary">Search</button>
         </form>
+        {% if pagination and pagination.truncated_fetch %}
+        <p class="text-warning small mb-0 mt-2">Only the {{ pagination.max_fetch }} most recent matching rows are loaded; pagination is applied after General Paper dedupe. Use search to narrow results if you need older questions.</p>
+        {% endif %}
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -128,8 +154,8 @@
                 <td><span class="badge bg-label-primary">{{ item.correct_option }}</span></td>
                 <td>
                   <div class="d-flex gap-2">
-                    <a href="/admin-panel/manage-questions/?edit={{ item.id }}{% if query %}&q={{ query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                    <form method="post" onsubmit="return confirm('Delete this question?');">
+                    <a href="/admin-panel/manage-questions/?edit={{ item.id }}{% if pagination and pagination.page > 1 %}&page={{ pagination.page }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form method="post" onsubmit="return confirm({% if item.general_paper_grouped %}'Delete this General Paper question for ALL programmes? Every programme copy will be removed.'{% else %}'Delete this question?'{% endif %});">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="delete" />
                       <input type="hidden" name="question_id" value="{{ item.id }}" />
@@ -147,6 +173,40 @@
           </tbody>
         </table>
       </div>
+      {% if pagination and pagination.num_pages > 1 %}
+      <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="text-muted small">
+          Showing {{ question_list_shown }} of {{ pagination.total_logical }} on this page · {{ pagination.per_page }} per page
+        </div>
+        <nav aria-label="Question list pages">
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              {% if pagination.has_prev %}
+              <a class="page-link" href="{{ pagination.prev_url }}">Previous</a>
+              {% else %}
+              <span class="page-link">Previous</span>
+              {% endif %}
+            </li>
+            {% for item in pagination.nav_items %}
+              {% if item.ellipsis %}
+              <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+              {% else %}
+              <li class="page-item {% if item.current %}active{% endif %}">
+                <a class="page-link" href="{{ item.url }}">{{ item.n }}</a>
+              </li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              {% if pagination.has_next %}
+              <a class="page-link" href="{{ pagination.next_url }}">Next</a>
+              {% else %}
+              <span class="page-link">Next</span>
+              {% endif %}
+            </li>
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>

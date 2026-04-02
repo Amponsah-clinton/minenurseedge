@@ -7,7 +7,7 @@
     <div class="card">
       <div class="card-body">
         <h4 class="mb-1">Lecture Notes</h4>
-        <p class="text-muted mb-0">Create notes with rich text. Published notes appear on the student page.</p>
+        <p class="text-muted mb-0">Create and edit notes with rich text. Set a default reading size for students; use the editor toolbar for inline sizes. Published notes appear on the student page.</p>
       </div>
     </div>
   </div>
@@ -19,25 +19,53 @@
 <div class="row g-4">
   <div class="col-lg-7">
     <div class="card">
-      <div class="card-header"><h5 class="mb-0">Add New Note</h5></div>
+      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h5 class="mb-0">{% if edit_note %}Edit Note{% else %}Add New Note{% endif %}</h5>
+        {% if edit_note %}
+        <a href="/admin-panel/lecture-notes/" class="btn btn-sm btn-outline-secondary">Cancel edit</a>
+        {% endif %}
+      </div>
       <div class="card-body">
         <form method="post" id="noteForm">
           {% csrf_token %}
-          <input type="hidden" name="action" value="create">
+          <input type="hidden" name="action" value="{% if edit_note %}update{% else %}create{% endif %}">
+          {% if edit_note %}
+          <input type="hidden" name="note_id" value="{{ edit_note.id }}">
+          <input type="hidden" name="preserved_edit_id" value="{{ edit_note.id }}">
+          {% endif %}
           <div class="mb-3">
             <label class="form-label">Topic *</label>
-            <input type="text" name="topic" class="form-control" required>
+            <input type="text" name="topic" class="form-control" required
+              value="{% if edit_note %}{{ edit_note.topic }}{% endif %}">
           </div>
           <div class="mb-3">
             <label class="form-label">Subtopic (optional)</label>
-            <input type="text" name="subtopic" class="form-control">
+            <input type="text" name="subtopic" class="form-control"
+              value="{% if edit_note %}{{ edit_note.subtopic|default:'' }}{% endif %}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Default font size (student view) *</label>
+            <select name="content_font_size_px" class="form-select" id="noteFontSizePx" style="max-width:220px;">
+              {% if edit_note %}
+                {% with fs=edit_note.content_font_size_px|default:16 %}
+                {% for px in lecture_note_font_sizes %}
+                <option value="{{ px }}" {% if fs == px %}selected{% endif %}>{{ px }} px</option>
+                {% endfor %}
+                {% endwith %}
+              {% else %}
+                {% for px in lecture_note_font_sizes %}
+                <option value="{{ px }}" {% if px == 16 %}selected{% endif %}>{{ px }} px</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+            <small class="text-muted d-block mt-1">Base size for the note body on the student page. Use the editor “Size” control for different sizes inside the content.</small>
           </div>
           <div class="mb-3">
             <label class="form-label">Content *</label>
             <div id="editor" style="height:300px;"></div>
             <input type="hidden" name="content_html" id="contentHtml">
           </div>
-          <button type="submit" class="btn btn-primary">Save Note</button>
+          <button type="submit" class="btn btn-primary">{% if edit_note %}Update note{% else %}Save note{% endif %}</button>
         </form>
       </div>
     </div>
@@ -55,13 +83,17 @@
                   <div>
                     <h6 class="mb-0">{{ note.topic }}</h6>
                     {% if note.subtopic %}<small class="text-muted">{{ note.subtopic }}</small>{% endif %}
+                    <div class="small text-muted mt-1">{{ note.display_font_px }} px · student view</div>
                   </div>
-                  <form method="post" onsubmit="return confirm('Delete this note?');">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="note_id" value="{{ note.id }}">
-                    <button class="btn btn-sm btn-outline-danger">Delete</button>
-                  </form>
+                  <div class="d-flex flex-shrink-0 gap-1">
+                    <a href="/admin-panel/lecture-notes/?edit={{ note.id }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <form method="post" onsubmit="return confirm('Delete this note?');" class="d-inline">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="note_id" value="{{ note.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                  </div>
                 </div>
               </div>
             {% endfor %}
@@ -73,18 +105,45 @@
     </div>
   </div>
 </div>
+
+{% if edit_form_initial %}
+{{ edit_form_initial|json_script:"lecture-edit-initial" }}
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: 'Normal'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12px"]::before { content: '12px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="14px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="14px"]::before { content: '14px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="16px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="16px"]::before { content: '16px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="18px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="18px"]::before { content: '18px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="20px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="20px"]::before { content: '20px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="22px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="22px"]::before { content: '22px'; }
+  .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="24px"]::before,
+  .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="24px"]::before { content: '24px'; }
+</style>
 <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 <script>
   (function () {
+    var SizeStyle = Quill.import('attributors/style/size');
+    SizeStyle.whitelist = ['12px', '14px', '16px', '18px', '20px', '22px', '24px'];
+    Quill.register(SizeStyle, true);
+
     var quill = new Quill('#editor', {
       theme: 'snow',
       placeholder: 'Write your lecture note content...',
       modules: {
         toolbar: [
+          [{ size: ['12px', '14px', '16px', '18px', '20px', '22px', '24px', false] }],
           [{ header: [1, 2, 3, false] }],
           ['bold', 'italic', 'underline'],
           [{ list: 'ordered' }, { list: 'bullet' }],
@@ -94,12 +153,27 @@
         ]
       }
     });
+
+    var el = document.getElementById('lecture-edit-initial');
+    if (el && el.textContent) {
+      try {
+        var data = JSON.parse(el.textContent);
+        if (data && data.content_html) {
+          quill.root.innerHTML = data.content_html;
+        }
+      } catch (e) {}
+    }
+
     var form = document.getElementById('noteForm');
     form.addEventListener('submit', function (e) {
       var html = quill.root.innerHTML.trim();
       if (!html || html === '<p><br></p>') {
         e.preventDefault();
-        showAppMessageModal('Content is required.', 'Validation');
+        if (typeof showAppMessageModal === 'function') {
+          showAppMessageModal('Content is required.', 'Validation');
+        } else {
+          alert('Content is required.');
+        }
         return;
       }
       document.getElementById('contentHtml').value = html;
