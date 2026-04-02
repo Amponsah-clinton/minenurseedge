@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NurseEdge{% endblock %}</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/namari-color.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    {% block head_extra %}{% endblock %}
+    <style>
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        #wrapper {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+        }
+        #header {
+            top: 0 !important;
+            margin-top: 0 !important;
+        }
+        .base-page-content {
+            padding-top: 82px;
+        }
+        #logo {
+            display: flex !important;
+            align-items: center !important;
+            height: 71px !important;
+        }
+        #logo a {
+            display: flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            text-decoration: none !important;
+        }
+        #logo img {
+            max-height: 42px !important;
+            height: 42px !important;
+            width: auto !important;
+        }
+        #logo a span {
+            display: inline-block !important;
+            font-size: 20px !important;
+            font-weight: 800 !important;
+            color: #111111 !important;
+        }
+    </style>
+</head>
+<body>
+<div id="wrapper">
+    <div id="header" class="nav-collapse nav-solid" style="position: static;">
+        <div class="row clearfix">
+            <div class="col-1">
+                <div id="logo">
+                    <a href="/">
+                        <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" alt="NurseEdge Logo">
+                        <span>NurseEdge</span>
+                    </a>
+                </div>
+                <aside>
+                    <nav id="nav-main">
+                        <ul>
+                            <li><a href="/">Home</a></li>
+                            <li><a href="/about/">About</a></li>
+                            <li><a href="/contact/">Contact</a></li>
+                            <li><a href="/login/">Login</a></li>
+                            <li><a href="/signup/">Signup</a></li>
+                        </ul>
+                    </nav>
+                </aside>
+                <div id="nav-trigger"><span></span></div>
+                <nav id="nav-mobile"></nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="base-page-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer id="landing-footer" class="clearfix">
+        <div class="row clearfix">
+            <p id="copyright" class="col-2">
+                &copy; <span id="footer-year"></span> All rights reserved NurseEdge.
+            </p>
+        </div>
+    </footer>
+</div>
+
+<script src="/js/jquery.1.8.3.min.js"></script>
+<script src="/js/wow.min.js"></script>
+<script src="/js/jquery.scrollUp.min.js"></script>
+<script src="/js/jquery.easing.min.js"></script>
+<script src="/js/jquery.stickyNavbar.min.js"></script>
+<script src="/js/jquery.waypoints.min.js"></script>
+<script src="/js/site.js"></script>
+<script>
+    (function () {
+        var yearEl = document.getElementById("footer-year");
+        if (yearEl) yearEl.textContent = new Date().getFullYear();
+    })();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

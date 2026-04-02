@@ -1,0 +1,271 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Upload Questions - NurseEdge Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-1">Upload Questions</h4>
+        <p class="text-muted mb-0">
+          Add single questions manually or upload many at once with JSON.
+          General Paper uploads are automatically saved for all programmes.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}
+<div class="alert alert-success" role="alert">{{ success }}</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger" role="alert">{{ error }}</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-lg-7 mb-4">
+    <div class="card h-100">
+      <div class="card-header pb-0">
+        <h5 class="card-title mb-2">Manual Upload</h5>
+        <small class="text-muted">Add one question with options.</small>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="upload_mode" value="manual" />
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Programme</label>
+              <select name="programme" id="programme-select" class="form-select">
+                <option value="">No programme (General Paper only)</option>
+                {% for programme in programmes %}
+                <option value="{{ programme }}" {% if form_data.programme == programme %}selected{% endif %}>{{ programme }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Paper Title</label>
+              <select name="paper_title" id="paper-title-select" class="form-select" required>
+                <option value="">Select paper title</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <small class="text-muted">Tip: Leave programme empty if this is a General Paper question.</small>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Question</label>
+              <textarea name="question_text" class="form-control" rows="3" required>{{ form_data.question_text }}</textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Option A</label>
+              <input type="text" name="option_a" class="form-control" value="{{ form_data.option_a }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Option B</label>
+              <input type="text" name="option_b" class="form-control" value="{{ form_data.option_b }}" required />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Option C</label>
+              <input type="text" name="option_c" class="form-control" value="{{ form_data.option_c }}" required />
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Correct Option</label>
+              <select name="correct_option" class="form-select" required>
+                <option value="">Select</option>
+                <option value="A" {% if form_data.correct_option == "A" %}selected{% endif %}>A</option>
+                <option value="B" {% if form_data.correct_option == "B" %}selected{% endif %}>B</option>
+                <option value="C" {% if form_data.correct_option == "C" %}selected{% endif %}>C</option>
+              </select>
+            </div>
+
+            <div class="col-md-8">
+              <label class="form-label">Explanation (optional)</label>
+              <input type="text" name="explanation" class="form-control" value="{{ form_data.explanation }}" />
+            </div>
+
+            <div class="col-12 pt-2">
+              <button type="submit" class="btn btn-primary">Save Question</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5 mb-4">
+    <div class="card h-100">
+      <div class="card-header pb-0">
+        <h5 class="card-title mb-2">JSON Bulk Upload</h5>
+        <small class="text-muted">Paste JSON array and upload many questions at once.</small>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="upload_mode" value="json" />
+          <div class="mb-3">
+            <label class="form-label">JSON Payload</label>
+            <textarea name="json_payload" class="form-control" rows="13" placeholder='[{ "programme": "...", "paper_title": "...", "question": "...", "options": {"A":"...", "B":"...", "C":"..."}, "correct_option":"A", "explanation":"..." }]'>{{ form_data.json_payload }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload JSON</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="mb-3">Programme and Paper Mapping</h5>
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Programme</th>
+                <th>Papers</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for programme, papers in programme_papers.items %}
+              <tr>
+                <td>{{ programme }}</td>
+                <td>
+                  {% for paper in papers %}
+                    <span class="badge bg-label-secondary me-1 mb-1">{{ paper }}</span>
+                  {% endfor %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="text-muted mb-0 mt-2">
+          Rule: if <strong>paper_title</strong> is <strong>General Paper</strong>, the question is stored for all programmes.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="mb-2">Better JSON Bulk Example</h5>
+        <p class="text-muted mb-3">
+          You can upload either an array directly or use <code>{ "questions": [...] }</code>.
+          Use one programme for each item. If <strong>paper_title</strong> is <strong>General Paper</strong>,
+          that question is automatically copied to all programmes.
+        </p>
+        <pre class="mb-0" style="white-space:pre-wrap;">{
+  "questions": [
+    {
+      "programme": "Registered General Nursing (RGN)",
+      "paper_title": "Medicine and Medical Nursing",
+      "question": "Which organ primarily filters blood to produce urine?",
+      "options": {
+        "A": "Liver",
+        "B": "Kidney",
+        "C": "Spleen"
+      },
+      "correct_option": "B",
+      "explanation": "Kidneys filter blood and form urine."
+    },
+    {
+      "programme": "Registered General Nursing (RGN)",
+      "paper_title": "Surgery, Gynaecology, Urology & Orthopaedics",
+      "question": "Which action is most important before sterile dressing?",
+      "options": {
+        "A": "Remove gloves",
+        "B": "Hand hygiene",
+        "C": "Give oral fluids"
+      },
+      "correct_option": "B",
+      "explanation": "Hand hygiene is critical for infection prevention."
+    },
+    {
+      "programme": "Registered Midwifery (RM)",
+      "paper_title": "Paediatrics, Obstetric Anatomy & High-Risk Neonates",
+      "question": "A high-risk neonate with low temperature needs first-line nursing action?",
+      "options": {
+        "A": "Keep baby uncovered",
+        "B": "Start kangaroo mother care or warming protocol",
+        "C": "Delay monitoring"
+      },
+      "correct_option": "B",
+      "explanation": "Immediate thermoregulation reduces neonatal complications."
+    },
+    {
+      "programme": "Registered Mental Health Nursing (RMHN)",
+      "paper_title": "Psychiatry, Psychopathology & Psychopharmacology",
+      "question": "Which side effect is most associated with antipsychotic medication?",
+      "options": {
+        "A": "Extrapyramidal symptoms",
+        "B": "Visual cataract only",
+        "C": "Renal colic"
+      },
+      "correct_option": "A",
+      "explanation": "EPS is a known adverse effect of many antipsychotics."
+    },
+    {
+      "programme": "Registered Public Health Nursing (RPHN)",
+      "paper_title": "General Paper",
+      "question": "Primary prevention mainly focuses on what?",
+      "options": {
+        "A": "Early diagnosis only",
+        "B": "Health promotion and risk reduction",
+        "C": "Rehabilitation only"
+      },
+      "correct_option": "B",
+      "explanation": "Primary prevention aims to stop disease before it starts."
+    }
+  ]
+}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const programmePapers = JSON.parse('{{ programme_papers_json|escapejs }}');
+    const programmeSelect = document.getElementById("programme-select");
+    const paperSelect = document.getElementById("paper-title-select");
+    if (!programmeSelect || !paperSelect) return;
+
+    const selectedPaper = "{{ form_data.paper_title|default:''|escapejs }}";
+
+    function renderPapers() {
+      const programme = programmeSelect.value;
+      const papers = ["General Paper"];
+      if (programme && programmePapers[programme]) {
+        programmePapers[programme].forEach((paper) => {
+          if (!papers.includes(paper)) papers.push(paper);
+        });
+      }
+      paperSelect.innerHTML = '<option value="">Select paper title</option>';
+      papers.forEach((paper) => {
+        const option = document.createElement("option");
+        option.value = paper;
+        option.textContent = paper;
+        if (paper === selectedPaper) option.selected = true;
+        paperSelect.appendChild(option);
+      });
+    }
+
+    programmeSelect.addEventListener("change", function () {
+      renderPapers();
+    });
+
+    renderPapers();
+  })();
+</script>
+{% endblock %}

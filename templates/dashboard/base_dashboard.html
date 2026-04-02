@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en"
+      class="light-style layout-menu-fixed"
+      dir="ltr"
+      data-theme="theme-default"
+      data-assets-path="/sneat-assets/"
+      data-template="vertical-menu-template-free">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <title>{% block title %}Dashboard - NurseEdge{% endblock %}</title>
+  <meta name="description" content="" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="/sneat-assets/vendor/fonts/boxicons.css" />
+
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="/sneat-assets/vendor/css/core.css" class="template-customizer-core-css" />
+  <link rel="stylesheet" href="/sneat-assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+  <link rel="stylesheet" href="/sneat-assets/css/demo.css" />
+
+  <!-- Vendors CSS -->
+  <link rel="stylesheet" href="/sneat-assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+  <style>
+    .assistant-bot {
+      position: fixed;
+      right: 22px;
+      bottom: 18px;
+      width: 340px;
+      max-width: calc(100vw - 24px);
+      background: #ffffff;
+      border: 1px solid #e6e8ec;
+      border-radius: 12px;
+      box-shadow: 0 10px 28px rgba(20, 20, 20, 0.12);
+      z-index: 1085;
+      overflow: hidden;
+    }
+    .assistant-bot.is-minimized {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      overflow: visible;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .assistant-bot.is-minimized .assistant-bot__head,
+    .assistant-bot.is-minimized .assistant-bot__body,
+    .assistant-bot.is-minimized .assistant-bot__foot {
+      display: none;
+    }
+    .assistant-bot__mini {
+      display: none;
+      width: 58px;
+      height: 58px;
+      border: 1px solid #d9dfeb;
+      border-radius: 50%;
+      background: #3f51b5;
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(63, 81, 181, 0.28);
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      position: relative;
+    }
+    .assistant-bot.is-minimized .assistant-bot__mini {
+      display: inline-flex;
+      animation: botPulse 1.8s ease-out infinite;
+    }
+    .assistant-bot.is-minimized .assistant-bot__mini::before,
+    .assistant-bot.is-minimized .assistant-bot__mini::after {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: 50%;
+      border: 2px solid rgba(63, 81, 181, 0.4);
+      animation: botRing 1.8s ease-out infinite;
+      pointer-events: none;
+    }
+    .assistant-bot.is-minimized .assistant-bot__mini::after {
+      animation-delay: 0.9s;
+    }
+    .assistant-bot__mini-tooltip {
+      position: absolute;
+      right: 66px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1f2430;
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 6px 9px;
+      font-size: 11px;
+      white-space: nowrap;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      pointer-events: none;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+    }
+    .assistant-bot__mini-tooltip::after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 5px solid #1f2430;
+    }
+    .assistant-bot.is-minimized .assistant-bot__mini-tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+    @keyframes botPulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.06);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+    @keyframes botRing {
+      0% {
+        transform: scale(1);
+        opacity: 0.7;
+      }
+      100% {
+        transform: scale(1.7);
+        opacity: 0;
+      }
+    }
+    .assistant-bot__head {
+      padding: 12px 14px;
+      border-bottom: 1px solid #eceff3;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .assistant-bot__head-main {
+      flex: 1;
+      min-width: 0;
+    }
+    .assistant-bot__close {
+      width: 28px;
+      height: 28px;
+      border: 1px solid #dfe4ec;
+      border-radius: 8px;
+      background: #fff;
+      color: #6f7a8a;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .assistant-bot__close:hover {
+      background: #f7f9fc;
+      color: #44516a;
+    }
+    .assistant-bot__robot {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid #d9dfeb;
+      background: #f6f8fc;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #4b5f8a;
+      flex-shrink: 0;
+    }
+    .assistant-bot__title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: #212529;
+    }
+    .assistant-bot__sub {
+      margin: 1px 0 0;
+      font-size: 12px;
+      color: #7b8190;
+    }
+    .assistant-bot__status {
+      margin-top: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #5f6b7a;
+      border: 1px solid #e3e7ef;
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: #fbfcff;
+    }
+    .assistant-bot__status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #2fb35a;
+    }
+    .assistant-bot__body {
+      padding: 14px;
+      max-height: 260px;
+      overflow: auto;
+      background: #fcfcfd;
+    }
+    .assistant-bot__bubble {
+      border: 1px solid #e6e8ec;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #49515f;
+      line-height: 1.55;
+      margin-bottom: 8px;
+    }
+    .assistant-bot__foot {
+      border-top: 1px solid #eceff3;
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: #fff;
+    }
+    .assistant-bot__input {
+      flex: 1;
+      height: 38px;
+      border: 1px solid #d7dde7;
+      border-radius: 8px;
+      padding: 0 10px;
+      font-size: 13px;
+      color: #4a5160;
+      background: #f9fafb;
+    }
+    .assistant-bot__btn {
+      height: 38px;
+      border: 1px solid #d7dde7;
+      background: #ffffff;
+      color: #384255;
+      border-radius: 8px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      opacity: 1;
+    }
+    .assistant-bot__btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.8;
+    }
+    @media (max-width: 768px) {
+      .assistant-bot {
+        right: 10px;
+        bottom: 10px;
+        width: calc(100vw - 20px);
+      }
+      /* On mobile, keep the robot icon visible so users can still reopen/minimize easily. */
+      .assistant-bot__mini {
+        display: inline-flex !important;
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        animation: botPulse 1.8s ease-out infinite;
+      }
+    }
+  </style>
+
+  <!-- Helpers -->
+  <script src="/sneat-assets/vendor/js/helpers.js"></script>
+  <script src="/sneat-assets/js/config.js"></script>
+</head>
+
+<body>
+  <!-- Layout wrapper -->
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
+
+      <!-- ===================== SIDEBAR ===================== -->
+      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+
+        <!-- Brand -->
+        <div class="app-brand demo">
+          <a href="/" class="app-brand-link">
+            <span class="app-brand-logo demo">
+              <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png"
+                   alt="NurseEdge" style="height:28px;width:auto;" />
+            </span>
+            <span class="app-brand-text menu-text fw-bolder ms-2" style="font-size:1.75rem;letter-spacing:-0.5px;text-transform:none;"><span style="color:#696cff;">N</span>urse<span style="color:#696cff;">E</span>dge</span>
+          </a>
+          <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+            <i class="bx bx-chevron-left bx-sm align-middle"></i>
+          </a>
+        </div>
+
+        <div class="menu-inner-shadow"></div>
+
+        <ul class="menu-inner py-1">
+
+          {% if role == "admin" %}
+          <!-- ========== ADMIN MENU ========== -->
+
+          <!-- Dashboard -->
+          <li class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">
+            <a href="/admin-panel/dashboard/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-home-circle"></i>
+              <div data-i18n="Dashboard">Dashboard</div>
+            </a>
+          </li>
+
+          <!-- Management -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Management</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'users' %}active{% endif %}">
+            <a href="/admin-panel/users/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-user-check"></i>
+              <div data-i18n="Registered Users">Registered Users</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'messages' %}active{% endif %}">
+            <a href="/admin-panel/messages/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-envelope"></i>
+              <div data-i18n="Contact Messages">Contact Messages</div>
+            </a>
+          </li>
+          <li class="menu-item {% if active_page == 'broadcast_messages' %}active{% endif %}">
+            <a href="/admin-panel/broadcast-messages/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-message-square-detail"></i>
+              <div data-i18n="Broadcast Messages">Broadcast Messages</div>
+            </a>
+          </li>
+
+          <!-- Content -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Content</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'upload_questions' or active_page == 'manage_questions' or active_page == 'mock_exams' %}active open{% endif %}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-book"></i>
+              <div data-i18n="Question Bank">Question Bank</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item {% if active_page == 'upload_questions' %}active{% endif %}">
+                <a href="/admin-panel/upload-questions/" class="menu-link"><div data-i18n="Upload Questions">Upload Questions</div></a>
+              </li>
+              <li class="menu-item {% if active_page == 'manage_questions' %}active{% endif %}">
+                <a href="/admin-panel/manage-questions/" class="menu-link"><div data-i18n="Manage Questions">Manage Questions</div></a>
+              </li>
+              <li class="menu-item {% if active_page == 'mock_exams' %}active{% endif %}">
+                <a href="/admin-panel/mock-exams/" class="menu-link"><div data-i18n="Build Mock Exams">Build Mock Exams</div></a>
+              </li>
+            </ul>
+          </li>
+
+          <li class="menu-item {% if active_page == 'quizzes' %}active{% endif %}">
+            <a href="/admin-panel/quizzes/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-list-check"></i>
+              <div data-i18n="Quizzes">Quizzes</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'lecture_notes' %}active open{% endif %}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-file"></i>
+              <div data-i18n="Lecture Notes">Lecture Notes</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item {% if active_page == 'lecture_notes' %}active{% endif %}">
+                <a href="/admin-panel/lecture-notes/" class="menu-link"><div>Create & Manage Notes</div></a>
+              </li>
+            </ul>
+          </li>
+
+          <li class="menu-item {% if active_page == 'drug_cards' %}active{% endif %}">
+            <a href="/admin-panel/drug-cards/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-capsule"></i>
+              <div data-i18n="Drug Cards">Drug Cards</div>
+            </a>
+          </li>
+
+          <!-- Finance -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Finance</span>
+          </li>
+
+          <li class="menu-item">
+            <a href="#" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-credit-card"></i>
+              <div data-i18n="Payments">Payments</div>
+            </a>
+          </li>
+
+          <li class="menu-item">
+            <a href="#" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-gift"></i>
+              <div data-i18n="Coupons & Referrals">Coupons &amp; Referrals</div>
+            </a>
+          </li>
+
+          <!-- Misc -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Account</span>
+          </li>
+          <li class="menu-item">
+            <a href="/logout/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-power-off"></i>
+              <div data-i18n="Log Out">Log Out</div>
+            </a>
+          </li>
+
+          {% else %}
+          <!-- ========== STUDENT MENU ========== -->
+
+          <li class="menu-item {% if active_page == 'dashboard' %}active{% endif %}">
+            <a href="/dashboard/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-home-circle"></i>
+              <div data-i18n="Dashboard">Dashboard</div>
+            </a>
+          </li>
+
+          <!-- Study -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Study</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'lecture_notes' %}active{% endif %}">
+            <a href="/dashboard/lecture-notes/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-book-open"></i>
+              <div data-i18n="Lecture Notes">Lecture Notes</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'drug_cards' %}active{% endif %}">
+            <a href="/dashboard/drug-cards/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-capsule"></i>
+              <div data-i18n="Drug Cards">Drug Cards</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'dosage_calculator' %}active{% endif %}">
+            <a href="/dashboard/dosage-calculator/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-calculator"></i>
+              <div data-i18n="Dosage Calculations">Dosage Calculations</div>
+            </a>
+          </li>
+
+          <!-- Practice -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Practice</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'general_tests' %}active{% endif %}">
+            <a href="/dashboard/general-tests/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-question-mark"></i>
+              <div data-i18n="General Tests">General Tests</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'quizzes' %}active{% endif %}">
+            <a href="/dashboard/quizzes/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-list-check"></i>
+              <div data-i18n="Quizzes">Quizzes</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'mock_exams' %}active open{% endif %}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-target-lock"></i>
+              <div data-i18n="Mock Exams">Mock Exams</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item {% if active_page == 'mock_exams' %}active{% endif %}">
+                <a href="/dashboard/mock-exams/" class="menu-link"><div>Mock Exams & Leaderboard</div></a>
+              </li>
+            </ul>
+          </li>
+
+          <li class="menu-item {% if active_page == 'performance' %}active{% endif %}">
+            <a href="/dashboard/performance/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div data-i18n="Performance">Performance</div>
+            </a>
+          </li>
+
+          <!-- Tools -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Tools</span>
+          </li>
+
+          <li class="menu-item {% if active_page == 'flashcards' %}active{% endif %}">
+            <a href="/dashboard/flashcards/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-brain"></i>
+              <div data-i18n="Flashcards">Flashcards</div>
+            </a>
+          </li>
+
+          <li class="menu-item">
+            <a href="#" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-bot"></i>
+              <div data-i18n="AI Assistant">AI Assistant</div>
+            </a>
+          </li>
+
+          <li class="menu-item {% if active_page == 'bookmarks' %}active{% endif %}">
+            <a href="/dashboard/bookmarks/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-bookmark"></i>
+              <div data-i18n="Bookmarks">Bookmarks</div>
+            </a>
+          </li>
+
+          <li class="menu-item">
+            <a href="#" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Community">Community</div>
+            </a>
+          </li>
+          <li class="menu-item {% if active_page == 'student_messages' %}active{% endif %}">
+            <a href="/dashboard/messages/" class="menu-link d-flex align-items-center justify-content-between">
+              <span class="d-flex align-items-center">
+                <i class="menu-icon tf-icons bx bx-bell"></i>
+                <span data-i18n="Messages">Messages</span>
+              </span>
+              {% if student_unread_notifications %}
+              <span class="badge bg-label-danger rounded-pill">{{ student_unread_notifications }}</span>
+              {% endif %}
+            </a>
+          </li>
+
+          <!-- Account -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Account</span>
+          </li>
+
+          <li class="menu-item">
+            <a href="/logout/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-power-off"></i>
+              <div data-i18n="Log Out">Log Out</div>
+            </a>
+          </li>
+
+          {% endif %}
+        </ul>
+      </aside>
+      <!-- / Sidebar -->
+
+      <!-- ===================== LAYOUT PAGE ===================== -->
+      <div class="layout-page">
+
+        <!-- Navbar -->
+        <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+             id="layout-navbar">
+          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+            <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+              <i class="bx bx-menu bx-sm"></i>
+            </a>
+          </div>
+
+          <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+            <!-- Search -->
+            <div class="navbar-nav align-items-center">
+              <div class="nav-item d-flex align-items-center">
+                <i class="bx bx-search fs-4 lh-0"></i>
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
+              </div>
+            </div>
+            <!-- /Search -->
+
+            <ul class="navbar-nav flex-row align-items-center ms-auto">
+
+              <!-- User dropdown -->
+              <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                  <div class="avatar avatar-online">
+                    <img src="/sneat-assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                  </div>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <div class="d-flex">
+                        <div class="flex-shrink-0 me-3">
+                          <div class="avatar avatar-online">
+                            <img src="/sneat-assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                          </div>
+                        </div>
+                        <div class="flex-grow-1">
+                          <span class="fw-semibold d-block">{{ full_name }}</span>
+                          <small class="text-muted">{{ role|capfirst }}</small>
+                        </div>
+                      </div>
+                    </a>
+                  </li>
+                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <i class="bx bx-user me-2"></i>
+                      <span class="align-middle">My Profile</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <i class="bx bx-cog me-2"></i>
+                      <span class="align-middle">Settings</span>
+                    </a>
+                  </li>
+                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <a class="dropdown-item" href="/logout/">
+                      <i class="bx bx-power-off me-2"></i>
+                      <span class="align-middle">Log Out</span>
+                    </a>
+                  </li>
+                </ul>
+              </li>
+              <!--/ User -->
+            </ul>
+          </div>
+        </nav>
+        <!-- / Navbar -->
+
+        <!-- Content wrapper -->
+        <div class="content-wrapper">
+          <!-- Content -->
+          <div class="container-xxl flex-grow-1 container-p-y">
+            {% block content %}{% endblock %}
+          </div>
+          <!-- / Content -->
+
+          <!-- Footer -->
+          <footer class="content-footer footer bg-footer-theme">
+            <div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column">
+              <div class="mb-2 mb-md-0">
+                &copy; <span id="footer-year"></span> All rights reserved NurseEdge.
+              </div>
+            </div>
+          </footer>
+          <!-- / Footer -->
+
+          <div class="content-backdrop fade"></div>
+        </div>
+        <!-- Content wrapper -->
+      </div>
+      <!-- / Layout page -->
+
+    </div>
+
+    <!-- Overlay -->
+    <div class="layout-overlay layout-menu-toggle"></div>
+  </div>
+  <!-- / Layout wrapper -->
+
+  <!-- Core JS -->
+  <script src="/sneat-assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="/sneat-assets/vendor/libs/popper/popper.js"></script>
+  <script src="/sneat-assets/vendor/js/bootstrap.js"></script>
+  <script src="/sneat-assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="/sneat-assets/vendor/js/menu.js"></script>
+
+  <!-- Main JS -->
+  <script src="/sneat-assets/js/main.js"></script>
+  <script>
+    (function () {
+      const alerts = document.querySelectorAll('.alert');
+      if (!alerts.length) return;
+      setTimeout(function () {
+        alerts.forEach(function (alertEl) {
+          alertEl.style.transition = 'opacity 0.35s ease';
+          alertEl.style.opacity = '0';
+          setTimeout(function () {
+            if (alertEl && alertEl.parentNode) {
+              alertEl.parentNode.removeChild(alertEl);
+            }
+          }, 400);
+        });
+      }, 5000);
+    })();
+  </script>
+  <script>
+    (function () {
+      const el = document.getElementById('footer-year');
+      if (el) el.textContent = new Date().getFullYear();
+    })();
+  </script>
+
+  {% if role != "admin" and not hide_assistant_bot %}
+  <aside class="assistant-bot" aria-label="Assistant bot">
+    <div class="assistant-bot__head">
+      <span class="assistant-bot__robot" aria-hidden="true"><i class="bx bx-bot"></i></span>
+      <div class="assistant-bot__head-main">
+        <p class="assistant-bot__title">NurseEdge AI Assistant</p>
+        <p class="assistant-bot__sub">Your study robot helper</p>
+        <span class="assistant-bot__status">
+          <span class="assistant-bot__status-dot"></span>
+          Always on
+        </span>
+      </div>
+      <button class="assistant-bot__close" type="button" aria-label="Minimize assistant">
+        <i class="bx bx-x"></i>
+      </button>
+    </div>
+    <div class="assistant-bot__body">
+      <div class="assistant-bot__bubble">
+        Hi {{ full_name|default:"Student" }}. I can help with notes, drug cards, mock strategy, and revision planning.
+      </div>
+      <div class="assistant-bot__bubble">
+        Bot is ready. Ask any exam question you want answered.
+      </div>
+    </div>
+    <div class="assistant-bot__foot">
+      <input id="assistant-input" class="assistant-bot__input" type="text" placeholder="Ask the assistant..." autocomplete="off">
+      <button id="assistant-send" class="assistant-bot__btn" type="button" disabled>Send</button>
+    </div>
+    <button class="assistant-bot__mini" type="button" aria-label="Open assistant">
+      <i class="bx bx-bot"></i>
+      <span class="assistant-bot__mini-tooltip">I am here to assist you</span>
+    </button>
+  </aside>
+  {% endif %}
+
+  <div class="modal fade" id="appMessageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-sm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="appMessageModalTitle">Notice</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0 text-dark" id="appMessageModalBody">Something needs your attention.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var modalElement = document.getElementById('appMessageModal');
+      if (modalElement && window.bootstrap && typeof window.bootstrap.Modal === 'function') {
+        var modalInstance = new window.bootstrap.Modal(modalElement);
+        window.showAppMessageModal = function (message, title) {
+          var titleEl = document.getElementById('appMessageModalTitle');
+          var bodyEl = document.getElementById('appMessageModalBody');
+          if (titleEl) {
+            titleEl.textContent = title || 'Notice';
+          }
+          if (bodyEl) {
+            bodyEl.textContent = message || 'Something needs your attention.';
+          }
+          modalInstance.show();
+        };
+      } else {
+        window.showAppMessageModal = function (message) {
+          console.log(message);
+        };
+      }
+
+      const bot = document.querySelector('.assistant-bot');
+      if (!bot) return;
+      const closeBtn = bot.querySelector('.assistant-bot__close');
+      const miniBtn = bot.querySelector('.assistant-bot__mini');
+      const inputEl = bot.querySelector('#assistant-input');
+      const sendBtn = bot.querySelector('#assistant-send');
+
+      const bytezApiKey = "{{ bytez_api_key|default:''|escapejs }}";
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+          bot.classList.add('is-minimized');
+        });
+      }
+      if (miniBtn) {
+        miniBtn.addEventListener('click', function () {
+          bot.classList.remove('is-minimized');
+        });
+      }
+
+      if (!inputEl || !sendBtn) return;
+
+      // Always allow typing so the UI feels responsive.
+      inputEl.disabled = false;
+      // Never disable the send button; if Bytez key is missing we will show a message.
+      sendBtn.disabled = false;
+
+      function addBubble(text, role) {
+        // role is used only for future styling; keep as textContent for safety.
+        var bubble = document.createElement('div');
+        bubble.className = 'assistant-bot__bubble';
+        bubble.textContent = text || '—';
+        var body = bot.querySelector('.assistant-bot__body');
+        if (body) body.appendChild(bubble);
+        return bubble;
+      }
+
+      async function answerWithBytez(question) {
+        const BytezModule = await import("https://unpkg.com/bytez.js@3.0.0/dist/index.mjs");
+        const Bytez = BytezModule.default;
+
+        const sdk = new Bytez(bytezApiKey);
+        const model = sdk.model("hung200504/bert-31");
+
+        const context =
+          "You are NurseEdge AI Assistant for nursing students. " +
+          "Answer in clear plain English, concise exam-ready format. " +
+          "If relevant, include a brief rationale. Avoid emojis.";
+
+        const { error, output } = await model.run({
+          "context": context,
+          "question": question
+        });
+
+        if (output !== undefined && output !== null && String(output).trim()) {
+          return String(output);
+        }
+        if (error !== undefined && error !== null && String(error).trim()) {
+          return String(error);
+        }
+        return "No response returned.";
+      }
+
+      async function handleSend() {
+        var question = (inputEl.value || '').trim();
+        if (!question) return;
+        inputEl.value = '';
+
+        sendBtn.disabled = true;
+        inputEl.disabled = true;
+
+        addBubble('You: ' + question, 'user');
+        var thinkingBubble = addBubble('Thinking...', 'assistant');
+
+        try {
+          if (!bytezApiKey) {
+            thinkingBubble.textContent = 'Bytez key missing from this page. Hard refresh (Ctrl+F5) and try again.';
+            try { console.log('[NurseEdge Assistant] bytezApiKey present:', !!bytezApiKey, 'len:', bytezApiKey ? bytezApiKey.length : 0); } catch (e) {}
+            return;
+          }
+          var answer = await answerWithBytez(question);
+          thinkingBubble.textContent = answer;
+        } catch (e) {
+          thinkingBubble.textContent = 'Sorry, I could not get an answer right now.';
+          window.showAppMessageModal('Assistant error: ' + (e && e.message ? e.message : 'Unknown error'));
+        } finally {
+          sendBtn.disabled = false;
+          inputEl.disabled = false;
+          inputEl.focus();
+        }
+      }
+
+      sendBtn.addEventListener('click', function () {
+        if (sendBtn.disabled) return;
+        handleSend();
+      });
+
+      inputEl.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (!sendBtn.disabled) handleSend();
+        }
+      });
+    })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

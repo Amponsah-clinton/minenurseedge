@@ -1,0 +1,66 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Performance - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h4 class="mb-1">Performance Dashboard</h4>
+          <p class="text-muted mb-0">All your Mock, Quiz, and General Test attempts in one place.</p>
+        </div>
+        <div class="text-end">
+          <div class="fw-bold fs-4">{{ avg_score }}%</div>
+          <small class="text-muted">Average Score</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Test</th>
+              <th>Score</th>
+              <th>Percentage</th>
+              <th>Date</th>
+              <th class="text-end">Review</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if all_attempts %}
+              {% for row in all_attempts %}
+              <tr>
+                <td>
+                  <span class="badge {% if row.test_type == 'Mock' %}bg-label-primary{% elif row.test_type == 'Quiz' %}bg-label-success{% else %}bg-label-info{% endif %}">
+                    {{ row.test_type }}
+                  </span>
+                </td>
+                <td>{{ row.test_name }}</td>
+                <td>{{ row.score }} / {{ row.total_questions }}</td>
+                <td><strong>{{ row.percentage|floatformat:0 }}%</strong></td>
+                <td>{{ row.submitted_at|slice:":16"|cut:"T" }}</td>
+                <td class="text-end">
+                  <a
+                    href="/dashboard/performance/review/{% if row.test_type == 'Mock' %}mock{% elif row.test_type == 'Quiz' %}quiz{% else %}general{% endif %}/{{ row.id }}/"
+                    class="btn btn-sm btn-outline-primary">
+                    Review
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="6" class="text-center text-muted py-4">No test attempts yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

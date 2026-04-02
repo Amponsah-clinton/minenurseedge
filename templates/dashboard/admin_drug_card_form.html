@@ -1,0 +1,266 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{% if is_edit %}Edit Drug Card{% else %}Add Drug Card{% endif %} — NurseEdge{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:.82rem;">
+    <li class="breadcrumb-item"><a href="/admin-panel/dashboard/" style="color:#696cff;">Admin</a></li>
+    <li class="breadcrumb-item"><a href="/admin-panel/drug-cards/" style="color:#696cff;">Drug Cards</a></li>
+    <li class="breadcrumb-item active text-muted">{% if is_edit %}Edit{% else %}Add{% endif %}</li>
+  </ol>
+</nav>
+
+<!-- Page header -->
+<div class="mb-4">
+  <h4 class="fw-bold mb-1" style="color:#233446;">
+    <i class="bx bx-capsule me-2" style="color:#696cff;"></i>
+    {% if is_edit %}Edit: {{ drug.drug_name|default:"Drug Card" }}{% else %}Add Drug Card{% endif %}
+  </h4>
+  <p class="text-muted mb-0">
+    {% if is_edit %}Update the pharmacology reference card details below.
+    {% else %}Fill in the fields below to create a new drug reference card for students.{% endif %}
+  </p>
+</div>
+
+<!-- Error alert -->
+{% if error %}
+  <div class="alert alert-danger alert-dismissible d-flex align-items-center mb-4" role="alert">
+    <i class="bx bx-error-circle me-2 fs-5"></i>
+    <div>{{ error }}</div>
+    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+{% endif %}
+
+<form method="post" action="" autocomplete="off">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="{% if is_edit %}update{% else %}create{% endif %}">
+  {% if is_edit %}
+    <input type="hidden" name="drug_id" value="{{ drug_id }}">
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ── Left column: form ── -->
+    <div class="col-12 col-lg-8">
+
+      <!-- Section 1: Basic Info -->
+      <div class="card mb-4" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+        <div class="card-header py-3" style="border-bottom:1px solid #e8e8ed;background:#fff;">
+          <h6 class="fw-bold mb-0" style="color:#233446;">
+            <i class="bx bx-info-circle me-2" style="color:#696cff;"></i>Basic Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">
+                Drug Name <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="drug_name"
+                     class="form-control"
+                     value="{{ drug.drug_name|default:'' }}"
+                     placeholder="e.g. Furosemide"
+                     required>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Brand Names</label>
+              <input type="text" name="brand_names"
+                     class="form-control"
+                     value="{{ drug.brand_names|default:'' }}"
+                     placeholder="e.g. Lasix, Urex">
+              <small class="text-muted">Separate multiple names with commas</small>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">
+                Drug Class <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="drug_class"
+                     class="form-control"
+                     value="{{ drug.drug_class|default:'' }}"
+                     placeholder="e.g. Loop Diuretic"
+                     required>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">
+                Category <span class="text-danger">*</span>
+              </label>
+              <select name="category" class="form-select" required>
+                <option value="" disabled {% if not drug.category %}selected{% endif %}>Select category…</option>
+                {% for cat in categories %}
+                  <option value="{{ cat }}" {% if drug.category == cat %}selected{% endif %}>{{ cat }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Routes of Administration</label>
+              <input type="text" name="routes"
+                     class="form-control"
+                     value="{{ drug.routes|default:'' }}"
+                     placeholder="e.g. Oral, IV, IM, Subcutaneous">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Clinical Information -->
+      <div class="card mb-4" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+        <div class="card-header py-3" style="border-bottom:1px solid #e8e8ed;background:#fff;">
+          <h6 class="fw-bold mb-0" style="color:#233446;">
+            <i class="bx bx-clinic me-2" style="color:#03c3ec;"></i>Clinical Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Mechanism of Action</label>
+              <textarea name="mechanism" class="form-control" rows="3"
+                        placeholder="How does this drug work?">{{ drug.mechanism|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Indications</label>
+              <textarea name="indications" class="form-control" rows="3"
+                        placeholder="What conditions / symptoms is it used for?">{{ drug.indications|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Contraindications</label>
+              <textarea name="contraindications" class="form-control" rows="3"
+                        placeholder="When should this drug NOT be used?">{{ drug.contraindications|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Side Effects / Adverse Effects</label>
+              <textarea name="side_effects" class="form-control" rows="4"
+                        placeholder="List common and serious adverse effects…">{{ drug.side_effects|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Drug Interactions</label>
+              <textarea name="drug_interactions" class="form-control" rows="3"
+                        placeholder="Significant drug-drug or drug-food interactions…">{{ drug.drug_interactions|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Dosing & Special Considerations -->
+      <div class="card mb-4" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+        <div class="card-header py-3" style="border-bottom:1px solid #e8e8ed;background:#fff;">
+          <h6 class="fw-bold mb-0" style="color:#233446;">
+            <i class="bx bx-calculator me-2" style="color:#ffab00;"></i>Dosing &amp; Special Considerations
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Dosage Information</label>
+              <textarea name="dosage_info" class="form-control" rows="3"
+                        placeholder="Standard adult dose, paediatric dose, frequency…">{{ drug.dosage_info|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Special Populations</label>
+              <textarea name="special_populations" class="form-control" rows="3"
+                        placeholder="Pregnancy, renal impairment, hepatic impairment, elderly…">{{ drug.special_populations|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Nursing -->
+      <div class="card mb-4" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+        <div class="card-header py-3" style="border-bottom:1px solid #e8e8ed;background:#fff;">
+          <h6 class="fw-bold mb-0" style="color:#233446;">
+            <i class="bx bx-heart me-2" style="color:#ff3e1d;"></i>Nursing
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Nursing Considerations</label>
+              <textarea name="nursing_considerations" class="form-control" rows="4"
+                        placeholder="Monitoring parameters, administration tips, assessment priorities…">{{ drug.nursing_considerations|default:'' }}</textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:.82rem;color:#233446;">Patient Education</label>
+              <textarea name="patient_education" class="form-control" rows="3"
+                        placeholder="What should the patient know? Signs to report, lifestyle advice…">{{ drug.patient_education|default:'' }}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit / Cancel -->
+      <div class="d-flex align-items-center gap-3 mb-5">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bx bx-save me-1"></i> Save Drug Card
+        </button>
+        <a href="/admin-panel/drug-cards/" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+
+    </div>
+
+    <!-- ── Right column: tips ── -->
+    <div class="col-12 col-lg-4">
+      <div class="card" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);position:sticky;top:88px;">
+        <div class="card-header py-3" style="border-bottom:1px solid #e8e8ed;background:#f8f8ff;">
+          <h6 class="fw-bold mb-0" style="color:#696cff;">
+            <i class="bx bx-capsule me-2"></i>Drug Card Tips
+          </h6>
+        </div>
+        <div class="card-body" style="font-size:.85rem;line-height:1.7;">
+          <ul class="list-unstyled mb-0" style="color:#4a5568;">
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              Generic name is required — use the International Non-proprietary Name (INN)
+            </li>
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              Brand names: separate multiple with commas
+            </li>
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              Be specific with dosage ranges (e.g. 20–80 mg oral daily)
+            </li>
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              Include key nursing alerts and monitoring parameters
+            </li>
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              Note pregnancy categories and renal/hepatic adjustments
+            </li>
+            <li class="mb-2 d-flex gap-2">
+              <i class="bx bx-check-circle mt-1" style="color:#71dd37;flex-shrink:0;"></i>
+              List life-threatening interactions prominently
+            </li>
+          </ul>
+
+          <hr style="border-color:#e8e8ed;">
+
+          <div class="p-3 rounded" style="background:#fff5f5;">
+            <h6 class="fw-semibold mb-2" style="color:#ff3e1d;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;">
+              <i class="bx bx-error me-1"></i>Required Fields
+            </h6>
+            <p class="mb-0" style="font-size:.8rem;color:#4a5568;">
+              Drug Name, Drug Class and Category must be filled in before saving.
+            </p>
+          </div>
+
+          {% if is_edit %}
+          <hr style="border-color:#e8e8ed;">
+          <div class="p-3 rounded" style="background:#f0f9ff;">
+            <h6 class="fw-semibold mb-1" style="color:#03c3ec;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;">
+              <i class="bx bx-edit me-1"></i>Editing
+            </h6>
+            <p class="mb-0" style="font-size:.8rem;color:#4a5568;">
+              Changes are saved immediately. Students will see the updated card right away.
+            </p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</form>
+
+{% endblock %}

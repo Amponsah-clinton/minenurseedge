@@ -1,0 +1,457 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Drug Cards — NurseEdge{% endblock %}
+
+{% block content %}
+{% load static %}
+
+<!-- Page header -->
+<div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div>
+    <h4 class="fw-bold mb-1" style="color:#233446;">
+      <i class="bx bx-capsule me-2" style="color:#696cff;"></i>Drug Cards
+    </h4>
+    <p class="text-muted mb-0">Quick-reference pharmacology cards for nursing practice</p>
+  </div>
+  <span class="badge bg-label-primary fs-6 px-3 py-2">
+    {{ drug_count }} card{{ drug_count|pluralize }}
+  </span>
+</div>
+
+<!-- Search + filters -->
+<div class="card mb-4" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+  <div class="card-body pb-2">
+    <!-- Search bar -->
+    <form method="get" action="" class="mb-3">
+      {% if selected_category %}
+        <input type="hidden" name="category" value="{{ selected_category }}">
+      {% endif %}
+      <div class="input-group">
+        <span class="input-group-text" style="background:#f5f5f9;border-right:none;">
+          <i class="bx bx-search" style="color:#696cff;"></i>
+        </span>
+        <input type="text" name="q" value="{{ query }}"
+               class="form-control"
+               style="border-left:none;background:#f5f5f9;"
+               placeholder="Search drug name…">
+        {% if query %}
+          <a href="?{% if selected_category %}category={{ selected_category }}{% endif %}"
+             class="btn btn-outline-secondary">
+            <i class="bx bx-x"></i>
+          </a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+
+    <!-- Category filter pills -->
+    <div class="d-flex flex-wrap gap-2 pb-1">
+      <a href="?{% if query %}q={{ query }}{% endif %}"
+         class="badge rounded-pill px-3 py-2 text-decoration-none
+                {% if not selected_category %}bg-primary text-white{% else %}bg-label-secondary text-body{% endif %}"
+         style="font-size:.78rem;font-weight:500;">
+        All
+      </a>
+      {% for cat in categories %}
+        <a href="?{% if query %}q={{ query }}&{% endif %}category={{ cat|urlencode }}"
+           class="badge rounded-pill px-3 py-2 text-decoration-none
+                  {% if selected_category == cat %}bg-primary text-white{% else %}bg-label-secondary text-body{% endif %}"
+           style="font-size:.78rem;font-weight:500;">
+          {{ cat }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Active filters summary -->
+{% if query or selected_category %}
+<div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+  <small class="text-muted">Showing results for:</small>
+  {% if query %}
+    <span class="badge bg-label-primary">
+      "{{ query }}"
+      <a href="?{% if selected_category %}category={{ selected_category }}{% endif %}" class="ms-1 text-reset"><i class="bx bx-x"></i></a>
+    </span>
+  {% endif %}
+  {% if selected_category %}
+    <span class="badge bg-label-info">
+      {{ selected_category }}
+      <a href="?{% if query %}q={{ query }}{% endif %}" class="ms-1 text-reset"><i class="bx bx-x"></i></a>
+    </span>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Drug card grid -->
+{% if drugs %}
+  <div class="row g-3">
+    {% for drug in drugs %}
+
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card h-100" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+          <div class="card-body d-flex flex-column">
+            <!-- Name + brand -->
+            <div class="mb-2">
+              <h6 class="mb-0 fw-bold" style="color:#233446;">{{ drug.drug_name }}</h6>
+              {% if drug.brand_names %}
+                <small class="text-muted">{{ drug.brand_names }}</small>
+              {% endif %}
+            </div>
+
+            <!-- Category + class badges -->
+            <div class="d-flex flex-wrap gap-1 mb-2">
+              <span class="badge bg-label-secondary" style="font-size:.72rem;">{{ drug.category }}</span>
+              {% if drug.drug_class %}
+                <span class="badge bg-label-secondary" style="font-size:.72rem;">{{ drug.drug_class }}</span>
+              {% endif %}
+            </div>
+
+            <!-- Routes -->
+            {% if drug.routes %}
+              <div class="mb-2 d-flex align-items-center gap-1">
+                <i class="bx bx-injection" style="font-size:.9rem;"></i>
+                <small class="text-muted">{{ drug.routes }}</small>
+              </div>
+            {% endif %}
+
+            <!-- Indications preview -->
+            {% if drug.indications %}
+              <p class="text-muted mb-0" style="font-size:.82rem;line-height:1.45;flex-grow:1;">
+                {{ drug.indications|truncatechars:90 }}
+              </p>
+            {% else %}
+              <div style="flex-grow:1;"></div>
+            {% endif %}
+
+            <!-- View Card button -->
+            <div class="mt-3 pt-2" style="border-top:1px solid #f0f0f0;">
+              <button type="button"
+                      class="btn btn-sm w-100 btn-outline-secondary"
+                      data-bs-toggle="modal"
+                      data-bs-target="#drugModal"
+                      data-name="{{ drug.drug_name|escapejs }}"
+                      data-brand="{{ drug.brand_names|default:''|escapejs }}"
+                      data-class="{{ drug.drug_class|default:''|escapejs }}"
+                      data-category="{{ drug.category|default:''|escapejs }}"
+                      data-mechanism="{{ drug.mechanism|default:''|escapejs }}"
+                      data-indications="{{ drug.indications|default:''|escapejs }}"
+                      data-contraindications="{{ drug.contraindications|default:''|escapejs }}"
+                      data-side-effects="{{ drug.side_effects|default:''|escapejs }}"
+                      data-dosage="{{ drug.dosage_info|default:''|escapejs }}"
+                      data-routes="{{ drug.routes|default:''|escapejs }}"
+                      data-nursing="{{ drug.nursing_considerations|default:''|escapejs }}"
+                      data-patient-ed="{{ drug.patient_education|default:''|escapejs }}"
+                      data-interactions="{{ drug.drug_interactions|default:''|escapejs }}"
+                      data-special-pops="{{ drug.special_populations|default:''|escapejs }}"
+                      >
+                <i class="bx bx-show me-1"></i> View Card
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <!-- Empty state -->
+  <div class="card" style="border:none;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+    <div class="card-body text-center py-5">
+      <div class="mb-3" style="font-size:3.5rem;color:#d4d6e0;">
+        <i class="bx bx-capsule"></i>
+      </div>
+      <h5 class="fw-semibold mb-1" style="color:#233446;">No drug cards found</h5>
+      {% if query or selected_category %}
+        <p class="text-muted mb-3">
+          No results for your current filters. Try adjusting the search or category.
+        </p>
+        <a href="/dashboard/drug-cards/" class="btn btn-outline-primary btn-sm">
+          Clear filters
+        </a>
+      {% else %}
+        <p class="text-muted mb-0">Drug cards will appear here once they are added by your instructor.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<!-- ═══════════════════════ DRUG MODAL ═══════════════════════ -->
+<div class="modal fade" id="drugModal" tabindex="-1" aria-labelledby="drugModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content" style="border:none;border-radius:12px;overflow:hidden;">
+
+      <!-- Modal header -->
+      <div class="modal-header" id="modalHeader" style="border-bottom:none;padding:1.25rem 1.5rem 0.75rem;">
+        <div class="d-flex align-items-start gap-3 w-100">
+          <div id="modalIconBadge"
+               style="width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#f0f2f7;">
+            <i class="bx bx-capsule" style="font-size:1.5rem;color:#4b5f8a;"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h5 class="modal-title fw-bold mb-0" id="drugModalLabel" style="color:#233446;">—</h5>
+            <div class="d-flex flex-wrap gap-1 mt-1" id="modalBadges"></div>
+          </div>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+
+      <!-- Tabs nav -->
+      <div class="px-3 pt-2" style="border-bottom:1px solid #e8e8ed;">
+        <ul class="nav nav-tabs border-0" id="drugModalTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active px-3 py-2" id="tab-overview" data-bs-toggle="tab"
+                    data-bs-target="#pane-overview" type="button" role="tab" style="font-size:.85rem;font-weight:500;">
+              <i class="bx bx-info-circle me-1"></i>Overview
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link px-3 py-2" id="tab-dosing" data-bs-toggle="tab"
+                    data-bs-target="#pane-dosing" type="button" role="tab" style="font-size:.85rem;font-weight:500;">
+              <i class="bx bx-injection me-1"></i>Dosing &amp; Routes
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link px-3 py-2" id="tab-sideeffects" data-bs-toggle="tab"
+                    data-bs-target="#pane-sideeffects" type="button" role="tab" style="font-size:.85rem;font-weight:500;">
+              <i class="bx bx-error-circle me-1"></i>Side Effects
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link px-3 py-2" id="tab-interactions" data-bs-toggle="tab"
+                    data-bs-target="#pane-interactions" type="button" role="tab" style="font-size:.85rem;font-weight:500;">
+              <i class="bx bx-link me-1"></i>Interactions
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link px-3 py-2" id="tab-nursing" data-bs-toggle="tab"
+                    data-bs-target="#pane-nursing" type="button" role="tab" style="font-size:.85rem;font-weight:500;">
+              <i class="bx bx-heart me-1"></i>Nursing Notes
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Tab panes -->
+      <div class="modal-body p-0">
+        <div class="tab-content">
+
+          <!-- Overview -->
+          <div class="tab-pane fade show active p-4" id="pane-overview" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <div class="p-3 h-100" style="background:#f8f8ff;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-atom me-1"></i>Mechanism of Action
+                  </h6>
+                  <p class="mb-0 text-body" id="modalMechanism" style="font-size:.875rem;line-height:1.6;">—</p>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="p-3 h-100" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-check-circle me-1"></i>Indications
+                  </h6>
+                  <p class="mb-0 text-body" id="modalIndications" style="font-size:.875rem;line-height:1.6;">—</p>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="p-3" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-block me-1"></i>Contraindications
+                  </h6>
+                  <p class="mb-0 text-body" id="modalContraindications" style="font-size:.875rem;line-height:1.6;">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dosing & Routes -->
+          <div class="tab-pane fade p-4" id="pane-dosing" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-12 col-md-7">
+                <div class="p-3 h-100" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-calculator me-1"></i>Dosage Information
+                  </h6>
+                  <p class="mb-0 text-body" id="modalDosage" style="font-size:.875rem;line-height:1.6;white-space:pre-line;">—</p>
+                </div>
+              </div>
+              <div class="col-12 col-md-5">
+                <div class="p-3 h-100" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-injection me-1"></i>Routes of Administration
+                  </h6>
+                  <p class="mb-0" id="modalRoutes" style="font-size:.875rem;line-height:1.6;">—</p>
+                </div>
+                <div class="p-3 mt-3" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-user-voice me-1"></i>Special Populations
+                  </h6>
+                  <p class="mb-0 text-body" id="modalSpecialPops" style="font-size:.875rem;line-height:1.6;white-space:pre-line;">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side Effects -->
+          <div class="tab-pane fade p-4" id="pane-sideeffects" role="tabpanel">
+            <div class="p-3" style="background:#f8f9fb;border-radius:8px;">
+              <h6 class="fw-semibold mb-3" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                <i class="bx bx-error-circle me-1"></i>Adverse Effects &amp; Side Effects
+              </h6>
+              <p class="mb-0 text-body" id="modalSideEffects" style="font-size:.875rem;line-height:1.7;white-space:pre-line;">—</p>
+            </div>
+          </div>
+
+          <!-- Interactions -->
+          <div class="tab-pane fade p-4" id="pane-interactions" role="tabpanel">
+            <div class="p-3" style="background:#f8f9fb;border-radius:8px;">
+              <h6 class="fw-semibold mb-3" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                <i class="bx bx-link me-1"></i>Drug Interactions
+              </h6>
+              <p class="mb-0 text-body" id="modalInteractions" style="font-size:.875rem;line-height:1.7;white-space:pre-line;">—</p>
+            </div>
+          </div>
+
+          <!-- Nursing Notes -->
+          <div class="tab-pane fade p-4" id="pane-nursing" role="tabpanel">
+            <div class="row g-3">
+              <div class="col-12 col-md-7">
+                <div class="p-3 h-100" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-heart me-1"></i>Nursing Considerations
+                  </h6>
+                  <p class="mb-0 text-body" id="modalNursing" style="font-size:.875rem;line-height:1.7;white-space:pre-line;">—</p>
+                </div>
+              </div>
+              <div class="col-12 col-md-5">
+                <div class="p-3 h-100" style="background:#f8f9fb;border-radius:8px;">
+                  <h6 class="fw-semibold mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;">
+                    <i class="bx bx-book-reader me-1"></i>Patient Education
+                  </h6>
+                  <p class="mb-0 text-body" id="modalPatientEd" style="font-size:.875rem;line-height:1.7;white-space:pre-line;">—</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top:1px solid #e8e8ed;padding:.75rem 1.5rem;">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!-- / Drug Modal -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  'use strict';
+
+  function setText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val || '—';
+  }
+
+  var modalEl = document.getElementById('drugModal');
+  if (!modalEl) return;
+
+  modalEl.addEventListener('show.bs.modal', function (event) {
+    var btn = event.relatedTarget;
+    if (!btn) return;
+
+    function decodeUnicodeEscapes(str) {
+      if (typeof str !== 'string' || !str) return str;
+      return str
+        .replace(/\\u([0-9a-fA-F]{4})/g, function (_, hex) {
+          return String.fromCharCode(parseInt(hex, 16));
+        })
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t');
+    }
+
+    var name          = decodeUnicodeEscapes(btn.getAttribute('data-name')         || '');
+    var brand         = decodeUnicodeEscapes(btn.getAttribute('data-brand')        || '');
+    var drugClass     = decodeUnicodeEscapes(btn.getAttribute('data-class')        || '');
+    var category      = decodeUnicodeEscapes(btn.getAttribute('data-category')     || '');
+    var mechanism     = decodeUnicodeEscapes(btn.getAttribute('data-mechanism')    || '');
+    var indications   = decodeUnicodeEscapes(btn.getAttribute('data-indications')  || '');
+    var contra        = decodeUnicodeEscapes(btn.getAttribute('data-contraindications') || '');
+    var sideEffects   = decodeUnicodeEscapes(btn.getAttribute('data-side-effects') || '');
+    var dosage        = decodeUnicodeEscapes(btn.getAttribute('data-dosage')       || '');
+    var routes        = decodeUnicodeEscapes(btn.getAttribute('data-routes')       || '');
+    var nursing       = decodeUnicodeEscapes(btn.getAttribute('data-nursing')      || '');
+    var patientEd     = decodeUnicodeEscapes(btn.getAttribute('data-patient-ed')   || '');
+    var interactions  = decodeUnicodeEscapes(btn.getAttribute('data-interactions') || '');
+    var specialPops   = decodeUnicodeEscapes(btn.getAttribute('data-special-pops') || '');
+
+    // Neutral styling (no colored borders/accents).
+    var borderColor   = '#e6e8ec';
+    var badgeClass    = 'bg-label-secondary';
+
+    // Header
+    var titleEl = document.getElementById('drugModalLabel');
+    if (titleEl) titleEl.textContent = name;
+
+    var iconBadge = document.getElementById('modalIconBadge');
+    if (iconBadge) iconBadge.style.background = borderColor;
+
+    var badgesEl = document.getElementById('modalBadges');
+    if (badgesEl) {
+      badgesEl.innerHTML = '';
+      if (category) {
+        var s1 = document.createElement('span');
+        s1.className = 'badge ' + badgeClass;
+        s1.style.fontSize = '.72rem';
+        s1.textContent = category;
+        badgesEl.appendChild(s1);
+      }
+      if (drugClass) {
+        var s2 = document.createElement('span');
+        s2.className = 'badge bg-label-secondary';
+        s2.style.fontSize = '.72rem';
+        s2.textContent = drugClass;
+        badgesEl.appendChild(s2);
+      }
+      if (brand) {
+        var s3 = document.createElement('span');
+        s3.className = 'badge bg-label-dark';
+        s3.style.fontSize = '.72rem';
+        s3.textContent = brand;
+        badgesEl.appendChild(s3);
+      }
+    }
+
+    // Header accent line
+    var header = document.getElementById('modalHeader');
+    if (header) header.style.borderTop = '4px solid ' + borderColor;
+
+    // Tab content
+    setText('modalMechanism',       mechanism);
+    setText('modalIndications',     indications);
+    setText('modalContraindications', contra);
+    setText('modalDosage',          dosage);
+    setText('modalRoutes',          routes);
+    setText('modalSpecialPops',     specialPops);
+    setText('modalSideEffects',     sideEffects);
+    setText('modalInteractions',    interactions);
+    setText('modalNursing',         nursing);
+    setText('modalPatientEd',       patientEd);
+
+    // Reset to Overview tab
+    var overviewTab = document.getElementById('tab-overview');
+    if (overviewTab) {
+      var bsTab = new bootstrap.Tab(overviewTab);
+      bsTab.show();
+    }
+  });
+})();
+</script>
+{% endblock %}

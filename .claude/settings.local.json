@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python manage.py migrate)",
+      "Bash(python manage.py check)",
+      "Bash(python manage.py create_admin)",
+      "Bash(python -c \"import supabase; print\\(supabase.__version__\\)\")",
+      "Bash(timeout 5 python manage.py runserver 8000)"
+    ]
+  }
+}

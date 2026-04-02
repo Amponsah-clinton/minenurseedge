@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}About - NurseEdge{% endblock %}
+{% block head_extra %}
+<link href="/css/animate.css" rel="stylesheet" type="text/css">
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
+<style>
+    body { background:#fff; font-family:'Open Sans',sans-serif; }
+
+    .ab-hero {
+        position: relative;
+        height: 520px;
+        background: url('https://www.myjoyonline.com/wp-content/uploads/2022/03/FHMS-8-1024x680.jpg') no-repeat center 40%;
+        background-size: cover;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    .ab-hero::before {
+        content:'';
+        position:absolute;
+        inset:0;
+        background:rgba(0,0,0,0.38);
+    }
+    .ab-hero-inner { position:relative; z-index:1; max-width:760px; padding:0 24px; }
+    .ab-eyebrow {
+        display:inline-block; font-size:11px; font-weight:700; letter-spacing:4px;
+        text-transform:uppercase; color:#d2b356; margin-bottom:20px;
+    }
+    .ab-hero h1 { font-size:52px; font-weight:800; color:#fff; line-height:1.12; margin:0 0 20px; }
+    .ab-hero p { font-size:18px; font-weight:300; color:rgba(255,255,255,0.9); line-height:1.8; margin:0; }
+
+    .ab-story { padding:90px 24px; background:#fff; }
+    .ab-story-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
+    .ab-story-left { flex:0 0 300px; }
+    .ab-story-left h2 { font-size:36px; font-weight:800; color:#111; line-height:1.2; margin:12px 0 0; }
+    .ab-story-right { flex:1; }
+    .ab-story-right p { font-size:16px; font-weight:300; color:#555; line-height:1.95; margin:0 0 20px; }
+    .ab-quote { background:#f8f8f8; border-radius:10px; padding:24px 28px; margin:28px 0; }
+    .ab-quote p { margin:0; font-size:16px; font-weight:600; font-style:italic; color:#222; line-height:1.7; }
+
+    .ab-stats { background:#111; padding:48px 24px; }
+    .ab-stats-inner { max-width:960px; margin:0 auto; display:flex; justify-content:space-around; flex-wrap:wrap; gap:32px; text-align:center; }
+    .ab-stat-item { flex:1 1 160px; }
+    .ab-stat-item .num { display:block; font-size:40px; font-weight:800; color:#d2b356; line-height:1; }
+    .ab-stat-item .lbl { display:block; font-size:13px; color:rgba(255,255,255,0.7); margin-top:8px; letter-spacing:1px; text-transform:uppercase; }
+
+    .ab-features { background:#f8f8f8; padding:90px 24px; }
+    .ab-section-head { text-align:center; margin-bottom:56px; }
+    .ab-section-head h2 { font-size:34px; font-weight:800; color:#111; margin:10px 0 0; }
+    .ab-grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:24px; }
+    .ab-card { background:#fff; border-radius:12px; padding:32px 26px; border:1px solid #ebebeb; transition:box-shadow .25s,transform .25s; }
+    .ab-card:hover { box-shadow:0 10px 36px rgba(0,0,0,0.09); transform:translateY(-5px); }
+    .ab-card-icon { width:50px; height:50px; border-radius:10px; background:#111; display:flex; align-items:center; justify-content:center; margin-bottom:20px; }
+    .ab-card-icon i { color:#d2b356; font-size:20px; }
+    .ab-card h4 { font-size:15px; font-weight:700; color:#111; margin:0 0 10px; }
+    .ab-card p { font-size:14px; font-weight:300; color:#666; line-height:1.75; margin:0; }
+
+    .ab-platform { background:#fff; padding:90px 24px; }
+    .ab-platform-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
+    .ab-platform-left { flex:0 0 280px; }
+    .ab-platform-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 16px; line-height:1.2; }
+    .ab-platform-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; }
+    .ab-platform-right { flex:1; }
+    .ab-bullets { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:16px 32px; }
+    .ab-bullets li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:#333; line-height:1.6; }
+    .ab-bullets li i { color:#d2b356; flex-shrink:0; margin-top:3px; }
+
+    .ab-cta { background:#f8f8f8; border-top:1px solid #ebebeb; padding:90px 24px; text-align:center; }
+    .ab-cta-inner { max-width:580px; margin:0 auto; }
+    .ab-cta h2 { font-size:36px; font-weight:800; color:#111; margin:0 0 14px; }
+    .ab-cta p { font-size:17px; font-weight:300; color:#555; line-height:1.8; margin:0 0 36px; }
+
+    @media(max-width:900px){
+        .ab-story-inner, .ab-platform-inner { flex-direction:column; gap:40px; }
+        .ab-bullets { grid-template-columns:1fr; }
+    }
+    @media(max-width:600px){
+        .ab-hero { height:420px; }
+        .ab-hero h1 { font-size:30px; }
+        .ab-hero p { font-size:15px; }
+        .ab-story-left h2, .ab-platform-left h2, .ab-cta h2 { font-size:26px; }
+        .ab-section-head h2 { font-size:26px; }
+    }
+</style>
+{% endblock %}
+{% block content %}
+<section class="ab-hero">
+    <div class="ab-hero-inner">
+        <span class="ab-eyebrow">Our Story</span>
+        <h1>We Built What We<br>Wish Existed</h1>
+        <p>Nursing school in Ghana is hard. Not because the students aren't brilliant — they are. But because the resources available don't match the pressure of the exams.</p>
+    </div>
+</section>
+
+<section class="ab-story">
+    <div class="ab-story-inner">
+        <div class="ab-story-left wow fadeInLeft" data-wow-delay="0.1s">
+            <span class="ab-eyebrow">The Problem</span>
+            <h2>Where It All Began</h2>
+        </div>
+        <div class="ab-story-right wow fadeInRight" data-wow-delay="0.2s">
+            <p>Students sit with photocopied notes, scattered PDF files, and zero structured way to know whether they're actually ready. Then exam day comes, and the fear of dosage calculations alone has failed more good nurses than it should have.</p>
+            <p>NurseEdge was built to change that.</p>
+            <div class="ab-quote">
+                <p>"It is not just a question bank. It is a complete study system built for the Ghanaian nursing student."</p>
+            </div>
+            <span class="ab-eyebrow">What NurseEdge Is</span>
+            <h2 style="font-size:28px;font-weight:800;color:#111;margin:12px 0 16px;">One Platform. Total Readiness.</h2>
+            <p>NurseEdge is a smart exam preparation and learning platform built specifically for nursing students in Ghana. From your first year on the wards to the final NMC licensure exams, NurseEdge gives you one place to learn, practice, and measure your readiness — without the chaos.</p>
+        </div>
+    </div>
+</section>
+
+<div class="ab-stats">
+    <div class="ab-stats-inner">
+        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.1s"><span class="num">5</span><span class="lbl">Years of Study Content</span></div>
+        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.2s"><span class="num">1000+</span><span class="lbl">Practice Questions</span></div>
+        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.3s"><span class="num">8</span><span class="lbl">Core Subject Areas</span></div>
+        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.4s"><span class="num">NMC</span><span class="lbl">Licensure Ready</span></div>
+    </div>
+</div>
+
+<section class="ab-features">
+    <div class="ab-section-head wow fadeInUp" data-wow-delay="0.1s">
+        <span class="ab-eyebrow">Platform Features</span>
+        <h2>Everything You Need to Pass</h2>
+    </div>
+    <div class="ab-grid">
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.1s"><div class="ab-card-icon"><i class="fa fa-book"></i></div><h4>Structured Lecture Notes</h4><p>Organized from Year 1 through Final Year so you are never hunting for what to study next.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.15s"><div class="ab-card-icon"><i class="fa fa-medkit"></i></div><h4>Drug Cards</h4><p>Indications, contraindications, dosage, and side effects in a quick-read format that sticks.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.2s"><div class="ab-card-icon"><i class="fa fa-calculator"></i></div><h4>Dosage Calculation Module</h4><p>Tablet, injection, pediatric, IV flow rate, and drip rate drills until the formulas are second nature.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.25s"><div class="ab-card-icon"><i class="fa fa-pencil-square-o"></i></div><h4>Exam Engine</h4><p>Topic quizzes, full timed mock exams, and custom quizzes you build yourself.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.3s"><div class="ab-card-icon"><i class="fa fa-bar-chart"></i></div><h4>Performance Dashboard</h4><p>Accuracy by subject, speed per question, weak areas, and daily progress all in one view.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.35s"><div class="ab-card-icon"><i class="fa fa-comments"></i></div><h4>AI Study Assistant</h4><p>Explains any question in plain language and generates fresh questions on any topic you choose.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.4s"><div class="ab-card-icon"><i class="fa fa-clone"></i></div><h4>Spaced Repetition Flashcards</h4><p>Smart flashcards that adapt to what you struggle with most, keeping memory sharp.</p></div>
+        <div class="ab-card wow fadeInUp" data-wow-delay="0.45s"><div class="ab-card-icon"><i class="fa fa-users"></i></div><h4>Discussion Rooms</h4><p>Subject-specific rooms where students ask questions anonymously and learn from each other.</p></div>
+    </div>
+</section>
+
+<section class="ab-platform">
+    <div class="ab-platform-inner">
+        <div class="ab-platform-left wow fadeInLeft" data-wow-delay="0.1s">
+            <span class="ab-eyebrow">Built For You</span>
+            <h2>Everything In One Place</h2>
+            <p>When you open NurseEdge, here is exactly what you get access to every single session.</p>
+        </div>
+        <div class="ab-platform-right wow fadeInRight" data-wow-delay="0.2s">
+            <ul class="ab-bullets">
+                <li><i class="fa fa-check-circle"></i>Structured notes — Year 1 to Final Year</li>
+                <li><i class="fa fa-check-circle"></i>Drug cards with dosage &amp; contraindications</li>
+                <li><i class="fa fa-check-circle"></i>Dosage calculation drills</li>
+                <li><i class="fa fa-check-circle"></i>Timed mock exams &amp; topic quizzes</li>
+                <li><i class="fa fa-check-circle"></i>Custom quiz builder</li>
+                <li><i class="fa fa-check-circle"></i>Performance &amp; weak area dashboard</li>
+                <li><i class="fa fa-check-circle"></i>AI question explainer &amp; generator</li>
+                <li><i class="fa fa-check-circle"></i>Spaced repetition flashcards</li>
+                <li><i class="fa fa-check-circle"></i>Daily streak system</li>
+                <li><i class="fa fa-check-circle"></i>Bookmarks &amp; downloadable notes</li>
+                <li><i class="fa fa-check-circle"></i>Anonymous discussion rooms</li>
+                <li><i class="fa fa-check-circle"></i>NMC licensure exam preparation</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="ab-cta">
+    <div class="ab-cta-inner wow fadeInUp" data-wow-delay="0.1s">
+        <span class="ab-eyebrow">Get Started</span>
+        <h2>Ready to Study Smarter?</h2>
+        <p>Join nursing students across Ghana already preparing with NurseEdge.</p>
+        <a href="/signup/" class="button">Get Started Today</a>
+    </div>
+</section>
+{% endblock %}

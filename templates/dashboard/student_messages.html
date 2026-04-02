@@ -1,0 +1,53 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}My Messages - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h4 class="mb-0">My Messages</h4>
+      <small class="text-muted">Announcements from the admin team.</small>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      {% if student_unread_notifications > 0 %}
+      <span class="badge bg-label-danger rounded-pill">{{ student_unread_notifications }} unread</span>
+      <form method="post" action="/dashboard/messages/read-all/">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-primary btn-sm">Mark all as read</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if messages %}
+      <div class="d-flex flex-column gap-3">
+        {% for item in messages %}
+        <div class="border rounded p-3 {% if not item.is_read %}border-primary{% endif %}">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+            <h6 class="mb-0">{{ item.title }}</h6>
+            <div class="d-flex align-items-center gap-2">
+              {% if item.is_read %}
+              <span class="badge bg-label-success">Read</span>
+              {% else %}
+              <span class="badge bg-label-warning">Unread</span>
+              <form method="post" action="/dashboard/messages/read/{{ item.id }}/">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Mark as read</button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          <p class="mb-1">{{ item.message_body }}</p>
+          <small class="text-muted">Sent {{ item.created_at|slice:":16"|cut:"T" }}</small>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">No messages yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

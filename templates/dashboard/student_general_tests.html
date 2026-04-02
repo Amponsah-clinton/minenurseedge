@@ -1,0 +1,55 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}General Tests - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h4 class="mb-1">General Tests</h4>
+          <p class="text-muted mb-0">Choose a paper and test yourself under real exam timing.</p>
+        </div>
+        <span class="badge bg-label-primary fs-6">{{ tests|length }} test{{ tests|length|pluralize }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Paper</th>
+              <th>Test</th>
+              <th>Questions</th>
+              <th>Duration</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if tests %}
+              {% for test in tests %}
+              <tr>
+                <td class="fw-semibold">{{ test.paper_title }}</td>
+                <td>General Test {{ test.test_number }}</td>
+                <td>{{ test.question_count }}</td>
+                <td>{{ test.duration_minutes }} mins</td>
+                <td class="text-end">
+                  <a href="/dashboard/general-tests/start/?paper_title={{ test.paper_title|urlencode }}&test_number={{ test.test_number }}" class="btn btn-sm btn-primary">
+                    Start Test
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="4" class="text-center text-muted py-4">No general tests available yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

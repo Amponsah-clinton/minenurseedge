@@ -1,0 +1,106 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Mock Exams - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h4 class="mb-1">Timed Mock Exams</h4>
+          <p class="text-muted mb-0">Programme: {{ programme|default:"Not set in profile" }}</p>
+        </div>
+        <span class="badge bg-label-primary fs-6">{{ mock_exams|length }} mock{{ mock_exams|length|pluralize }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0">Available Mocks</h5></div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Mock</th>
+              <th>Questions</th>
+              <th>Duration</th>
+              <th>My Best</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if mock_exams %}
+              {% for exam in mock_exams %}
+              <tr>
+                <td>{{ exam.title }}</td>
+                <td>{{ exam.question_count }}</td>
+                <td>{{ exam.duration_minutes }} mins</td>
+                <td>
+                  {% if exam.my_best %}<span class="badge bg-label-success">{{ exam.my_best|floatformat:0 }}%</span>{% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td class="text-end">
+                  <a href="/dashboard/mock-exams/{{ exam.id }}/start/" class="btn btn-sm btn-primary">Take Mock</a>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#leaderboardModal{{ exam.id }}">
+                    Leaderboard
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No published mocks for your programme yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if mock_exams %}
+    {% for exam in mock_exams %}
+    <div class="modal fade" id="leaderboardModal{{ exam.id }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+          <div class="modal-header border-0">
+            <h5 class="modal-title">{{ exam.title }} Leaderboard</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            {% if exam.my_rank %}
+              <div class="alert alert-primary py-2 mb-3">
+                Your current position: <strong>#{{ exam.my_rank }}</strong>
+              </div>
+            {% endif %}
+            {% if exam.leaderboard_rows %}
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Student</th>
+                      <th class="text-end">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in exam.leaderboard_rows %}
+                    <tr {% if row.is_me %}class="table-primary"{% endif %}>
+                      <td>{{ row.rank }}</td>
+                      <td>{{ row.student_name }} {% if row.is_me %}<strong>(You)</strong>{% endif %}</td>
+                      <td class="text-end">{{ row.percentage|floatformat:0 }}%</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">No leaderboard data yet for this mock.</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+
+</div>
+{% endblock %}

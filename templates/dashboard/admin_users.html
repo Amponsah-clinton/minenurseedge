@@ -1,0 +1,159 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Registered Users - NurseEdge Admin{% endblock %}
+
+{% block content %}
+
+<!-- Visit Stats Modal -->
+<div class="modal fade" id="visitStatsModal" tabindex="-1" aria-labelledby="visitStatsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" id="visitStatsModalLabel">
+          <i class="bx bx-bar-chart-alt-2 text-primary me-2"></i>Site Visit Statistics
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="text-muted small mb-4">Live counts sourced from the <code>site_visits</code> table in Supabase.</p>
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="card border-0 bg-label-primary h-100">
+              <div class="card-body text-center py-4">
+                <div class="mb-2">
+                  <span class="badge bg-primary rounded-circle p-2">
+                    <i class="bx bx-time-five fs-5"></i>
+                  </span>
+                </div>
+                <h2 class="fw-bold text-primary mb-1">{{ visits_24h }}</h2>
+                <p class="mb-0 text-muted small">Visits in Last 24 hrs</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="card border-0 bg-label-success h-100">
+              <div class="card-body text-center py-4">
+                <div class="mb-2">
+                  <span class="badge bg-success rounded-circle p-2">
+                    <i class="bx bx-world fs-5"></i>
+                  </span>
+                </div>
+                <h2 class="fw-bold text-success mb-1">{{ total_visits }}</h2>
+                <p class="mb-0 text-muted small">Total Visits (All Time)</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="card border-0 bg-label-info">
+              <div class="card-body d-flex align-items-center gap-3 py-3">
+                <span class="badge bg-info rounded-circle p-2">
+                  <i class="bx bx-devices fs-5"></i>
+                </span>
+                <div>
+                  <h4 class="fw-bold text-info mb-0">{{ unique_ips_24h }}</h4>
+                  <p class="mb-0 text-muted small">Unique IPs in Last 24 hrs</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <small class="text-muted me-auto"><i class="bx bx-info-circle me-1"></i>Every page request (except static assets) is recorded.</small>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="card-title m-0 me-2">Registered Users</h5>
+          <small class="text-muted">All student accounts on NurseEdge</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#visitStatsModal">
+            <i class="bx bx-bar-chart-alt-2 me-1"></i>Visit Stats
+          </button>
+          <span class="badge bg-label-primary fs-6 px-3 py-2">
+            {{ users|length }} student{{ users|length|pluralize }}
+          </span>
+        </div>
+      </div>
+
+      <div class="table-responsive text-nowrap">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Programme</th>
+              <th>Year of Study</th>
+              <th>School / Institution</th>
+              <th>Registered</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody class="table-border-bottom-0">
+            {% if users %}
+              {% for user in users %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>
+                  <div class="d-flex justify-content-start align-items-center user-name">
+                    <div class="avatar-wrapper">
+                      <div class="avatar avatar-sm me-3">
+                        <span class="avatar-initial rounded-circle bg-label-primary">
+                          {{ user.full_name|default:"?"|slice:":1"|upper }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="d-flex flex-column">
+                      <span class="fw-semibold">{{ user.full_name|default:"—" }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.phone_number|default:"—" }}</td>
+                <td>
+                  {% if user.programme %}
+                    <span class="badge bg-label-primary" title="{{ user.programme }}">{{ user.programme_initial }}</span>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td>{{ user.year_of_study|default:"—"|title }}</td>
+                <td>{{ user.school|default:"—" }}</td>
+                <td>{{ user.created_at|slice:":10" }}</td>
+                <td>
+                  {% if user.is_active %}
+                    <span class="badge bg-label-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-label-danger">Inactive</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" class="text-center py-5">
+                  <div class="d-flex flex-column align-items-center gap-2 text-muted">
+                    <i class="bx bx-user-x" style="font-size:40px;"></i>
+                    <span>No registered students yet.</span>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

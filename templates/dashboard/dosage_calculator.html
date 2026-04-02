@@ -1,0 +1,1087 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Dosage Calculator - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+
+  <!-- Page Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div>
+          <h4 class="fw-bold mb-1">
+            <span class="text-muted fw-light">Dashboard /</span> Dosage Calculator
+          </h4>
+          <p class="text-muted mb-0">
+            <i class="bx bx-calculator me-1"></i>
+            Practise all five nursing dosage calculation types with step-by-step working.
+          </p>
+        </div>
+        <div class="badge bg-label-primary fs-6 px-3 py-2">
+          <i class="bx bx-book-open me-1"></i>NCLEX &amp; Nursing Exams
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flash Messages -->
+  {% if save_success %}
+  <div class="alert alert-success alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+    <i class="bx bx-check-circle me-2 fs-5"></i>
+    <div>Calculation saved successfully to your history.</div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+  {% if save_error %}
+  <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center mb-4" role="alert">
+    <i class="bx bx-error-circle me-2 fs-5"></i>
+    <div>{{ save_error }}</div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+  {% endif %}
+
+  <!-- Quick Reference Banner -->
+  <div class="card border-0 bg-label-primary mb-4">
+    <div class="card-body py-3">
+      <div class="row g-3 text-center">
+        <div class="col-6 col-md">
+          <div class="fw-semibold text-primary small">Tablet / Oral</div>
+          <div class="text-muted" style="font-size:0.78rem;">(Ordered ÷ Available) × Qty</div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="fw-semibold text-primary small">Injection</div>
+          <div class="text-muted" style="font-size:0.78rem;">(Ordered ÷ Conc.) × Vol</div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="fw-semibold text-primary small">Weight-Based</div>
+          <div class="text-muted" style="font-size:0.78rem;">Weight × Dose per kg</div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="fw-semibold text-primary small">IV Flow Rate</div>
+          <div class="text-muted" style="font-size:0.78rem;">Volume ÷ Time</div>
+        </div>
+        <div class="col-6 col-md">
+          <div class="fw-semibold text-primary small">Drip Rate</div>
+          <div class="text-muted" style="font-size:0.78rem;">(Vol × DF) ÷ (Time × 60)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calculator Tabs -->
+  <div class="card mb-4">
+    <div class="card-header p-0 border-bottom-0">
+      <ul class="nav nav-tabs nav-fill card-header-tabs" id="calcTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active py-3" id="tab-tablet" data-bs-toggle="tab"
+                  data-bs-target="#panel-tablet" type="button" role="tab"
+                  aria-controls="panel-tablet" aria-selected="true">
+            <i class="bx bx-capsule me-1"></i>
+            <span class="d-none d-sm-inline">Tablet / Oral</span>
+            <span class="d-inline d-sm-none" style="font-size:0.75rem;">Tablet</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link py-3" id="tab-injection" data-bs-toggle="tab"
+                  data-bs-target="#panel-injection" type="button" role="tab"
+                  aria-controls="panel-injection" aria-selected="false">
+            <i class="bx bx-injection me-1"></i>
+            <span class="d-none d-sm-inline">Injection</span>
+            <span class="d-inline d-sm-none" style="font-size:0.75rem;">Inject</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link py-3" id="tab-weight" data-bs-toggle="tab"
+                  data-bs-target="#panel-weight" type="button" role="tab"
+                  aria-controls="panel-weight" aria-selected="false">
+            <i class="bx bx-body me-1"></i>
+            <span class="d-none d-sm-inline">Weight-Based</span>
+            <span class="d-inline d-sm-none" style="font-size:0.75rem;">Weight</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link py-3" id="tab-iv" data-bs-toggle="tab"
+                  data-bs-target="#panel-iv" type="button" role="tab"
+                  aria-controls="panel-iv" aria-selected="false">
+            <i class="bx bx-droplet me-1"></i>
+            <span class="d-none d-sm-inline">IV Flow Rate</span>
+            <span class="d-inline d-sm-none" style="font-size:0.75rem;">IV Rate</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link py-3" id="tab-drip" data-bs-toggle="tab"
+                  data-bs-target="#panel-drip" type="button" role="tab"
+                  aria-controls="panel-drip" aria-selected="false">
+            <i class="bx bx-water me-1"></i>
+            <span class="d-none d-sm-inline">Drip Rate</span>
+            <span class="d-inline d-sm-none" style="font-size:0.75rem;">Drip</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="tab-content" id="calcTabsContent">
+
+      <!-- ============================================================
+           TAB 1 — TABLET / ORAL
+           ============================================================ -->
+      <div class="tab-pane fade show active" id="panel-tablet" role="tabpanel" aria-labelledby="tab-tablet">
+        <div class="card-body p-4">
+          <div class="row g-4">
+
+            <!-- Formula Reference -->
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:#f5f5ff; border-left:4px solid #696cff;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bx bx-math text-primary fs-5"></i>
+                  <span class="fw-semibold text-primary">Formula</span>
+                </div>
+                <div class="text-dark" style="font-size:1.05rem;">
+                  Number of tablets / capsules / mL =
+                  <strong>(Dose Ordered ÷ Dose Available) × Quantity</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inputs -->
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-edit me-1"></i>Enter Values
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Dose Ordered</label>
+                <div class="input-group">
+                  <input type="number" id="tab-dose-ordered" class="form-control"
+                         placeholder="e.g. 500" min="0" step="any">
+                  <select id="tab-ordered-unit" class="form-select" style="max-width:110px;">
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                  </select>
+                </div>
+                <div class="form-text">The dose prescribed by the doctor</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Dose Available</label>
+                <div class="input-group">
+                  <input type="number" id="tab-dose-available" class="form-control"
+                         placeholder="e.g. 250" min="0" step="any">
+                  <select id="tab-available-unit" class="form-select" style="max-width:110px;">
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                  </select>
+                </div>
+                <div class="form-text">The strength of each tablet / capsule / mL on hand</div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Quantity (stock form)</label>
+                <div class="input-group">
+                  <input type="number" id="tab-quantity" class="form-control"
+                         placeholder="e.g. 1" min="0" step="any">
+                  <select id="tab-qty-unit" class="form-select" style="max-width:130px;">
+                    <option value="tablet">tablet(s)</option>
+                    <option value="capsule">capsule(s)</option>
+                    <option value="ml">mL</option>
+                  </select>
+                </div>
+                <div class="form-text">Usually 1 tablet, 1 capsule, or 1 mL</div>
+              </div>
+
+              <button type="button" class="btn btn-primary px-4"
+                      onclick="calcTablet()">
+                <i class="bx bx-calculator me-1"></i>Calculate
+              </button>
+              <button type="button" class="btn btn-outline-secondary ms-2 px-3"
+                      onclick="clearTablet()">
+                <i class="bx bx-reset me-1"></i>Clear
+              </button>
+            </div>
+
+            <!-- Result Panel -->
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-check-circle me-1"></i>Result
+              </h6>
+              <div id="tablet-result" class="d-none">
+                <div class="p-4 rounded border border-3 border-primary" style="border-color:#696cff !important;">
+                  <div class="d-flex align-items-center gap-3 mb-3">
+                    <div>
+                      <div class="text-muted small mb-1">Answer</div>
+                      <div id="tablet-answer" class="fw-bold text-primary" style="font-size:2rem; line-height:1;"></div>
+                    </div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-muted small fw-semibold mb-2 text-uppercase" style="letter-spacing:.04em;">Step-by-step Working</div>
+                  <ol id="tablet-steps" class="ps-3 mb-3" style="font-size:0.92rem; line-height:1.7;"></ol>
+                  <div id="tablet-warning" class="alert alert-warning py-2 px-3 mb-3 d-none" style="font-size:0.88rem;">
+                    <i class="bx bx-error me-1"></i><span id="tablet-warning-text"></span>
+                  </div>
+                  <form method="POST" action="/dashboard/dosage-calculator/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="calc_type" value="tablet">
+                    <input type="hidden" id="tablet-save-summary" name="inputs_summary" value="">
+                    <input type="hidden" id="tablet-save-result" name="result_text" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                      <i class="bx bx-save me-1"></i>Save this Calculation
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div id="tablet-empty" class="text-center py-5 text-muted">
+                <i class="bx bx-calculator" style="font-size:2.5rem; opacity:.35;"></i>
+                <div class="mt-2" style="font-size:0.9rem;">Fill in the values and press <strong>Calculate</strong> to see the result</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           TAB 2 — INJECTION
+           ============================================================ -->
+      <div class="tab-pane fade" id="panel-injection" role="tabpanel" aria-labelledby="tab-injection">
+        <div class="card-body p-4">
+          <div class="row g-4">
+
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:#f5f5ff; border-left:4px solid #696cff;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bx bx-math text-primary fs-5"></i>
+                  <span class="fw-semibold text-primary">Formula</span>
+                </div>
+                <div class="text-dark" style="font-size:1.05rem;">
+                  Volume to draw (mL) =
+                  <strong>(Dose Ordered ÷ Concentration Available) × Volume of Solution</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-edit me-1"></i>Enter Values
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Dose Ordered</label>
+                <div class="input-group">
+                  <input type="number" id="inj-dose-ordered" class="form-control"
+                         placeholder="e.g. 75" min="0" step="any">
+                  <select id="inj-ordered-unit" class="form-select" style="max-width:110px;">
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Concentration Available</label>
+                <div class="input-group">
+                  <input type="number" id="inj-conc" class="form-control"
+                         placeholder="e.g. 100" min="0" step="any">
+                  <select id="inj-conc-unit" class="form-select" style="max-width:110px;">
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                  </select>
+                </div>
+                <div class="form-text">The amount of drug in the vial/ampoule</div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Per Volume (mL)</label>
+                <div class="input-group">
+                  <input type="number" id="inj-volume" class="form-control"
+                         placeholder="e.g. 2" min="0" step="any">
+                  <span class="input-group-text">mL</span>
+                </div>
+                <div class="form-text">Total volume of solution in the vial/ampoule</div>
+              </div>
+
+              <button type="button" class="btn btn-primary px-4"
+                      onclick="calcInjection()">
+                <i class="bx bx-calculator me-1"></i>Calculate
+              </button>
+              <button type="button" class="btn btn-outline-secondary ms-2 px-3"
+                      onclick="clearInjection()">
+                <i class="bx bx-reset me-1"></i>Clear
+              </button>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-check-circle me-1"></i>Result
+              </h6>
+              <div id="injection-result" class="d-none">
+                <div class="p-4 rounded border border-3 border-primary" style="border-color:#696cff !important;">
+                  <div class="d-flex align-items-center gap-3 mb-3">
+                    <div>
+                      <div class="text-muted small mb-1">Volume to Draw</div>
+                      <div id="injection-answer" class="fw-bold text-primary" style="font-size:2rem; line-height:1;"></div>
+                    </div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-muted small fw-semibold mb-2 text-uppercase" style="letter-spacing:.04em;">Step-by-step Working</div>
+                  <ol id="injection-steps" class="ps-3 mb-3" style="font-size:0.92rem; line-height:1.7;"></ol>
+                  <div id="injection-warning" class="alert alert-warning py-2 px-3 mb-3 d-none" style="font-size:0.88rem;">
+                    <i class="bx bx-error me-1"></i><span id="injection-warning-text"></span>
+                  </div>
+                  <form method="POST" action="/dashboard/dosage-calculator/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="calc_type" value="injection">
+                    <input type="hidden" id="injection-save-summary" name="inputs_summary" value="">
+                    <input type="hidden" id="injection-save-result" name="result_text" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                      <i class="bx bx-save me-1"></i>Save this Calculation
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div id="injection-empty" class="text-center py-5 text-muted">
+                <i class="bx bx-injection" style="font-size:2.5rem; opacity:.35;"></i>
+                <div class="mt-2" style="font-size:0.9rem;">Fill in the values and press <strong>Calculate</strong> to see the result</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           TAB 3 — WEIGHT-BASED
+           ============================================================ -->
+      <div class="tab-pane fade" id="panel-weight" role="tabpanel" aria-labelledby="tab-weight">
+        <div class="card-body p-4">
+          <div class="row g-4">
+
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:#f5f5ff; border-left:4px solid #696cff;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bx bx-math text-primary fs-5"></i>
+                  <span class="fw-semibold text-primary">Formula</span>
+                </div>
+                <div class="text-dark" style="font-size:1.05rem;">
+                  <strong>Total Dose = Patient Weight (kg) × Dose per kg</strong><br>
+                  <span class="text-muted" style="font-size:0.9rem;">
+                    Optional: Volume to draw (mL) = (Total Dose ÷ Concentration) × Volume of Solution
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-edit me-1"></i>Step 1 — Total Dose
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Patient Weight</label>
+                <div class="input-group">
+                  <input type="number" id="wt-weight" class="form-control"
+                         placeholder="e.g. 70" min="0" step="any">
+                  <span class="input-group-text">kg</span>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Prescribed Dose</label>
+                <div class="input-group">
+                  <input type="number" id="wt-dose-per-kg" class="form-control"
+                         placeholder="e.g. 5" min="0" step="any">
+                  <select id="wt-dose-unit" class="form-select" style="max-width:150px;">
+                    <option value="mg/kg">mg/kg</option>
+                    <option value="mcg/kg">mcg/kg</option>
+                    <option value="g/kg">g/kg</option>
+                  </select>
+                </div>
+              </div>
+
+              <hr class="my-3">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-injection me-1"></i>Step 2 — Volume to Draw (optional)
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Concentration Available <span class="text-muted fw-normal">(optional)</span></label>
+                <div class="input-group">
+                  <input type="number" id="wt-conc" class="form-control"
+                         placeholder="e.g. 250" min="0" step="any">
+                  <select id="wt-conc-unit" class="form-select" style="max-width:110px;">
+                    <option value="mg">mg</option>
+                    <option value="mcg">mcg</option>
+                    <option value="g">g</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Per Volume <span class="text-muted fw-normal">(optional)</span></label>
+                <div class="input-group">
+                  <input type="number" id="wt-conc-vol" class="form-control"
+                         placeholder="e.g. 1" min="0" step="any">
+                  <span class="input-group-text">mL</span>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-primary px-4"
+                      onclick="calcWeight()">
+                <i class="bx bx-calculator me-1"></i>Calculate
+              </button>
+              <button type="button" class="btn btn-outline-secondary ms-2 px-3"
+                      onclick="clearWeight()">
+                <i class="bx bx-reset me-1"></i>Clear
+              </button>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-check-circle me-1"></i>Result
+              </h6>
+              <div id="weight-result" class="d-none">
+                <div class="p-4 rounded border border-3 border-primary" style="border-color:#696cff !important;">
+                  <div class="mb-3">
+                    <div class="text-muted small mb-1">Total Dose Required</div>
+                    <div id="weight-answer" class="fw-bold text-primary" style="font-size:2rem; line-height:1;"></div>
+                  </div>
+                  <div id="weight-vol-section" class="mb-3 d-none">
+                    <div class="text-muted small mb-1">Volume to Draw</div>
+                    <div id="weight-vol-answer" class="fw-bold text-success" style="font-size:1.5rem; line-height:1;"></div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-muted small fw-semibold mb-2 text-uppercase" style="letter-spacing:.04em;">Step-by-step Working</div>
+                  <ol id="weight-steps" class="ps-3 mb-3" style="font-size:0.92rem; line-height:1.7;"></ol>
+                  <div id="weight-warning" class="alert alert-warning py-2 px-3 mb-3 d-none" style="font-size:0.88rem;">
+                    <i class="bx bx-error me-1"></i><span id="weight-warning-text"></span>
+                  </div>
+                  <form method="POST" action="/dashboard/dosage-calculator/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="calc_type" value="weight_based">
+                    <input type="hidden" id="weight-save-summary" name="inputs_summary" value="">
+                    <input type="hidden" id="weight-save-result" name="result_text" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                      <i class="bx bx-save me-1"></i>Save this Calculation
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div id="weight-empty" class="text-center py-5 text-muted">
+                <i class="bx bx-body" style="font-size:2.5rem; opacity:.35;"></i>
+                <div class="mt-2" style="font-size:0.9rem;">Fill in the values and press <strong>Calculate</strong> to see the result</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           TAB 4 — IV FLOW RATE
+           ============================================================ -->
+      <div class="tab-pane fade" id="panel-iv" role="tabpanel" aria-labelledby="tab-iv">
+        <div class="card-body p-4">
+          <div class="row g-4">
+
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:#f5f5ff; border-left:4px solid #696cff;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bx bx-math text-primary fs-5"></i>
+                  <span class="fw-semibold text-primary">Formula</span>
+                </div>
+                <div class="text-dark" style="font-size:1.05rem;">
+                  <strong>Flow Rate (mL/hr) = Volume (mL) ÷ Time (hr)</strong><br>
+                  <span class="text-muted" style="font-size:0.9rem;">If time in minutes: Flow Rate (mL/min) = Volume ÷ Time</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-edit me-1"></i>Enter Values
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Total Volume</label>
+                <div class="input-group">
+                  <input type="number" id="iv-volume" class="form-control"
+                         placeholder="e.g. 1000" min="0" step="any">
+                  <span class="input-group-text">mL</span>
+                </div>
+                <div class="form-text">Total volume of IV fluid to infuse</div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Time</label>
+                <div class="input-group">
+                  <input type="number" id="iv-time" class="form-control"
+                         placeholder="e.g. 8" min="0" step="any">
+                  <select id="iv-time-unit" class="form-select" style="max-width:140px;">
+                    <option value="hours">hours</option>
+                    <option value="minutes">minutes</option>
+                  </select>
+                </div>
+                <div class="form-text">Duration over which the fluid should infuse</div>
+              </div>
+
+              <button type="button" class="btn btn-primary px-4"
+                      onclick="calcIV()">
+                <i class="bx bx-calculator me-1"></i>Calculate
+              </button>
+              <button type="button" class="btn btn-outline-secondary ms-2 px-3"
+                      onclick="clearIV()">
+                <i class="bx bx-reset me-1"></i>Clear
+              </button>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-check-circle me-1"></i>Result
+              </h6>
+              <div id="iv-result" class="d-none">
+                <div class="p-4 rounded border border-3 border-primary" style="border-color:#696cff !important;">
+                  <div class="mb-3">
+                    <div class="text-muted small mb-1">Flow Rate</div>
+                    <div id="iv-answer" class="fw-bold text-primary" style="font-size:2rem; line-height:1;"></div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-muted small fw-semibold mb-2 text-uppercase" style="letter-spacing:.04em;">Step-by-step Working</div>
+                  <ol id="iv-steps" class="ps-3 mb-3" style="font-size:0.92rem; line-height:1.7;"></ol>
+                  <form method="POST" action="/dashboard/dosage-calculator/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="calc_type" value="iv_flow_rate">
+                    <input type="hidden" id="iv-save-summary" name="inputs_summary" value="">
+                    <input type="hidden" id="iv-save-result" name="result_text" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                      <i class="bx bx-save me-1"></i>Save this Calculation
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div id="iv-empty" class="text-center py-5 text-muted">
+                <i class="bx bx-droplet" style="font-size:2.5rem; opacity:.35;"></i>
+                <div class="mt-2" style="font-size:0.9rem;">Fill in the values and press <strong>Calculate</strong> to see the result</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================================================
+           TAB 5 — DRIP RATE
+           ============================================================ -->
+      <div class="tab-pane fade" id="panel-drip" role="tabpanel" aria-labelledby="tab-drip">
+        <div class="card-body p-4">
+          <div class="row g-4">
+
+            <div class="col-12">
+              <div class="p-3 rounded" style="background:#f5f5ff; border-left:4px solid #696cff;">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                  <i class="bx bx-math text-primary fs-5"></i>
+                  <span class="fw-semibold text-primary">Formula</span>
+                </div>
+                <div class="text-dark" style="font-size:1.05rem;">
+                  <strong>Drip Rate (drops/min) = (Volume × Drop Factor) ÷ (Time in hours × 60)</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-edit me-1"></i>Enter Values
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Total Volume</label>
+                <div class="input-group">
+                  <input type="number" id="drip-volume" class="form-control"
+                         placeholder="e.g. 500" min="0" step="any">
+                  <span class="input-group-text">mL</span>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label fw-medium">Drop Factor</label>
+                <select id="drip-factor" class="form-select">
+                  <option value="10">10 drops/mL (blood / large bore)</option>
+                  <option value="15" selected>15 drops/mL (standard)</option>
+                  <option value="20">20 drops/mL (paediatric)</option>
+                  <option value="60">60 drops/mL (microdrip)</option>
+                </select>
+                <div class="form-text">Check your giving set packaging for the drop factor</div>
+              </div>
+
+              <div class="mb-4">
+                <label class="form-label fw-medium">Time</label>
+                <div class="input-group">
+                  <input type="number" id="drip-time" class="form-control"
+                         placeholder="e.g. 6" min="0" step="any">
+                  <span class="input-group-text">hours</span>
+                </div>
+              </div>
+
+              <button type="button" class="btn btn-primary px-4"
+                      onclick="calcDrip()">
+                <i class="bx bx-calculator me-1"></i>Calculate
+              </button>
+              <button type="button" class="btn btn-outline-secondary ms-2 px-3"
+                      onclick="clearDrip()">
+                <i class="bx bx-reset me-1"></i>Clear
+              </button>
+            </div>
+
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold mb-3 text-muted text-uppercase" style="letter-spacing:.04em; font-size:.78rem;">
+                <i class="bx bx-check-circle me-1"></i>Result
+              </h6>
+              <div id="drip-result" class="d-none">
+                <div class="p-4 rounded border border-3 border-primary" style="border-color:#696cff !important;">
+                  <div class="mb-3">
+                    <div class="text-muted small mb-1">Drip Rate</div>
+                    <div id="drip-answer" class="fw-bold text-primary" style="font-size:2rem; line-height:1;"></div>
+                  </div>
+                  <hr class="my-3">
+                  <div class="text-muted small fw-semibold mb-2 text-uppercase" style="letter-spacing:.04em;">Step-by-step Working</div>
+                  <ol id="drip-steps" class="ps-3 mb-3" style="font-size:0.92rem; line-height:1.7;"></ol>
+                  <form method="POST" action="/dashboard/dosage-calculator/">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="save">
+                    <input type="hidden" name="calc_type" value="drip_rate">
+                    <input type="hidden" id="drip-save-summary" name="inputs_summary" value="">
+                    <input type="hidden" id="drip-save-result" name="result_text" value="">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                      <i class="bx bx-save me-1"></i>Save this Calculation
+                    </button>
+                  </form>
+                </div>
+              </div>
+              <div id="drip-empty" class="text-center py-5 text-muted">
+                <i class="bx bx-water" style="font-size:2.5rem; opacity:.35;"></i>
+                <div class="mt-2" style="font-size:0.9rem;">Fill in the values and press <strong>Calculate</strong> to see the result</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-content -->
+  </div><!-- /card -->
+
+  <!-- ============================================================
+       HISTORY SECTION
+       ============================================================ -->
+  <div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between py-3">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bx bx-history text-primary fs-5"></i>
+        <h5 class="mb-0 fw-semibold">Recent Calculations</h5>
+      </div>
+      <span class="badge bg-label-secondary">
+        Last {{ calc_history|length }} saved
+      </span>
+    </div>
+    <div class="card-body p-0">
+      {% if calc_history %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-4" style="width:160px;">Type</th>
+              <th>Inputs Summary</th>
+              <th>Result</th>
+              <th class="pe-4" style="width:160px;">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in calc_history %}
+            <tr>
+              <td class="ps-4">
+                {% if item.calc_type == 'tablet' %}
+                  <span class="badge bg-label-primary"><i class="bx bx-capsule me-1"></i>Tablet/Oral</span>
+                {% elif item.calc_type == 'injection' %}
+                  <span class="badge bg-label-danger"><i class="bx bx-injection me-1"></i>Injection</span>
+                {% elif item.calc_type == 'weight_based' %}
+                  <span class="badge bg-label-warning"><i class="bx bx-body me-1"></i>Weight-Based</span>
+                {% elif item.calc_type == 'iv_flow_rate' %}
+                  <span class="badge bg-label-info"><i class="bx bx-droplet me-1"></i>IV Flow Rate</span>
+                {% elif item.calc_type == 'drip_rate' %}
+                  <span class="badge bg-label-success"><i class="bx bx-water me-1"></i>Drip Rate</span>
+                {% else %}
+                  <span class="badge bg-label-secondary">{{ item.calc_type }}</span>
+                {% endif %}
+              </td>
+              <td class="text-muted" style="font-size:0.9rem; max-width:300px;">
+                <span class="d-inline-block text-truncate" style="max-width:280px;" title="{{ item.inputs_summary }}">
+                  {{ item.inputs_summary }}
+                </span>
+              </td>
+              <td>
+                <span class="fw-semibold text-dark">{{ item.result_text }}</span>
+              </td>
+              <td class="pe-4 text-muted" style="font-size:0.85rem; white-space:nowrap;">
+                <i class="bx bx-time-five me-1"></i>{{ item.created_at|slice:":16"|default:"—" }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bx bx-history" style="font-size:3rem; opacity:.3;"></i>
+        <h6 class="mt-3 mb-1 fw-semibold" style="opacity:.6;">No saved calculations yet</h6>
+        <p class="mb-0" style="font-size:0.9rem; opacity:.5;">
+          Use any calculator above and click <strong>Save this Calculation</strong> to build your history.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ================================================================
+//  Utility helpers
+// ================================================================
+
+function fmt(n) {
+  // Format to 2 dp, strip trailing .00
+  if (n === null || isNaN(n)) return "—";
+  const fixed = parseFloat(n.toFixed(4));
+  if (fixed === Math.round(fixed)) return Math.round(fixed).toString();
+  const twoDP = parseFloat(n.toFixed(2));
+  return twoDP.toString();
+}
+
+function toMg(value, unit) {
+  switch (unit) {
+    case 'g':   return value * 1000;
+    case 'mcg': return value / 1000;
+    default:    return value; // mg
+  }
+}
+
+function makeStepsList(stepsHtml) {
+  return stepsHtml.map(s => `<li>${s}</li>`).join('');
+}
+
+function showResult(panelId, emptyId) {
+  document.getElementById(panelId).classList.remove('d-none');
+  document.getElementById(emptyId).classList.add('d-none');
+}
+
+function showEmpty(panelId, emptyId) {
+  document.getElementById(panelId).classList.add('d-none');
+  document.getElementById(emptyId).classList.remove('d-none');
+}
+
+function setWarning(warnId, warnTextId, msg) {
+  const el = document.getElementById(warnId);
+  const txt = document.getElementById(warnTextId);
+  if (msg) {
+    txt.textContent = msg;
+    el.classList.remove('d-none');
+  } else {
+    el.classList.add('d-none');
+  }
+}
+
+// ================================================================
+//  TAB 1 — TABLET / ORAL
+// ================================================================
+function calcTablet() {
+  const ordered    = parseFloat(document.getElementById('tab-dose-ordered').value);
+  const available  = parseFloat(document.getElementById('tab-dose-available').value);
+  const qty        = parseFloat(document.getElementById('tab-quantity').value);
+  const ordUnit    = document.getElementById('tab-ordered-unit').value;
+  const availUnit  = document.getElementById('tab-available-unit').value;
+  const qtyUnit    = document.getElementById('tab-qty-unit').value;
+
+  if (isNaN(ordered) || isNaN(available) || isNaN(qty) || available === 0 || qty === 0) {
+    showAppMessageModal('Please enter valid non-zero values for all fields.', 'Invalid Input');
+    return;
+  }
+
+  // Normalise both to mg
+  const orderedMg   = toMg(ordered, ordUnit);
+  const availableMg = toMg(available, availUnit);
+
+  const result = (orderedMg / availableMg) * qty;
+
+  const steps = [
+    `Convert ordered dose to mg: <strong>${ordered} ${ordUnit} = ${fmt(orderedMg)} mg</strong>`,
+    `Convert available dose to mg: <strong>${available} ${availUnit} = ${fmt(availableMg)} mg</strong>`,
+    `Apply formula: (${fmt(orderedMg)} ÷ ${fmt(availableMg)}) × ${qty} ${qtyUnit}`,
+    `= ${fmt(orderedMg / availableMg)} × ${qty}`,
+    `= <strong class="text-primary">${fmt(result)} ${qtyUnit}</strong>`,
+  ];
+
+  document.getElementById('tablet-answer').textContent = `${fmt(result)} ${qtyUnit}`;
+  document.getElementById('tablet-steps').innerHTML = makeStepsList(steps);
+  showResult('tablet-result', 'tablet-empty');
+
+  let warn = null;
+  if (result > 20 && (qtyUnit === 'tablet' || qtyUnit === 'capsule')) {
+    warn = `${fmt(result)} ${qtyUnit} is unusually high. Double-check the prescribed dose and available stock.`;
+  }
+  setWarning('tablet-warning', 'tablet-warning-text', warn);
+
+  // Populate save fields
+  document.getElementById('tablet-save-summary').value =
+    `Ordered: ${ordered} ${ordUnit}, Available: ${available} ${availUnit} per ${qty} ${qtyUnit}`;
+  document.getElementById('tablet-save-result').value =
+    `${fmt(result)} ${qtyUnit}`;
+}
+
+function clearTablet() {
+  ['tab-dose-ordered','tab-dose-available','tab-quantity'].forEach(id =>
+    document.getElementById(id).value = '');
+  showEmpty('tablet-result','tablet-empty');
+}
+
+// ================================================================
+//  TAB 2 — INJECTION
+// ================================================================
+function calcInjection() {
+  const ordered   = parseFloat(document.getElementById('inj-dose-ordered').value);
+  const conc      = parseFloat(document.getElementById('inj-conc').value);
+  const volume    = parseFloat(document.getElementById('inj-volume').value);
+  const ordUnit   = document.getElementById('inj-ordered-unit').value;
+  const concUnit  = document.getElementById('inj-conc-unit').value;
+
+  if (isNaN(ordered) || isNaN(conc) || isNaN(volume) || conc === 0 || volume === 0) {
+    showAppMessageModal('Please enter valid non-zero values for all fields.', 'Invalid Input');
+    return;
+  }
+
+  const orderedMg = toMg(ordered, ordUnit);
+  const concMg    = toMg(conc, concUnit);
+
+  const result = (orderedMg / concMg) * volume;
+
+  const steps = [
+    `Convert ordered dose: <strong>${ordered} ${ordUnit} = ${fmt(orderedMg)} mg</strong>`,
+    `Convert concentration: <strong>${conc} ${concUnit} = ${fmt(concMg)} mg</strong> per ${fmt(volume)} mL`,
+    `Apply formula: (${fmt(orderedMg)} ÷ ${fmt(concMg)}) × ${fmt(volume)}`,
+    `= ${fmt(orderedMg / concMg)} × ${fmt(volume)}`,
+    `= <strong class="text-primary">${fmt(result)} mL</strong>`,
+  ];
+
+  document.getElementById('injection-answer').textContent = `${fmt(result)} mL`;
+  document.getElementById('injection-steps').innerHTML = makeStepsList(steps);
+  showResult('injection-result', 'injection-empty');
+
+  let warn = null;
+  if (result > 10) {
+    warn = `${fmt(result)} mL is a large injection volume. Verify the prescription and vial concentration.`;
+  } else if (result > 5) {
+    warn = `${fmt(result)} mL — consider splitting into multiple injection sites if clinically appropriate.`;
+  }
+  setWarning('injection-warning', 'injection-warning-text', warn);
+
+  document.getElementById('injection-save-summary').value =
+    `Ordered: ${ordered} ${ordUnit}, Concentration: ${conc} ${concUnit} per ${fmt(volume)} mL`;
+  document.getElementById('injection-save-result').value = `${fmt(result)} mL`;
+}
+
+function clearInjection() {
+  ['inj-dose-ordered','inj-conc','inj-volume'].forEach(id =>
+    document.getElementById(id).value = '');
+  showEmpty('injection-result','injection-empty');
+}
+
+// ================================================================
+//  TAB 3 — WEIGHT-BASED
+// ================================================================
+function calcWeight() {
+  const weight       = parseFloat(document.getElementById('wt-weight').value);
+  const dosePerKg    = parseFloat(document.getElementById('wt-dose-per-kg').value);
+  const doseUnit     = document.getElementById('wt-dose-unit').value; // e.g. mg/kg
+  const conc         = parseFloat(document.getElementById('wt-conc').value);
+  const concUnit     = document.getElementById('wt-conc-unit').value;
+  const concVol      = parseFloat(document.getElementById('wt-conc-vol').value);
+
+  if (isNaN(weight) || isNaN(dosePerKg) || weight <= 0 || dosePerKg <= 0) {
+    showAppMessageModal('Please enter valid values for Patient Weight and Dose per kg.', 'Invalid Input');
+    return;
+  }
+
+  const unitLabel = doseUnit.replace('/kg', ''); // mg, mcg, g
+  const totalDose = weight * dosePerKg;
+
+  const steps = [
+    `Patient weight: <strong>${fmt(weight)} kg</strong>`,
+    `Prescribed dose: <strong>${fmt(dosePerKg)} ${doseUnit}</strong>`,
+    `Total dose = ${fmt(weight)} × ${fmt(dosePerKg)} = <strong class="text-primary">${fmt(totalDose)} ${unitLabel}</strong>`,
+  ];
+
+  document.getElementById('weight-answer').textContent = `${fmt(totalDose)} ${unitLabel}`;
+
+  // Optional step 2 — volume to draw
+  const volSection = document.getElementById('weight-vol-section');
+  if (!isNaN(conc) && !isNaN(concVol) && conc > 0 && concVol > 0) {
+    const totalDoseMg  = toMg(totalDose, unitLabel);
+    const concMg       = toMg(conc, concUnit);
+    const volToDraw    = (totalDoseMg / concMg) * concVol;
+
+    steps.push(`Convert total dose to mg: ${fmt(totalDose)} ${unitLabel} = <strong>${fmt(totalDoseMg)} mg</strong>`);
+    steps.push(`Concentration: ${fmt(conc)} ${concUnit} per ${fmt(concVol)} mL → ${fmt(concMg)} mg per ${fmt(concVol)} mL`);
+    steps.push(`Volume to draw = (${fmt(totalDoseMg)} ÷ ${fmt(concMg)}) × ${fmt(concVol)} = <strong class="text-success">${fmt(volToDraw)} mL</strong>`);
+
+    document.getElementById('weight-vol-answer').textContent = `${fmt(volToDraw)} mL`;
+    volSection.classList.remove('d-none');
+
+    document.getElementById('weight-save-result').value =
+      `Total dose: ${fmt(totalDose)} ${unitLabel} | Volume: ${fmt(volToDraw)} mL`;
+  } else {
+    volSection.classList.add('d-none');
+    document.getElementById('weight-save-result').value =
+      `Total dose: ${fmt(totalDose)} ${unitLabel}`;
+  }
+
+  document.getElementById('weight-steps').innerHTML = makeStepsList(steps);
+  showResult('weight-result', 'weight-empty');
+
+  let warn = null;
+  if (weight > 200) {
+    warn = `Weight of ${fmt(weight)} kg is unusually high — please verify.`;
+  }
+  setWarning('weight-warning', 'weight-warning-text', warn);
+
+  document.getElementById('weight-save-summary').value =
+    `Weight: ${fmt(weight)} kg, Dose: ${fmt(dosePerKg)} ${doseUnit}`;
+}
+
+function clearWeight() {
+  ['wt-weight','wt-dose-per-kg','wt-conc','wt-conc-vol'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('weight-vol-section').classList.add('d-none');
+  showEmpty('weight-result','weight-empty');
+}
+
+// ================================================================
+//  TAB 4 — IV FLOW RATE
+// ================================================================
+function calcIV() {
+  const volume   = parseFloat(document.getElementById('iv-volume').value);
+  const time     = parseFloat(document.getElementById('iv-time').value);
+  const timeUnit = document.getElementById('iv-time-unit').value;
+
+  if (isNaN(volume) || isNaN(time) || volume <= 0 || time <= 0) {
+    showAppMessageModal('Please enter valid non-zero values for Volume and Time.', 'Invalid Input');
+    return;
+  }
+
+  let rateLabel, rateValue, steps;
+
+  if (timeUnit === 'hours') {
+    rateValue = volume / time;
+    rateLabel = 'mL/hr';
+    steps = [
+      `Total volume: <strong>${fmt(volume)} mL</strong>`,
+      `Infusion time: <strong>${fmt(time)} hours</strong>`,
+      `Flow Rate = ${fmt(volume)} ÷ ${fmt(time)} = <strong class="text-primary">${fmt(rateValue)} mL/hr</strong>`,
+    ];
+  } else {
+    rateValue = volume / time;
+    rateLabel = 'mL/min';
+    steps = [
+      `Total volume: <strong>${fmt(volume)} mL</strong>`,
+      `Infusion time: <strong>${fmt(time)} minutes</strong>`,
+      `Flow Rate = ${fmt(volume)} ÷ ${fmt(time)} = <strong class="text-primary">${fmt(rateValue)} mL/min</strong>`,
+      `Equivalent: ${fmt(rateValue * 60)} mL/hr`,
+    ];
+  }
+
+  document.getElementById('iv-answer').textContent = `${fmt(rateValue)} ${rateLabel}`;
+  document.getElementById('iv-steps').innerHTML = makeStepsList(steps);
+  showResult('iv-result', 'iv-empty');
+
+  document.getElementById('iv-save-summary').value =
+    `Volume: ${fmt(volume)} mL over ${fmt(time)} ${timeUnit}`;
+  document.getElementById('iv-save-result').value = `${fmt(rateValue)} ${rateLabel}`;
+}
+
+function clearIV() {
+  ['iv-volume','iv-time'].forEach(id =>
+    document.getElementById(id).value = '');
+  showEmpty('iv-result','iv-empty');
+}
+
+// ================================================================
+//  TAB 5 — DRIP RATE
+// ================================================================
+function calcDrip() {
+  const volume  = parseFloat(document.getElementById('drip-volume').value);
+  const factor  = parseFloat(document.getElementById('drip-factor').value);
+  const time    = parseFloat(document.getElementById('drip-time').value);
+
+  if (isNaN(volume) || isNaN(time) || volume <= 0 || time <= 0) {
+    showAppMessageModal('Please enter valid non-zero values for Volume and Time.', 'Invalid Input');
+    return;
+  }
+
+  const numerator   = volume * factor;
+  const denominator = time * 60;
+  const result      = numerator / denominator;
+  const resultRounded = Math.round(result);
+
+  const steps = [
+    `Total volume: <strong>${fmt(volume)} mL</strong>`,
+    `Drop factor: <strong>${fmt(factor)} drops/mL</strong>`,
+    `Time: <strong>${fmt(time)} hours = ${fmt(time * 60)} minutes</strong>`,
+    `Numerator: ${fmt(volume)} × ${fmt(factor)} = <strong>${fmt(numerator)} drops</strong>`,
+    `Denominator: ${fmt(time)} × 60 = <strong>${fmt(denominator)} minutes</strong>`,
+    `Drip Rate = ${fmt(numerator)} ÷ ${fmt(denominator)} = ${fmt(result)} ≈ <strong class="text-primary">${resultRounded} drops/min</strong>`,
+    `<em class="text-muted">Drip rates are always rounded to the nearest whole number.</em>`,
+  ];
+
+  document.getElementById('drip-answer').textContent = `${resultRounded} drops/min`;
+  document.getElementById('drip-steps').innerHTML = makeStepsList(steps);
+  showResult('drip-result', 'drip-empty');
+
+  document.getElementById('drip-save-summary').value =
+    `Volume: ${fmt(volume)} mL, Drop factor: ${fmt(factor)} drops/mL, Time: ${fmt(time)} hrs`;
+  document.getElementById('drip-save-result').value = `${resultRounded} drops/min`;
+}
+
+function clearDrip() {
+  ['drip-volume','drip-time'].forEach(id =>
+    document.getElementById(id).value = '');
+  showEmpty('drip-result','drip-empty');
+}
+
+// ================================================================
+//  Allow Enter key to trigger calculation on focused tab
+// ================================================================
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  const activeTab = document.querySelector('#calcTabs .nav-link.active');
+  if (!activeTab) return;
+  const tabId = activeTab.id;
+  const map = {
+    'tab-tablet':    calcTablet,
+    'tab-injection': calcInjection,
+    'tab-weight':    calcWeight,
+    'tab-iv':        calcIV,
+    'tab-drip':      calcDrip,
+  };
+  if (map[tabId] && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
+    e.preventDefault();
+    map[tabId]();
+  }
+});
+</script>
+{% endblock %}

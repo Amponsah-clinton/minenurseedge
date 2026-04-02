@@ -1,0 +1,104 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}General Test - {{ attempt.paper_title }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <h5 class="mb-1">{{ attempt.paper_title }}</h5>
+          <small class="text-muted">Question {{ current_index }} of {{ questions|length }}</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-label-primary">Answered: {{ answered_count }}</span>
+          <span class="badge bg-label-warning">Bookmarked: {{ bookmarked_count }}</span>
+          <span class="badge bg-label-danger">Flagged: {{ flagged_count }}</span>
+          <span class="badge bg-danger fs-6" id="timerBadge">--:--</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Q{{ current_question.order }}. {{ current_question.question_text }}</h6>
+        <form method="post" id="testForm">
+          {% csrf_token %}
+          <input type="hidden" name="question_id" value="{{ current_question.id }}">
+          <input type="hidden" name="current_index" value="{{ current_index }}">
+          <input type="hidden" name="is_bookmarked" id="bookmarkedInput" value="{% if current_answer.is_bookmarked %}1{% else %}0{% endif %}">
+          <input type="hidden" name="is_flagged" id="flaggedInput" value="{% if current_answer.is_flagged %}1{% else %}0{% endif %}">
+
+          <div class="list-group mb-4">
+            {% for key, value in current_question.options.items %}
+            <label class="list-group-item">
+              <input class="form-check-input me-2" type="radio" name="selected_option" value="{{ key }}"
+                     {% if current_answer.selected_option == key %}checked{% endif %}>
+              <strong>{{ key }}.</strong> {{ value }}
+            </label>
+            {% endfor %}
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-outline-warning" onclick="toggleBookmark()">Toggle Bookmark</button>
+            <button type="submit" class="btn btn-outline-danger" onclick="toggleFlag()">Toggle Flag</button>
+            <button type="submit" name="action" value="prev" class="btn btn-outline-secondary" {% if current_index == 1 %}disabled{% endif %}>Previous</button>
+            <button type="submit" name="action" value="next" class="btn btn-primary" {% if current_index == questions|length %}disabled{% endif %}>Save & Next</button>
+            <button type="submit" name="action" value="submit" class="btn btn-success ms-auto" onclick="return confirm('Submit test now?')">Submit Test</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0">Navigator</h6></div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2">
+          {% for q in questions %}
+            <span class="badge {% if q.order == current_question.order %}bg-primary{% else %}bg-label-secondary{% endif %}">{{ q.order }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleBookmark() {
+    var el = document.getElementById('bookmarkedInput');
+    el.value = el.value === '1' ? '0' : '1';
+  }
+  function toggleFlag() {
+    var el = document.getElementById('flaggedInput');
+    el.value = el.value === '1' ? '0' : '1';
+  }
+  (function () {
+    var remaining = {{ remaining_seconds|default:0 }};
+    var timer = document.getElementById("timerBadge");
+    function render() {
+      var mins = Math.floor(remaining / 60);
+      var secs = remaining % 60;
+      timer.textContent = mins.toString().padStart(2, "0") + ":" + secs.toString().padStart(2, "0");
+      if (remaining <= 0) {
+        showAppMessageModal("Time is up. Submitting your test now.", "Time Up");
+        var form = document.getElementById("testForm");
+        var actionInput = document.createElement("input");
+        actionInput.type = "hidden";
+        actionInput.name = "action";
+        actionInput.value = "submit";
+        form.appendChild(actionInput);
+        form.submit();
+      }
+      remaining -= 1;
+    }
+    render();
+    setInterval(render, 1000);
+  })();
+</script>
+{% endblock %}

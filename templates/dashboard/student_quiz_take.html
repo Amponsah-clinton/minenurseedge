@@ -1,0 +1,53 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ quiz.title }} - Quiz{% endblock %}
+
+{% block content %}
+<style>
+  .quiz-q-card { border: 1px solid #e6e8ec; border-radius: 10px; background: #fff; margin-bottom: 1rem; }
+  .quiz-q-card .q-head { background: #f8f9fb; border-bottom: 1px solid #eceff3; padding: 10px 14px; font-weight: 600; }
+</style>
+
+<div class="row mb-3">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <h5 class="mb-0">{{ quiz.title }}</h5>
+          <small class="text-muted">Answer all 10 questions, then submit once.</small>
+        </div>
+        <a href="/dashboard/quizzes/" class="btn btn-sm btn-outline-secondary">Back to list</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  {% for q in questions %}
+  <div class="quiz-q-card">
+    <div class="q-head d-flex align-items-center gap-2">
+      <span class="badge bg-primary">{{ q.question_order }}</span>
+      <span>Question</span>
+    </div>
+    <div class="card-body">
+      <p class="fw-semibold mb-3">{{ q.question_text }}</p>
+      {% for key, label in q.options.items %}
+      <label class="d-flex align-items-center border rounded px-3 py-2 mb-2" style="cursor:pointer;">
+        <input class="form-check-input me-3" type="radio" name="answer_{{ q.id }}" value="{{ key }}">
+        <span><strong>{{ key }}.</strong> {{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <div class="card">
+    <div class="card-body d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <p class="text-muted small mb-0">Unanswered items count as incorrect. You can retake the quiz later.</p>
+      <button type="submit" class="btn btn-success">
+        <i class="bx bx-check-circle me-1"></i> Submit quiz
+      </button>
+    </div>
+  </div>
+</form>
+{% endblock %}

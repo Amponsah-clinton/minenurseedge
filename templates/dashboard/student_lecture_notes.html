@@ -1,0 +1,70 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Lecture Notes{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-1">Lecture Notes</h4>
+        <p class="text-muted mb-0">Read notes and export any note to PDF.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        {% if notes %}
+          <div class="accordion" id="notesAccordion">
+            {% for note in notes %}
+              <div class="accordion-item mb-3 border rounded">
+                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                    <div>
+                      <strong>{{ note.topic }}</strong>
+                      {% if note.subtopic %}<div class="small text-muted">{{ note.subtopic }}</div>{% endif %}
+                    </div>
+                  </button>
+                </h2>
+                <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#notesAccordion">
+                  <div class="accordion-body">
+                    <div id="noteContent{{ forloop.counter }}">{{ note.content_html|safe }}</div>
+                    <div class="mt-3">
+                      <button class="btn btn-sm btn-outline-primary" onclick="downloadNotePdf('noteContent{{ forloop.counter }}', '{{ note.topic|escapejs }}')">
+                        Save as PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No lecture notes available yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script>
+  async function downloadNotePdf(elementId, topic) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const source = document.getElementById(elementId);
+    const text = source ? source.innerText : "";
+    const lines = doc.splitTextToSize(text, 180);
+    doc.setFontSize(14);
+    doc.text(topic || "Lecture Note", 15, 15);
+    doc.setFontSize(11);
+    doc.text(lines, 15, 25);
+    doc.save((topic || "lecture-note").replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf");
+  }
+</script>
+{% endblock %}

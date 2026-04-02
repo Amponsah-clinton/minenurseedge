@@ -1,0 +1,76 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Broadcast Messages - NurseEdge Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-1">Broadcast Messages</h4>
+        <p class="text-muted mb-0">Send announcements to all students. Unread messages appear in student sidebar badges.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}<div class="alert alert-success" role="alert">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header pb-0">
+        <h5 class="card-title mb-2">Send New Message</h5>
+      </div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="send" />
+          <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input type="text" name="title" class="form-control" value="{{ form_data.title }}" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Message</label>
+            <textarea name="message_body" rows="5" class="form-control" required>{{ form_data.message_body }}</textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Send to All Students</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header pb-0">
+        <h5 class="card-title mb-2">Recent Broadcasts</h5>
+      </div>
+      <div class="card-body">
+        {% if recent_broadcasts %}
+          <div class="d-flex flex-column gap-3">
+            {% for item in recent_broadcasts %}
+            <div class="border rounded p-3">
+              <div class="d-flex align-items-center justify-content-between mb-1">
+                <h6 class="mb-0">{{ item.title }}</h6>
+                <div class="d-flex align-items-center gap-2">
+                  <small class="text-muted">{{ item.created_at|slice:":16"|cut:"T" }}</small>
+                  <form method="post" onsubmit="return confirm('Delete this broadcast message?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete" />
+                    <input type="hidden" name="notification_id" value="{{ item.id }}" />
+                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2">Delete</button>
+                  </form>
+                </div>
+              </div>
+              <p class="mb-0 text-muted">{{ item.message_body|truncatechars:160 }}</p>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No broadcasts yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

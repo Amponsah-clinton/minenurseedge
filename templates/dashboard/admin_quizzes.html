@@ -1,0 +1,113 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Quizzes - Admin{% endblock %}
+
+{% block content %}
+<style>
+  .quiz-build-card { border: 1px solid #e8eaef; border-radius: 10px; background: #fff; }
+  .quiz-build-card .card-header-lite { background: #f8f9fb; border-bottom: 1px solid #eceff3; padding: 10px 14px; font-weight: 600; font-size: 0.9rem; }
+  .quiz-json-area { font-family: ui-monospace, Consolas, monospace; font-size: 0.82rem; min-height: 280px; }
+</style>
+
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card quiz-build-card">
+      <div class="card-body d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div class="flex-grow-1" style="min-width:220px;">
+          <h4 class="mb-1">Practice Quizzes</h4>
+          <p class="text-muted mb-0">Paste JSON with <strong>one or more</strong> questions per upload. They join <strong>your queue</strong> in order. When the queue reaches <strong>10</strong>, those ten become the next <strong>Quiz A / B / C …</strong>. A single large JSON upload can create multiple quizzes at once.</p>
+        </div>
+        <div class="text-end">
+          <div class="badge bg-label-primary fs-6 px-3 py-2 mb-1">In queue: {{ pending_count }}</div>
+          {% if pending_count > 0 %}
+          <div class="small text-muted">Need <strong>{{ need_more_for_batch }}</strong> more for next batch</div>
+          {% else %}
+          <div class="small text-muted">Queue empty — next 10 questions form the next quiz</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="card quiz-build-card">
+      <div class="card-header-lite d-flex align-items-center gap-2">
+        <i class="bx bx-code-alt text-primary"></i> Add questions (JSON)
+      </div>
+      <div class="card-body">
+        <form method="post" id="quizJsonForm">
+          {% csrf_token %}
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnInsertQuizExample">
+              <i class="bx bx-copy me-1"></i> Insert full example (10 questions)
+            </button>
+            <span class="small text-muted">Clears the box and pastes readable JSON you can edit.</span>
+          </div>
+          <textarea name="questions_json" id="questionsJsonField" class="form-control quiz-json-area mb-2" spellcheck="false" rows="22"
+            placeholder="{{ quiz_json_placeholder }}"></textarea>
+          <p class="small text-muted mb-3">The grey hint is a complete valid 10-question JSON (one line). Use the button above for a multi-line version in the field. You may submit one or many questions per upload.</p>
+          <button type="submit" class="btn btn-primary">
+            <i class="bx bx-upload me-1"></i> Add to queue
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <div class="card quiz-build-card">
+      <div class="card-header-lite">
+        <i class="bx bx-library text-primary me-1"></i> Published quizzes
+      </div>
+      <div class="card-body">
+        {% if quiz_list %}
+        <div class="list-group list-group-flush">
+          {% for qz in quiz_list %}
+          <div class="list-group-item px-0 border-0 border-bottom">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-semibold">{{ qz.title }}</div>
+                <small class="text-muted">{{ qz.question_count }} questions · {{ qz.created_at|slice:":16"|default:"—" }}</small>
+              </div>
+              {% if qz.is_published %}
+              <span class="badge bg-label-success">Live</span>
+              {% else %}
+              <span class="badge bg-label-secondary">Off</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted mb-0 small">No quizzes yet. Questions will appear here after each batch of 10 is queued.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ quiz_sample_data|json_script:"quiz-admin-sample-json" }}
+<script>
+  (function () {
+    var btn = document.getElementById("btnInsertQuizExample");
+    var ta = document.getElementById("questionsJsonField");
+    var raw = document.getElementById("quiz-admin-sample-json");
+    if (!btn || !ta || !raw) return;
+    btn.addEventListener("click", function () {
+      try {
+        var sample = JSON.parse(raw.textContent);
+        ta.value = JSON.stringify(sample, null, 2);
+      } catch (e) {
+        ta.value = raw.textContent;
+      }
+      ta.focus();
+    });
+  })();
+</script>
+{% endblock %}

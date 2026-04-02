@@ -1,0 +1,71 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Contact Messages - NurseEdge Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-0">Contact Messages</h4>
+      <p class="text-muted mb-0">Messages submitted via the contact form.</p>
+    </div>
+    <span class="badge fs-6 px-3 py-2" style="background-color:#696cff;background-image:none;">
+      {{ messages|length }} message{{ messages|length|pluralize }}
+    </span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header" style="background-image:none;">
+    <h5 class="card-title mb-0">All Messages</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Subject</th>
+          <th>Message</th>
+          <th>Received</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if messages %}
+          {% for msg in messages %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>{{ msg.name }}</td>
+            <td>{{ msg.email }}</td>
+            <td>{{ msg.subject|default:"—" }}</td>
+            <td style="max-width:260px;">
+              <span title="{{ msg.message }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">
+                {{ msg.message }}
+              </span>
+            </td>
+            <td style="font-size:13px;white-space:nowrap;">
+              {{ msg.created_at|slice:":10" }}
+            </td>
+            <td>
+              {% if msg.is_read %}
+                <span class="badge" style="background-color:#71dd37;background-image:none;">Read</span>
+              {% else %}
+                <span class="badge" style="background-color:#ffab00;background-image:none;color:#fff;">Unread</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="bx bx-envelope-open d-block mb-2" style="font-size:36px;"></i>
+              No messages yet.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

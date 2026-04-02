@@ -1,0 +1,75 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Mock Result - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <h3 class="mb-1">{{ exam.title }} Completed</h3>
+        <p class="text-muted mb-4">Your result is ready.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#resultModal">View Score</button>
+        <a href="/dashboard/mock-exams/" class="btn btn-outline-secondary ms-2">Back to Mocks</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="resultModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Your Mock Result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <h1 class="text-primary">{{ attempt.percentage|floatformat:0 }}%</h1>
+        <p class="mb-1"><strong>{{ attempt.score }}</strong> / {{ attempt.total_questions }} correct</p>
+        <p class="mb-3">Your leaderboard position: <strong>#{{ rank }}</strong></p>
+        <div class="alert alert-success mb-0">{{ encouragement }}</div>
+        <div class="mt-4 text-start">
+          <h6 class="mb-2">Top Scorers - {{ exam.title }}</h6>
+          {% if leaderboard_rows %}
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Student</th>
+                    <th class="text-end">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in leaderboard_rows %}
+                  <tr {% if row.is_me %}class="table-primary"{% endif %}>
+                    <td>{{ row.rank }}</td>
+                    <td>{{ row.student_name }} {% if row.is_me %}<strong>(You)</strong>{% endif %}</td>
+                    <td class="text-end">{{ row.percentage|floatformat:0 }}%</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-muted mb-0">Leaderboard will appear after more students submit this mock.</p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <a href="/dashboard/mock-exams/" class="btn btn-primary">Continue</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var el = document.getElementById("resultModal");
+    if (!el) return;
+    var modal = new bootstrap.Modal(el);
+    modal.show();
+  })();
+</script>
+{% endblock %}

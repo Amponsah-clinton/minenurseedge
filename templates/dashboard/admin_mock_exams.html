@@ -1,0 +1,96 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Mock Exams Builder - NurseEdge{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-1">Mock Exam Builder</h4>
+        <p class="text-muted mb-0">Create timed 180-question mocks (1 hour 30 minutes) from your Question Bank.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}<div class="alert alert-success">{{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">Upload Mock Questions (JSON)</h5></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="upload_json" />
+          <div class="mb-3">
+            <label class="form-label">JSON Payload</label>
+            <textarea class="form-control" name="json_payload" rows="12" placeholder='[
+  {
+    "question": "A normal adult resting respiratory rate is?",
+    "options": { "A": "6-10", "B": "12-20", "C": "25-35" },
+    "answer": "B",
+    "explanation": "Normal adult respiratory rate is 12-20 breaths/min."
+  }
+]'></textarea>
+            <small class="text-muted">Fields supported: question/question_text, options(A-C), answer or correct_option, explanation.</small>
+          </div>
+          <button class="btn btn-primary" type="submit">Upload JSON Questions</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Created Mocks</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Questions</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if mock_exams %}
+              {% for exam in mock_exams %}
+              <tr>
+                <td>{{ exam.title }}</td>
+                <td>{{ exam.question_count }}</td>
+                <td>{{ exam.duration_minutes }} mins</td>
+                <td>
+                  {% if exam.is_published %}
+                    <span class="badge bg-label-success">Published</span>
+                  {% else %}
+                    <span class="badge bg-label-warning">Hidden</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_publish" />
+                    <input type="hidden" name="exam_id" value="{{ exam.id }}" />
+                    <input type="hidden" name="publish_to" value="{% if exam.is_published %}false{% else %}true{% endif %}" />
+                    <button class="btn btn-sm {% if exam.is_published %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                      {% if exam.is_published %}Unpublish{% else %}Publish{% endif %}
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No mocks created yet.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

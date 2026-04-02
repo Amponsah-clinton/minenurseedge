@@ -1,0 +1,47 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Quiz Result{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <h3 class="mb-1">{{ quiz_title }} completed</h3>
+        <p class="text-muted mb-4">Your result is saved under Performance.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quizResultModal">View score</button>
+        <a href="/dashboard/quizzes/" class="btn btn-outline-secondary ms-2">More quizzes</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="quizResultModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-sm">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Quiz result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <h1 class="text-primary">{{ attempt.percentage|floatformat:0 }}%</h1>
+        <p class="mb-1"><strong>{{ attempt.score }}</strong> / {{ attempt.total_questions }} correct</p>
+        <div class="alert alert-success mb-0">{{ encouragement }}</div>
+      </div>
+      <div class="modal-footer border-0 justify-content-center flex-wrap gap-2">
+        <a href="/dashboard/performance/" class="btn btn-primary">Performance</a>
+        <a href="/dashboard/performance/review/quiz/{{ attempt.id }}/" class="btn btn-outline-primary">Review answers</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var el = document.getElementById("quizResultModal");
+    if (!el) return;
+    new bootstrap.Modal(el).show();
+  })();
+</script>
+{% endblock %}
