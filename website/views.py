@@ -1307,8 +1307,10 @@ def admin_manage_questions(request):
     if guard:
         return guard
 
-    query = request.GET.get("q", "").strip()
-    edit_id = request.GET.get("edit", "").strip()
+    query      = request.GET.get("q", "").strip()
+    filter_prog  = request.GET.get("programme", "").strip()
+    filter_paper = request.GET.get("paper_title", "").strip()
+    edit_id    = request.GET.get("edit", "").strip()
     try:
         page = int(request.GET.get("page", "1"))
     except ValueError:
@@ -1323,7 +1325,10 @@ def admin_manage_questions(request):
         "programme_papers": PROGRAMME_PAPERS,
         "programme_papers_json": json.dumps(PROGRAMME_PAPERS),
         "programmes": PROGRAMME_NAMES,
+        "all_papers": ALL_PAPERS,
         "query": query,
+        "filter_prog": filter_prog,
+        "filter_paper": filter_paper,
         "questions": [],
         "question_bank_count": 0,
         "question_list_shown": 0,
@@ -1481,13 +1486,25 @@ def admin_manage_questions(request):
             .limit(MANAGE_QUESTIONS_MAX_FETCH)
         )
         count_query = admin.table("question_bank").select("id", count="exact", head=True)
+
         if escaped:
             filt = (
                 f"question_text.ilike.%{escaped}%,programme.ilike.%{escaped}%,"
                 f"paper_title.ilike.%{escaped}%"
             )
-            list_query = list_query.or_(filt)
+            list_query  = list_query.or_(filt)
             count_query = count_query.or_(filt)
+
+        if filter_prog == "__mock__":
+            list_query  = list_query.eq("programme", GLOBAL_MOCK_PROGRAMME)
+            count_query = count_query.eq("programme", GLOBAL_MOCK_PROGRAMME)
+        elif filter_prog:
+            list_query  = list_query.eq("programme", filter_prog)
+            count_query = count_query.eq("programme", filter_prog)
+
+        if filter_paper:
+            list_query  = list_query.eq("paper_title", filter_paper)
+            count_query = count_query.eq("paper_title", filter_paper)
         try:
             context["question_bank_count"] = count_query.execute().count or 0
         except Exception:
@@ -1513,6 +1530,10 @@ def admin_manage_questions(request):
                 params["page"] = page_num
             if query:
                 params["q"] = query
+            if filter_prog:
+                params["programme"] = filter_prog
+            if filter_paper:
+                params["paper_title"] = filter_paper
             return "/admin-panel/manage-questions/" + ("?" + urlencode(params) if params else "")
 
         def _manage_q_pagelist(cur, total, radius=2):
@@ -1574,6 +1595,57 @@ def admin_manage_questions(request):
     except Exception as exc:
         context["error"] = str(exc)
         context["form_data"] = {**EMPTY_QUESTION_FORM, **request.POST.dict()}
+
+    # ── Question bank stats ───────────────────────────────────────────────────
+    try:
+        # Mock pool
+        mock_count = (
+            admin.table("question_bank")
+            .select("id", count="exact", head=True)
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .execute()
+            .count or 0
+        )
+
+        # General test questions (all non-mock rows)
+        all_rows = (
+            admin.table("question_bank")
+            .select("programme, paper_title, question_text")
+            .neq("programme", GLOBAL_MOCK_PROGRAMME)
+            .execute()
+            .data or []
+        )
+
+        # General Paper questions are duplicated once per programme —
+        # deduplicate by question_text so they count as one.
+        general_unique_texts = set()
+        prog_specific = {}
+        for row in all_rows:
+            paper = (row.get("paper_title") or "").strip()
+            prog  = (row.get("programme")   or "").strip()
+            if paper == GENERAL_PAPER_TITLE:
+                general_unique_texts.add((row.get("question_text") or "").strip().lower())
+            else:
+                prog_specific[prog] = prog_specific.get(prog, 0) + 1
+
+        general_count   = len(general_unique_texts)
+        unique_total    = general_count + sum(prog_specific.values())
+        mock_batches    = mock_count // MOCK_QUESTION_BATCH_SIZE
+        mock_remainder  = mock_count % MOCK_QUESTION_BATCH_SIZE
+
+        context["stats_mock_count"]      = mock_count
+        context["stats_mock_batches"]    = mock_batches
+        context["stats_mock_remainder"]  = mock_remainder
+        context["stats_general_count"]   = general_count
+        context["stats_prog_specific"]   = sorted(prog_specific.items())
+        context["stats_unique_total"]    = unique_total
+    except Exception:
+        context["stats_mock_count"]      = 0
+        context["stats_mock_batches"]    = 0
+        context["stats_mock_remainder"]  = 0
+        context["stats_general_count"]   = 0
+        context["stats_prog_specific"]   = []
+        context["stats_unique_total"]    = 0
 
     return render(request, "dashboard/admin_manage_questions.html", context)
 

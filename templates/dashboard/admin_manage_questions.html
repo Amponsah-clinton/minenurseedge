@@ -37,6 +37,83 @@
 <div class="alert alert-danger" role="alert">{{ error }}</div>
 {% endif %}
 
+{# ── Question bank stats ──────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+
+  {# Mock pool #}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded p-2 bg-label-primary flex-shrink-0">
+          <i class="bx bx-file fs-4 text-primary"></i>
+        </div>
+        <div>
+          <p class="text-muted small mb-0">Mock Pool</p>
+          <h4 class="mb-0 fw-bold">{{ stats_mock_count }}</h4>
+          <small class="text-muted">
+            {{ stats_mock_batches }} complete mock{{ stats_mock_batches|pluralize }}
+            {% if stats_mock_remainder %}&nbsp;· {{ stats_mock_remainder }} spare{% endif %}
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# General Paper #}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded p-2 bg-label-info flex-shrink-0">
+          <i class="bx bx-layer fs-4 text-info"></i>
+        </div>
+        <div>
+          <p class="text-muted small mb-0">General Paper</p>
+          <h4 class="mb-0 fw-bold">{{ stats_general_count }}</h4>
+          <small class="text-muted">unique questions (shared across all programmes)</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Programme-specific total #}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border shadow-sm h-100">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded p-2 bg-label-success flex-shrink-0">
+          <i class="bx bx-book-open fs-4 text-success"></i>
+        </div>
+        <div>
+          <p class="text-muted small mb-0">Programme-Specific</p>
+          <h4 class="mb-0 fw-bold">{{ stats_unique_total }}</h4>
+          <small class="text-muted">total unique questions (General + specific)</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Breakdown #}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card border shadow-sm h-100">
+      <div class="card-body">
+        <p class="text-muted small mb-2 fw-semibold">Specific Questions per Programme</p>
+        {% if stats_prog_specific %}
+          <div class="d-flex flex-column gap-1">
+            {% for prog, count in stats_prog_specific %}
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="small text-truncate me-2" style="max-width:75%;" title="{{ prog }}">{{ prog }}</span>
+              <span class="badge bg-label-secondary fw-semibold">{{ count }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted small mb-0">No programme-specific questions yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
 <div class="row">
   {% if edit_item %}
   <div class="col-lg-5 mb-4">
@@ -123,14 +200,52 @@
 
   <div class="{% if edit_item %}col-lg-7{% else %}col-12{% endif %} mb-4">
     <div class="card">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <h5 class="card-title mb-0">Question List</h5>
-        <form method="get" class="d-flex" style="max-width:360px;width:100%;">
-          <input type="text" name="q" value="{{ query }}" class="form-control me-2" placeholder="Search question, programme, paper..." />
-          <button type="submit" class="btn btn-outline-primary">Search</button>
+      <div class="card-header border-bottom pb-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="card-title mb-0">Question List</h5>
+          {% if query or filter_prog or filter_paper %}
+          <a href="/admin-panel/manage-questions/" class="btn btn-sm btn-outline-secondary">
+            <i class="bx bx-x me-1"></i>Clear filters
+          </a>
+          {% endif %}
+        </div>
+        <form method="get" class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <input type="text" name="q" value="{{ query }}"
+                   class="form-control form-control-sm"
+                   placeholder="Search question text…" />
+          </div>
+          <div class="col-md-3">
+            <select name="programme" class="form-select form-select-sm">
+              <option value="">All programmes</option>
+              <option value="__mock__" {% if filter_prog == "__mock__" %}selected{% endif %}>
+                Mock Pool (All Programmes)
+              </option>
+              {% for prog in programmes %}
+              <option value="{{ prog }}" {% if filter_prog == prog %}selected{% endif %}>{{ prog }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <select name="paper_title" class="form-select form-select-sm">
+              <option value="">All papers</option>
+              <option value="General Paper" {% if filter_paper == "General Paper" %}selected{% endif %}>General Paper</option>
+              <option value="Mock Paper" {% if filter_paper == "Mock Paper" %}selected{% endif %}>Mock Paper</option>
+              {% for paper in all_papers %}
+              {% if paper != "General Paper" %}
+              <option value="{{ paper }}" {% if filter_paper == paper %}selected{% endif %}>{{ paper }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">
+              <i class="bx bx-filter-alt me-1"></i>Filter
+            </button>
+          </div>
         </form>
         {% if pagination and pagination.truncated_fetch %}
-        <p class="text-warning small mb-0 mt-2">Only the {{ pagination.max_fetch }} most recent matching rows are loaded; pagination is applied after General Paper dedupe. Use search to narrow results if you need older questions.</p>
+        <p class="text-warning small mb-0 mt-2">Only the {{ pagination.max_fetch }} most recent matching rows are loaded. Use filters to narrow results.</p>
         {% endif %}
       </div>
       <div class="table-responsive">
