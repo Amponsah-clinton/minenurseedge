@@ -7,6 +7,44 @@
   .quiz-q-card .q-head { background: #f8f9fb; border-bottom: 1px solid #eceff3; padding: 10px 14px; font-weight: 600; }
 </style>
 
+{# ── Security layer (screenshot prevention, text-selection block, etc.) ── #}
+{% include "dashboard/_test_security.html" %}
+
+{# ── Pre-test security notice modal (must dismiss before starting) ───────── #}
+<div id="ne-pretest-modal" class="ne-overlay" style="display:flex;" role="dialog" aria-modal="true">
+  <div class="ne-pretest-box">
+    <div class="ne-pretest-header">
+      <span class="ne-pretest-icon"><i class="bx bx-shield-quarter"></i></span>
+      <span class="ne-pretest-title">Before You Begin</span>
+    </div>
+    <div class="ne-pretest-rule">
+      <i class="bx bx-camera-off"></i>
+      <span>
+        <strong>Screenshots and screen recordings are strictly prohibited.</strong>
+        Any attempt to capture exam content is automatically detected and will result
+        in your account being <strong>permanently disabled</strong>.
+      </span>
+    </div>
+    <div class="ne-pretest-rule">
+      <i class="bx bx-share-alt"></i>
+      <span>
+        Do not share, publish, or distribute quiz questions or answers in any form.
+        Violations may result in further disciplinary action.
+      </span>
+    </div>
+    <div class="ne-pretest-rule-info">
+      <i class="bx bx-info-circle"></i>
+      <span>
+        Your session is monitored. A first offence triggers a formal warning;
+        a second offence <strong>permanently disables</strong> your account.
+      </span>
+    </div>
+    <button class="ne-pretest-start" onclick="NeSec.startExam()">
+      <i class="bx bx-check-circle"></i> I Understand — Start Quiz
+    </button>
+  </div>
+</div>
+
 <div class="row mb-3">
   <div class="col-12">
     <div class="card">

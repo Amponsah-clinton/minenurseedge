@@ -97,6 +97,7 @@
               <th>School / Institution</th>
               <th>Registered</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody class="table-border-bottom-0">
@@ -134,14 +135,30 @@
                   {% if user.is_active %}
                     <span class="badge bg-label-success">Active</span>
                   {% else %}
-                    <span class="badge bg-label-danger">Inactive</span>
+                    <span class="badge bg-label-danger">Disabled</span>
                   {% endif %}
+                </td>
+                <td>
+                  <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
+                    {% csrf_token %}
+                    {% if user.is_active %}
+                      <button type="submit" class="btn btn-sm btn-outline-danger"
+                              onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
+                        <i class="bx bx-block me-1"></i>Disable
+                      </button>
+                    {% else %}
+                      <button type="submit" class="btn btn-sm btn-outline-success"
+                              onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
+                        <i class="bx bx-check-circle me-1"></i>Enable
+                      </button>
+                    {% endif %}
+                  </form>
                 </td>
               </tr>
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="9" class="text-center py-5">
+                <td colspan="10" class="text-center py-5">
                   <div class="d-flex flex-column align-items-center gap-2 text-muted">
                     <i class="bx bx-user-x" style="font-size:40px;"></i>
                     <span>No registered students yet.</span>

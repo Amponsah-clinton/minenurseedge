@@ -497,8 +497,50 @@ def login_page(request):
             if not profile:
                 return render(request, "login.html", {"error": "Account profile not found. Contact support."})
 
+            # Block disabled accounts immediately
+            if profile.get("is_active") is False:
+                return render(request, "login.html", {
+                    "error": "Your account has been disabled due to a concurrent login attempt. "
+                             "Please contact support to restore access."
+                })
+
             role = profile.get("role", "student")
             full_name = profile.get("full_name") or email.split("@")[0]
+
+            # Concurrent-login guard (students only — admins are exempt).
+            # Check if an active session already exists for this account.
+            # If it does, compare the stored device fingerprint (IP + user-agent)
+            # against the current request:
+            #   • Same device  → user is simply re-logging in (session lapsed,
+            #                    browser restarted, etc.) — just replace the session.
+            #   • Different device → the account is being used on two devices at once,
+            #                        meaning credentials were shared.  Disable it.
+            if role == "student":
+                existing = (
+                    admin.table("active_sessions")
+                    .select("ip_address, user_agent")
+                    .eq("user_id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if existing.data:
+                    current_ip = request.META.get("REMOTE_ADDR", "")[:45]
+                    current_ua = request.META.get("HTTP_USER_AGENT", "")[:500]
+                    stored_ip  = existing.data[0].get("ip_address", "")
+                    stored_ua  = existing.data[0].get("user_agent", "")
+                    same_device = (current_ip == stored_ip and current_ua == stored_ua)
+
+                    if not same_device:
+                        # Different device: credential sharing detected.
+                        # Evict the first session and disable the account.
+                        admin.table("active_sessions").delete().eq("user_id", user_id).execute()
+                        admin.table("profiles").update({"is_active": False}).eq("id", user_id).execute()
+                        return render(request, "login.html", {
+                            "error": "Concurrent login detected on a different device. "
+                                     "Your account has been disabled for security. "
+                                     "Please contact support."
+                        })
+                    # Same device: fall through — _create_session() will replace the old session
 
             _create_session(request, user_id, profile["email"], full_name, role)
 
@@ -713,6 +755,146 @@ def signup_page(request):
 def logout_view(request):
     _destroy_session(request)
     return redirect("/login/")
+
+
+# ---------------------------------------------------------------------------
+# Forgot / Reset password
+# ---------------------------------------------------------------------------
+
+def forgot_password_page(request):
+    """
+    Step 1 of the password reset flow.
+    GET  → shows the email form.
+    POST → looks up the email in Supabase profiles, generates a 6-digit OTP,
+           stores it in the session (15-minute TTL), sends the reset email,
+           then redirects to /reset-password/.
+    """
+    from django.core.mail import send_mail
+    import time
+
+    if request.method != "POST":
+        return render(request, "forgot_password.html", {})
+
+    email = request.POST.get("email", "").strip().lower()
+    if not email:
+        return render(request, "forgot_password.html", {"error": "Please enter your email address."})
+
+    try:
+        admin = _supabase_admin()
+        resp = (
+            admin.table("profiles")
+            .select("id, full_name, email, is_active")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+        )
+        profile = resp.data[0] if resp.data else None
+    except Exception:
+        profile = None
+
+    # Always redirect to reset page — never reveal whether the email exists
+    if profile:
+        code = str(secrets.randbelow(900000) + 100000)          # 6-digit, never leading-zero
+        request.session["pw_reset_email"]   = email
+        request.session["pw_reset_code"]    = code
+        request.session["pw_reset_expires"] = int(time.time()) + 900  # 15 minutes
+
+        full_name = profile.get("full_name") or "Student"
+        subject = "NurseEdge — Your password reset code"
+        body = (
+            f"Hi {full_name},\n\n"
+            f"You requested a password reset for your NurseEdge account.\n\n"
+            f"Your 6-digit reset code is:\n\n"
+            f"    {code}\n\n"
+            f"This code expires in 15 minutes.\n"
+            f"If you did not request this, you can safely ignore this email.\n\n"
+            f"— The NurseEdge Team"
+        )
+        try:
+            send_mail(
+                subject,
+                body,
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
+            )
+        except Exception:
+            # Don't expose SMTP failures — still redirect so attackers can't
+            # distinguish "valid email / SMTP failed" from "invalid email".
+            pass
+
+    return redirect("/reset-password/")
+
+
+def reset_password_page(request):
+    """
+    Step 2 of the password reset flow.
+    GET  → shows code + new-password form.
+    POST → validates OTP from session, updates password via Supabase Admin API,
+           clears the session token, redirects to /login/ on success.
+    """
+    import time
+
+    if request.method == "GET":
+        # If there is no pending reset in the session, redirect back
+        if not request.session.get("pw_reset_email"):
+            return redirect("/forgot-password/")
+        return render(request, "reset_password.html", {})
+
+    # ── POST ──────────────────────────────────────────────────────────────────
+    code             = request.POST.get("code", "").strip()
+    new_password     = request.POST.get("password", "")
+    confirm_password = request.POST.get("confirm_password", "")
+
+    stored_code    = request.session.get("pw_reset_code", "")
+    stored_email   = request.session.get("pw_reset_email", "")
+    stored_expires = request.session.get("pw_reset_expires", 0)
+
+    def _err(msg):
+        return render(request, "reset_password.html", {"error": msg})
+
+    if not stored_email or not stored_code:
+        return redirect("/forgot-password/")
+
+    if int(time.time()) > stored_expires:
+        # Wipe expired token from session
+        for k in ("pw_reset_code", "pw_reset_email", "pw_reset_expires"):
+            request.session.pop(k, None)
+        return render(request, "reset_password.html", {
+            "error": "Your reset code has expired. Please request a new one.",
+            "expired": True,
+        })
+
+    if code != stored_code:
+        return _err("Incorrect reset code. Please check your email and try again.")
+
+    if new_password != confirm_password:
+        return _err("Passwords do not match.")
+
+    pw_errors = _validate_password(new_password)
+    if pw_errors:
+        return _err(pw_errors[0])
+
+    # Update password in Supabase Auth
+    try:
+        admin = _supabase_admin()
+        # Find the auth user by email
+        auth_user = _find_auth_user_by_email(stored_email)
+        if not auth_user:
+            return _err("Account not found. Please contact support.")
+
+        admin.auth.admin.update_user_by_id(
+            auth_user["id"],
+            {"password": new_password},
+        )
+    except Exception as exc:
+        return _err(f"Could not update password. Please try again or contact support.")
+
+    # Clear the reset token from session
+    for k in ("pw_reset_code", "pw_reset_email", "pw_reset_expires"):
+        request.session.pop(k, None)
+
+    return redirect("/login/?reason=password_reset")
 
 
 # ---------------------------------------------------------------------------
@@ -1157,6 +1339,87 @@ def admin_users(request):
         "unique_ips_24h": unique_ips_24h,
     }
     return render(request, "dashboard/admin_users.html", context)
+
+
+def admin_toggle_user_status(request, user_id):
+    """Enable or disable a student account. POST-only, admin-only.
+    Admin accounts are never touched regardless of who calls this."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    if request.method != "POST":
+        return redirect("/admin-panel/users/")
+
+    # Determine which page to return to (users list or locked accounts list)
+    next_url = request.POST.get("next", "/admin-panel/users/")
+    if next_url not in ("/admin-panel/users/", "/admin-panel/locked-accounts/"):
+        next_url = "/admin-panel/users/"
+
+    admin = _supabase_admin()
+    try:
+        profile_resp = (
+            admin.table("profiles")
+            .select("is_active, role")
+            .eq("id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+        if not profile_resp.data:
+            return redirect(next_url)
+
+        profile = profile_resp.data[0]
+
+        # Never touch admin accounts
+        if profile.get("role") == "admin":
+            return redirect(next_url)
+
+        currently_active = profile.get("is_active", True)
+        new_status = not currently_active
+
+        admin.table("profiles").update({"is_active": new_status}).eq("id", str(user_id)).execute()
+
+        # If disabling, also kill any live session so the user is immediately evicted
+        if not new_status:
+            admin.table("active_sessions").delete().eq("user_id", str(user_id)).execute()
+    except Exception:
+        pass
+
+    return redirect(next_url)
+
+
+def admin_locked_accounts(request):
+    """Lists all student accounts that have been disabled (is_active = false).
+    Provides a one-click unlock button for each."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin = _supabase_admin()
+    try:
+        locked = (
+            admin.table("profiles")
+            .select("*")
+            .eq("role", "student")
+            .eq("is_active", False)
+            .order("created_at", desc=True)
+            .execute()
+            .data or []
+        )
+        for user in locked:
+            programme = (user.get("programme") or "").strip()
+            user["programme_initial"] = PROGRAMME_INITIALS.get(programme, programme or "—")
+    except Exception:
+        locked = []
+
+    context = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "locked_accounts",
+        "locked": locked,
+    }
+    return render(request, "dashboard/admin_locked_accounts.html", context)
 
 
 def admin_messages(request):
@@ -3260,6 +3523,59 @@ def student_quiz_result(request, attempt_id):
 # ---------------------------------------------------------------------------
 # Report Question (AJAX POST)
 # ---------------------------------------------------------------------------
+
+def screenshot_attempt_api(request):
+    """
+    AJAX POST: record a screenshot attempt for the current student.
+    - 1st offence  → returns {ok, attempt_number: 1, disabled: false}
+    - 2nd+ offence → disables account + kills session,
+                     returns {ok, attempt_number: N, disabled: true}
+    """
+    from django.http import JsonResponse
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False}, status=405)
+
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JsonResponse({"ok": False, "reason": "not_authenticated"}, status=401)
+
+    try:
+        admin = _supabase_admin()
+
+        profile_resp = (
+            admin.table("profiles")
+            .select("screenshot_attempts, is_active")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if not profile_resp.data:
+            return JsonResponse({"ok": False}, status=404)
+
+        profile = profile_resp.data[0]
+        current = profile.get("screenshot_attempts") or 0
+        new_count = current + 1
+
+        if new_count >= 2:
+            # Second offence: disable account and evict session immediately
+            admin.table("profiles").update({
+                "screenshot_attempts": new_count,
+                "is_active": False,
+            }).eq("id", user_id).execute()
+            admin.table("active_sessions").delete().eq("user_id", user_id).execute()
+            request.session.flush()
+            return JsonResponse({"ok": True, "attempt_number": new_count, "disabled": True})
+        else:
+            # First offence: warn only
+            admin.table("profiles").update({
+                "screenshot_attempts": new_count,
+            }).eq("id", user_id).execute()
+            return JsonResponse({"ok": True, "attempt_number": new_count, "disabled": False})
+
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+
 
 def student_report_question(request):
     """Receives an AJAX POST from any question-answering page and inserts a

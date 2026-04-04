@@ -35,6 +35,14 @@
         <div class="alert-info">Your session was ended because your account was logged in on another device.</div>
         {% endif %}
 
+        {% if reason == "account_disabled" %}
+        <div class="alert-error">Your account has been disabled. Please contact support to restore access.</div>
+        {% endif %}
+
+        {% if reason == "password_reset" %}
+        <div class="alert-info">Your password has been reset successfully. Please log in with your new password.</div>
+        {% endif %}
+
         {% if error %}
         <div class="alert-error">{{ error }}</div>
         {% endif %}
@@ -46,7 +54,10 @@
                 <input type="email" id="email" name="email" required autocomplete="email">
             </div>
             <div class="auth-field">
-                <label for="password">Password<span class="required-star">*</span></label>
+                <label for="password" style="display:flex;justify-content:space-between;align-items:center;">
+                    <span>Password<span class="required-star">*</span></span>
+                    <a href="/forgot-password/" style="font-size:12px;font-weight:600;color:#555;text-decoration:none;">Forgot password?</a>
+                </label>
                 <div class="pw-wrap">
                     <input type="password" id="password" name="password" required autocomplete="current-password">
                     <button type="button" class="pw-toggle" data-target="password" aria-label="Toggle password visibility">

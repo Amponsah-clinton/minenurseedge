@@ -1,0 +1,93 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Locked Accounts - NurseEdge Admin{% endblock %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col-12">
+
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="card-title m-0 me-2">Locked Accounts</h5>
+          <small class="text-muted">Student accounts disabled due to concurrent login detection</small>
+        </div>
+        <span class="badge bg-label-danger fs-6 px-3 py-2">
+          {{ locked|length }} locked account{{ locked|length|pluralize }}
+        </span>
+      </div>
+
+      {% if locked %}
+      <div class="table-responsive text-nowrap">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Programme</th>
+              <th>School</th>
+              <th>Registered</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody class="table-border-bottom-0">
+            {% for user in locked %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="avatar avatar-sm">
+                    <span class="avatar-initial rounded-circle bg-label-danger">
+                      {{ user.full_name|default:"?"|slice:":1"|upper }}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="fw-semibold d-block">{{ user.full_name|default:"—" }}</span>
+                    <small class="text-muted">
+                      <i class="bx bx-lock-alt me-1"></i>Account disabled
+                    </small>
+                  </div>
+                </div>
+              </td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.phone_number|default:"—" }}</td>
+              <td>
+                {% if user.programme %}
+                  <span class="badge bg-label-primary" title="{{ user.programme }}">{{ user.programme_initial }}</span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ user.school|default:"—" }}</td>
+              <td>{{ user.created_at|slice:":10" }}</td>
+              <td>
+                <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/admin-panel/locked-accounts/">
+                  <button type="submit" class="btn btn-sm btn-success"
+                          onclick="return confirm('Unlock account for {{ user.full_name|default:user.email }}? They will be able to log in again.');">
+                    <i class="bx bx-lock-open-alt me-1"></i>Unlock Account
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-center py-5">
+        <i class="bx bx-shield-check" style="font-size:48px;color:#28a745;"></i>
+        <h5 class="mt-3 mb-1">No Locked Accounts</h5>
+        <p class="text-muted mb-0">All student accounts are currently active.</p>
+      </div>
+      {% endif %}
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

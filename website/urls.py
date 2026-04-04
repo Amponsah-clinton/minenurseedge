@@ -13,6 +13,8 @@ urlpatterns = [
     path("login/", views.login_page, name="login"),
     path("signup/", views.signup_page, name="signup"),
     path("logout/", views.logout_view, name="logout"),
+    path("forgot-password/", views.forgot_password_page, name="forgot_password"),
+    path("reset-password/", views.reset_password_page, name="reset_password"),
 
     # Student dashboard
     path("dashboard/", views.user_dashboard, name="user_dashboard"),
@@ -46,6 +48,8 @@ urlpatterns = [
     # Admin panel
     path("admin-panel/dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-panel/users/", views.admin_users, name="admin_users"),
+    path("admin-panel/users/<uuid:user_id>/toggle-status/", views.admin_toggle_user_status, name="admin_toggle_user_status"),
+    path("admin-panel/locked-accounts/", views.admin_locked_accounts, name="admin_locked_accounts"),
     path("admin-panel/messages/", views.admin_messages, name="admin_messages"),
     path("admin-panel/broadcast-messages/", views.admin_broadcast_messages, name="admin_broadcast_messages"),
     path("admin-panel/upload-questions/", views.admin_upload_questions, name="admin_upload_questions"),
@@ -85,4 +89,7 @@ urlpatterns = [
     path("admin-panel/community/warn-user/", views.admin_community_warn_user, name="admin_community_warn_user"),
     path("admin-panel/community/report/<uuid:report_id>/resolve/", views.admin_community_resolve_report, name="admin_community_resolve_report"),
     path("admin-panel/reported-questions/", views.admin_reported_questions, name="admin_reported_questions"),
+
+    # Security APIs
+    path("api/screenshot-attempt/", views.screenshot_attempt_api, name="screenshot_attempt_api"),
 ]

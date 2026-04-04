@@ -1,0 +1,389 @@
+{# ============================================================================
+   NurseEdge Test Security Layer  –  include inside {% block content %}
+   Provides:
+     • Text-selection / drag / copy / right-click / print prevention
+     • PrintScreen + Mac screenshot keyboard interception
+     • Window-blur shield (covers Snipping Tool, Game Bar, Alt-Tab capture)
+     • Clipboard poisoning on PrintScreen
+     • Paste-image detection
+     • Progressive enforcement: 1st attempt → warning, 2nd → account disabled
+   ============================================================================ #}
+
+{# ── Security CSS ─────────────────────────────────────────────────────────── #}
+<style>
+/* ── No selection / interaction on protected pages ─────────────────────── */
+body.ne-protected,
+body.ne-protected * {
+  -webkit-user-select:     none !important;
+  -moz-user-select:        none !important;
+  -ms-user-select:         none !important;
+  user-select:             none !important;
+  -webkit-user-drag:       none !important;
+  -webkit-touch-callout:   none !important;
+}
+/* Inputs/textareas still need to accept typing */
+body.ne-protected input,
+body.ne-protected textarea,
+body.ne-protected select {
+  -webkit-user-select: text !important;
+  user-select:         text !important;
+}
+
+/* ── Kill all print output ──────────────────────────────────────────────── */
+@media print {
+  html, body { display: none !important; visibility: hidden !important; }
+}
+
+/* ── Shared overlay base ────────────────────────────────────────────────── */
+.ne-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* z-layers: blur-shield < warning < disabled < pretest */
+#ne-blur-shield      { z-index: 99990; background: #0f172a; }
+#ne-warning-overlay  { z-index: 99993; background: rgba(10,4,4,.93); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#ne-disabled-overlay { z-index: 99994; background: rgba(5,2,2,.97); }
+#ne-pretest-modal    { z-index: 99997; background: rgba(0,0,0,.78); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+
+/* ── Blur shield content ────────────────────────────────────────────────── */
+.ne-blur-box { text-align: center; color: #94a3b8; padding: 32px; }
+.ne-blur-icon { font-size: 72px; color: #334155; line-height: 1; margin-bottom: 16px; }
+.ne-blur-title { font-size: 20px; font-weight: 700; color: #cbd5e1; margin-bottom: 8px; }
+.ne-blur-msg   { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+/* ── Warning overlay content ────────────────────────────────────────────── */
+.ne-warn-box {
+  background: #fff; border-radius: 14px; max-width: 460px; width: 100%;
+  padding: 36px 32px 28px; text-align: center;
+  border-top: 6px solid #dc2626;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  animation: ne-pop .22s ease;
+}
+.ne-warn-icon  { font-size: 58px; color: #dc2626; line-height: 1; margin-bottom: 12px; }
+.ne-warn-title { font-size: 22px; font-weight: 800; color: #111; margin-bottom: 8px; }
+.ne-warn-msg   { font-size: 14px; color: #555; line-height: 1.65; margin-bottom: 24px; }
+.ne-warn-btn {
+  background: #dc2626; color: #fff; border: none; border-radius: 8px;
+  padding: 12px 32px; font-size: 15px; font-weight: 700; cursor: pointer;
+  width: 100%; transition: background .15s;
+}
+.ne-warn-btn:hover { background: #b91c1c; }
+
+/* ── Disabled overlay content ───────────────────────────────────────────── */
+.ne-disabled-box {
+  background: #1c0505; border-radius: 14px; max-width: 440px; width: 100%;
+  padding: 40px 32px 32px; text-align: center;
+  border: 2px solid #991b1b;
+  box-shadow: 0 0 70px rgba(185,28,28,.35);
+}
+.ne-disabled-icon  { font-size: 64px; color: #fca5a5; margin-bottom: 14px; }
+.ne-disabled-title { font-size: 21px; font-weight: 800; color: #fecaca; margin-bottom: 10px; }
+.ne-disabled-msg   { font-size: 13.5px; color: #f87171; line-height: 1.6; }
+.ne-disabled-dots  { margin-top: 22px; color: #ef4444; font-size: 14px; letter-spacing: 4px; }
+
+/* ── Pre-test notice modal content ─────────────────────────────────────── */
+.ne-pretest-box {
+  background: #fff; border-radius: 14px; max-width: 520px; width: 100%;
+  padding: 36px 32px 28px;
+  border-top: 6px solid #2563eb;
+  box-shadow: 0 24px 64px rgba(0,0,0,.45);
+  animation: ne-pop .28s ease;
+}
+.ne-pretest-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.ne-pretest-icon   { font-size: 38px; color: #1d4ed8; flex-shrink: 0; }
+.ne-pretest-title  { font-size: 20px; font-weight: 800; color: #111; }
+.ne-pretest-rule {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 10px;
+  font-size: 13.5px; color: #991b1b; line-height: 1.55;
+}
+.ne-pretest-rule i { font-size: 19px; flex-shrink: 0; margin-top: 1px; color: #dc2626; }
+.ne-pretest-rule-info {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 10px;
+  font-size: 13.5px; color: #1e40af; line-height: 1.55;
+}
+.ne-pretest-rule-info i { font-size: 19px; flex-shrink: 0; margin-top: 1px; color: #2563eb; }
+.ne-pretest-start {
+  background: #2563eb; color: #fff; border: none; border-radius: 8px;
+  padding: 13px 32px; font-size: 15px; font-weight: 700; cursor: pointer;
+  width: 100%; margin-top: 20px; transition: background .15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.ne-pretest-start:hover { background: #1d4ed8; }
+
+@keyframes ne-pop {
+  from { transform: scale(.9); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
+}
+</style>
+
+{# ── Window-blur shield: covers screen when window loses focus ───────────── #}
+{# This intercepts Snipping Tool (Win+Shift+S), Game Bar, and any             #}
+{# screenshot tool that must focus a separate capture window.                 #}
+<div id="ne-blur-shield" class="ne-overlay" style="display:none;" aria-hidden="true">
+  <div class="ne-blur-box">
+    <div class="ne-blur-icon"><i class="bx bx-lock-alt"></i></div>
+    <div class="ne-blur-title">Exam Content Protected</div>
+    <div class="ne-blur-msg">
+      This exam is hidden while the window is not in focus.<br>
+      Click back on this window to continue your test.
+    </div>
+  </div>
+</div>
+
+{# ── Screenshot warning overlay — shown on 1st detected attempt ─────────── #}
+<div id="ne-warning-overlay" class="ne-overlay" style="display:none;" role="alertdialog" aria-modal="true">
+  <div class="ne-warn-box">
+    <div class="ne-warn-icon"><i class="bx bx-shield-x"></i></div>
+    <div class="ne-warn-title">Screenshot Detected</div>
+    <div class="ne-warn-msg">
+      This is your <strong>first and final warning</strong>.<br><br>
+      Capturing exam content is strictly forbidden and has been logged.
+      Any further attempt will <strong>permanently disable your account</strong>.
+    </div>
+    <button class="ne-warn-btn" onclick="NeSec.dismissWarning()">
+      <i class="bx bx-check me-2"></i>I Understand — Continue Exam
+    </button>
+  </div>
+</div>
+
+{# ── Account-disabled overlay — shown on 2nd detected attempt ───────────── #}
+<div id="ne-disabled-overlay" class="ne-overlay" style="display:none;" role="alertdialog" aria-modal="true">
+  <div class="ne-disabled-box">
+    <div class="ne-disabled-icon"><i class="bx bx-x-circle"></i></div>
+    <div class="ne-disabled-title">Account Disabled</div>
+    <div class="ne-disabled-msg">
+      Your account has been disabled because a screenshot attempt<br>
+      was detected for the second time.<br><br>
+      Please contact NurseEdge support to restore access.
+    </div>
+    <div class="ne-disabled-dots">● ● ●</div>
+  </div>
+</div>
+
+{# ── Security JS ─────────────────────────────────────────────────────────── #}
+<script>
+(function () {
+  'use strict';
+
+  /* Mark body so CSS no-select rules apply */
+  document.body.classList.add('ne-protected');
+
+  /* ── DOM shortcuts ────────────────────────────────────────────────────── */
+  function showEl(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+  }
+  function hideEl(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+
+  /* ── CSRF helper ─────────────────────────────────────────────────────── */
+  function getCsrf() {
+    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  /* ── Clipboard poisoning ──────────────────────────────────────────────── */
+  function poisonClipboard() {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('').catch(function () {});
+      }
+    } catch (_) {}
+  }
+
+  /* ── Server reporting ─────────────────────────────────────────────────── */
+  var _reportPending = false;
+
+  function reportAttempt() {
+    if (_reportPending) return;
+    _reportPending = true;
+
+    fetch('/api/screenshot-attempt/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrf(),
+      },
+      body: JSON.stringify({ ts: Date.now() }),
+      credentials: 'same-origin',
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      _blurShieldEnabled = false;   /* don't cover our own overlay */
+      hideEl('ne-blur-shield');
+
+      if (data.disabled) {
+        showEl('ne-disabled-overlay');
+        /* Force logout after 4 s */
+        setTimeout(function () { window.location.href = '/logout/'; }, 4000);
+      } else {
+        showEl('ne-warning-overlay');
+        /* Allow next detection 10 s after warning dismissed */
+        setTimeout(function () {
+          _reportPending = false;
+          _blurShieldEnabled = true;
+        }, 10000);
+      }
+    })
+    .catch(function () {
+      /* Network failure: show warning locally, reset after delay */
+      _blurShieldEnabled = false;
+      hideEl('ne-blur-shield');
+      showEl('ne-warning-overlay');
+      setTimeout(function () {
+        _reportPending = false;
+        _blurShieldEnabled = true;
+      }, 10000);
+    });
+  }
+
+  /* ── Keyboard interception (capture phase: fires before anything else) ── */
+  document.addEventListener('keydown', function (e) {
+
+    /* PrintScreen on all platforms */
+    var isPrintScreen = e.key === 'PrintScreen' || e.code === 'PrintScreen';
+
+    /* macOS: Cmd+Shift+3 / 4 / 5 / 6 */
+    var isMacShot = e.metaKey && e.shiftKey &&
+                    ['3', '4', '5', '6'].includes(e.key);
+
+    /* Print dialog: Ctrl+P / Cmd+P */
+    var isPrint = (e.ctrlKey || e.metaKey) &&
+                  (e.key === 'p' || e.key === 'P');
+
+    /* Save page: Ctrl+S / Cmd+S */
+    var isSave = (e.ctrlKey || e.metaKey) &&
+                 (e.key === 's' || e.key === 'S');
+
+    /* Select-all: Ctrl+A / Cmd+A */
+    var isSelAll = (e.ctrlKey || e.metaKey) &&
+                   (e.key === 'a' || e.key === 'A');
+
+    /* Copy: Ctrl+C / Cmd+C */
+    var isCopy = (e.ctrlKey || e.metaKey) &&
+                 (e.key === 'c' || e.key === 'C');
+
+    /* F12 DevTools (partial deterrent) */
+    var isDevTools = e.key === 'F12';
+
+    if (isPrintScreen || isMacShot) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      poisonClipboard();
+      reportAttempt();
+      return false;
+    }
+
+    if (isPrint || isSave || isSelAll || isCopy || isDevTools) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return false;
+    }
+
+  }, true /* capture phase */);
+
+  /* keyup fires for PrintScreen in Chrome/Edge even when keydown is stopped */
+  document.addEventListener('keyup', function (e) {
+    if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      poisonClipboard();
+      reportAttempt();
+      return false;
+    }
+  }, true);
+
+  /* ── Block right-click context menu ────────────────────────────────────── */
+  document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  /* ── Block drag-and-drop (prevents dragging question text) ─────────────── */
+  document.addEventListener('dragstart', function (e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  /* ── Block copy event entirely ──────────────────────────────────────────── */
+  document.addEventListener('copy', function (e) {
+    e.preventDefault();
+    return false;
+  }, true);
+
+  /* ── Block print via browser print dialog (beforeprint hook) ───────────── */
+  window.addEventListener('beforeprint', function () {
+    /* Hide page content so print preview is blank */
+    document.body.style.visibility = 'hidden';
+    setTimeout(function () { document.body.style.visibility = ''; }, 2500);
+  });
+
+  /* ── Detect pasted image (screenshot pasted into page) ─────────────────── */
+  document.addEventListener('paste', function (e) {
+    if (!e.clipboardData) return;
+    var items = e.clipboardData.items;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+        e.preventDefault();
+        reportAttempt();
+        return;
+      }
+    }
+  }, true);
+
+  /* ── Window-blur shield ─────────────────────────────────────────────────── */
+  /* When the browser window loses focus (Snipping Tool, Win+Shift+S,          */
+  /* Game Bar, third-party capture tools) we instantly cover the page with     */
+  /* an opaque shield so any capture only shows the shield, not the questions. */
+  var _blurShieldEnabled = true;
+
+  window.addEventListener('blur', function () {
+    if (_blurShieldEnabled) {
+      showEl('ne-blur-shield');
+    }
+  });
+
+  window.addEventListener('focus', function () {
+    /* Only hide shield; don't re-enable if it was deliberately disabled */
+    hideEl('ne-blur-shield');
+  });
+
+  /* ── Public API ─────────────────────────────────────────────────────────── */
+  window.NeSec = {
+    /** Called by the "I Understand" button on the warning overlay */
+    dismissWarning: function () {
+      hideEl('ne-warning-overlay');
+      _blurShieldEnabled = true;
+    },
+    /** Called by the pre-test notice modal confirm button */
+    startExam: function () {
+      hideEl('ne-pretest-modal');
+      _blurShieldEnabled = true;
+    },
+    /** Temporarily suspend blur-shield (e.g. while a Bootstrap modal is animating) */
+    pauseBlurShield: function () { _blurShieldEnabled = false; },
+    resumeBlurShield: function () { _blurShieldEnabled = true; },
+  };
+
+  /* Disable blur shield while pretest modal is visible (avoids false triggers
+     on page load before the user has had a chance to interact). */
+  (function () {
+    var pretest = document.getElementById('ne-pretest-modal');
+    if (pretest && pretest.style.display !== 'none') {
+      _blurShieldEnabled = false;
+    }
+  })();
+
+})();
+</script>
