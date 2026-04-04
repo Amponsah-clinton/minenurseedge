@@ -1,13 +1,15 @@
-{# ============================================================================
-   NurseEdge Test Security Layer  –  include inside {% block content %}
-   Provides:
-     • Text-selection / drag / copy / right-click / print prevention
-     • PrintScreen + Mac screenshot keyboard interception
-     • Window-blur shield (covers Snipping Tool, Game Bar, Alt-Tab capture)
-     • Clipboard poisoning on PrintScreen
-     • Paste-image detection
-     • Progressive enforcement: 1st attempt → warning, 2nd → account disabled
-   ============================================================================ #}
+{% comment %}
+============================================================================
+NurseEdge Test Security Layer — include inside the template content block.
+Provides:
+  • Text-selection / drag / copy / right-click / print prevention
+  • PrintScreen + Mac screenshot keyboard interception
+  • Window-blur shield (covers Snipping Tool, Game Bar, Alt-Tab capture)
+  • Clipboard poisoning on PrintScreen
+  • Paste-image detection
+  • Progressive enforcement: 1st attempt → warning, 2nd → account disabled
+============================================================================
+{% endcomment %}
 
 {# ── Security CSS ─────────────────────────────────────────────────────────── #}
 <style>
