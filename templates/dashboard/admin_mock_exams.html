@@ -97,7 +97,13 @@
               {% for exam in mock_exams %}
               <tr>
                 <td>{{ exam.title }}</td>
-                <td>{{ exam.question_count }}</td>
+                <td>
+                  <strong>{{ exam.effective_question_count }}</strong>
+                  <span class="text-muted small">/ {{ exam.question_count }} slot</span>
+                  {% if exam.effective_question_count < exam.question_count %}
+                    <span class="d-block small text-warning">Pool slice not full — add questions or students may be turned away.</span>
+                  {% endif %}
+                </td>
                 <td>{{ exam.duration_minutes }} mins</td>
                 <td>
                   {% if exam.is_published %}
@@ -108,6 +114,20 @@
                 </td>
                 <td>
                   <div class="d-flex flex-wrap gap-1">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-info mock-exam-details-btn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#mockExamDetailModal"
+                            data-title="{{ exam.title|escape }}"
+                            data-mock-number="{{ exam.mock_number }}"
+                            data-created="{{ exam.created_at_display|escape }}"
+                            data-duration="{{ exam.duration_minutes }}"
+                            data-published="{% if exam.is_published %}1{% else %}0{% endif %}"
+                            data-q-slot="{{ exam.question_count }}"
+                            data-q-effective="{{ exam.effective_question_count }}"
+                            data-slice-url="/admin-panel/mock-exams/?mq_slice_for={{ exam.mock_number|default:1 }}">
+                      Details
+                    </button>
                     <form method="post" class="d-inline">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="toggle_publish" />
@@ -145,7 +165,7 @@
       <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h5 class="mb-0">{% if edit_mock_question %}Edit pool question{% else %}Add pool question{% endif %}</h5>
         {% if edit_mock_question %}
-        <a href="/admin-panel/mock-exams/?mq_page={{ mock_pool_page }}" class="btn btn-sm btn-outline-secondary">Cancel edit</a>
+        <a href="/admin-panel/mock-exams/{% if mock_pool_slice_mock_number %}?mq_slice_for={{ mock_pool_slice_mock_number }}{% else %}?mq_page={{ mock_pool_page }}{% endif %}" class="btn btn-sm btn-outline-secondary">Cancel edit</a>
         {% endif %}
       </div>
       <div class="card-body">
@@ -200,11 +220,18 @@
   </div>
 
   <div class="col-lg-7">
-    <div class="card">
+    <div class="card" id="mock-question-pool">
       <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <h5 class="mb-0">Mock question pool</h5>
-        <span class="text-muted small">{{ mock_pool_total }} total</span>
+        <span class="text-muted small">{{ mock_pool_total }} total in pool</span>
       </div>
+      {% if mock_pool_slice_mock_number %}
+      <div class="alert alert-info border-0 rounded-0 mb-0 py-2 small">
+        Showing <strong>{{ mock_pool_questions|length }}</strong> question(s) for <strong>Mock {{ mock_pool_slice_mock_number }}</strong>
+        (same creation-order slice students use).
+        <a href="/admin-panel/mock-exams/" class="alert-link">Show full pool</a>
+      </div>
+      {% endif %}
       <div class="table-responsive">
         <table class="table table-hover table-sm mb-0">
           <thead>
@@ -224,7 +251,7 @@
                 <td><span class="badge bg-label-primary">{{ q.correct_option }}</span></td>
                 <td>
                   <div class="d-flex flex-wrap gap-1">
-                    <a href="/admin-panel/mock-exams/?mq_edit={{ q.id }}&mq_page={{ mock_pool_page }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="/admin-panel/mock-exams/?mq_edit={{ q.id }}{% if mock_pool_slice_mock_number %}&mq_slice_for={{ mock_pool_slice_mock_number }}{% else %}&mq_page={{ mock_pool_page }}{% endif %}" class="btn btn-sm btn-outline-primary">Edit</a>
                     <form method="post" class="d-inline" onsubmit="return confirm('Delete this question from the mock pool?');">
                       {% csrf_token %}
                       <input type="hidden" name="action" value="delete_mock_question" />
@@ -247,10 +274,10 @@
         <nav>
           <ul class="pagination pagination-sm mb-0">
             {% if mock_pool_prev_page %}
-            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_prev_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}">Prev</a></li>
+            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_prev_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}{% if mock_pool_slice_mock_number %}&mq_slice_for={{ mock_pool_slice_mock_number }}{% endif %}">Prev</a></li>
             {% endif %}
             {% if mock_pool_next_page %}
-            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_next_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}">Next</a></li>
+            <li class="page-item"><a class="page-link" href="/admin-panel/mock-exams/?mq_page={{ mock_pool_next_page }}{% if edit_mock_question %}&mq_edit={{ edit_mock_question.id }}{% endif %}{% if mock_pool_slice_mock_number %}&mq_slice_for={{ mock_pool_slice_mock_number }}{% endif %}">Next</a></li>
             {% endif %}
           </ul>
         </nav>
@@ -259,4 +286,91 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="mockExamDetailModal" tabindex="-1" aria-labelledby="mockExamDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mockExamDetailModalLabel">Mock exam details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row mb-0 small">
+          <dt class="col-sm-4 text-muted">Title</dt>
+          <dd class="col-sm-8 fw-semibold" id="medTitle">—</dd>
+          <dt class="col-sm-4 text-muted">Mock #</dt>
+          <dd class="col-sm-8" id="medMockNumber">—</dd>
+          <dt class="col-sm-4 text-muted">Date added</dt>
+          <dd class="col-sm-8" id="medCreated">—</dd>
+          <dt class="col-sm-4 text-muted">Duration</dt>
+          <dd class="col-sm-8" id="medDuration">—</dd>
+          <dt class="col-sm-4 text-muted">Status</dt>
+          <dd class="col-sm-8" id="medPublished">—</dd>
+          <dt class="col-sm-4 text-muted">Questions</dt>
+          <dd class="col-sm-8" id="medQuestions">—</dd>
+        </dl>
+        <div id="medWarn" class="alert alert-warning small mt-3 mb-0 d-none" role="alert"></div>
+        <p class="text-muted small mt-3 mb-0">Students draw a fixed slice of the pool (by creation order) for each mock. Use the button below to list and edit only this mock&rsquo;s questions.</p>
+      </div>
+      <div class="modal-footer flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <a href="#" class="btn btn-primary" id="medEditPoolBtn">Edit this mock&rsquo;s questions</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function fillMockExamModal(btn) {
+    if (!btn || !btn.classList.contains("mock-exam-details-btn")) return;
+    var title = btn.getAttribute("data-title") || "—";
+    var mockNum = btn.getAttribute("data-mock-number") || "—";
+    var created = btn.getAttribute("data-created") || "—";
+    var duration = btn.getAttribute("data-duration") || "—";
+    var published = btn.getAttribute("data-published") === "1";
+    var qSlot = parseInt(btn.getAttribute("data-q-slot") || "0", 10);
+    var qEff = parseInt(btn.getAttribute("data-q-effective") || "0", 10);
+    var sliceUrl = btn.getAttribute("data-slice-url") || "/admin-panel/mock-exams/";
+
+    var medTitle = document.getElementById("medTitle");
+    if (!medTitle) return;
+
+    medTitle.textContent = title;
+    document.getElementById("medMockNumber").textContent = mockNum;
+    document.getElementById("medCreated").textContent = created;
+    document.getElementById("medDuration").textContent = duration + " minutes";
+    document.getElementById("medPublished").textContent = published ? "Published" : "Hidden";
+    document.getElementById("medQuestions").innerHTML =
+      "<strong>" + qEff + "</strong> available now <span class=\"text-muted\">(slot size " + qSlot + ")</span>";
+
+    var warn = document.getElementById("medWarn");
+    if (qEff < qSlot) {
+      warn.textContent = "Only " + qEff + " question(s) exist in this mock's pool slice. Add more questions to the pool (in the correct creation-order range) or students cannot start this mock.";
+      warn.classList.remove("d-none");
+    } else {
+      warn.classList.add("d-none");
+    }
+
+    document.getElementById("medEditPoolBtn").href = sliceUrl + "#mock-question-pool";
+  }
+
+  /* Click: populate before Bootstrap opens the modal (relatedTarget is often null). */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".mock-exam-details-btn");
+    if (btn) fillMockExamModal(btn);
+  });
+
+  var modalEl = document.getElementById("mockExamDetailModal");
+  if (modalEl) {
+    modalEl.addEventListener("show.bs.modal", function (event) {
+      var btn = event.relatedTarget;
+      if (btn && btn.classList.contains("mock-exam-details-btn")) fillMockExamModal(btn);
+    });
+  }
+})();
+</script>
 {% endblock %}

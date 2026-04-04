@@ -441,6 +441,23 @@ GLOBAL_MOCK_PROGRAMME = "All Programmes"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
 
+def _enrich_mock_exams_for_admin(exams, pool_total):
+    """Add effective_question_count (pool slice size) and created_at_display per row."""
+    pool_total = int(pool_total or 0)
+    for exam in exams:
+        needed = int(exam.get("question_count") or MOCK_QUESTION_BATCH_SIZE)
+        mn = int(exam.get("mock_number") or 1)
+        range_start = (mn - 1) * needed
+        available = max(0, pool_total - range_start)
+        exam["effective_question_count"] = min(needed, available)
+        ca = exam.get("created_at")
+        if ca:
+            exam["created_at_display"] = str(ca).replace("T", " ")[:19].rstrip("Z")
+        else:
+            exam["created_at_display"] = "—"
+    return exams
+
+
 def _score_message(percentage):
     if percentage >= 90:
         return "Outstanding work! You are exam-ready. Keep the momentum."
@@ -2031,6 +2048,7 @@ def admin_mock_exams(request):
         mq_page = 1
     mq_page = max(1, mq_page)
     mq_edit = request.GET.get("mq_edit", "").strip()
+    mq_slice_for = request.GET.get("mq_slice_for", "").strip()
 
     context = {
         "full_name": request.session.get("full_name", "Admin"),
@@ -2047,6 +2065,7 @@ def admin_mock_exams(request):
         "edit_mock_question": None,
         "mock_question_batch": MOCK_QUESTION_BATCH_SIZE,
         "mock_duration_minutes": MOCK_DURATION_MINUTES,
+        "mock_pool_slice_mock_number": None,
     }
 
     try:
@@ -2256,27 +2275,65 @@ def admin_mock_exams(request):
         )
         pool_total = cnt_resp.count or 0
         context["mock_pool_total"] = pool_total
-        num_pages = max(1, (pool_total + MOCK_POOL_PAGE_SIZE - 1) // MOCK_POOL_PAGE_SIZE) if pool_total else 1
-        page_use = min(mq_page, num_pages)
-        start = (page_use - 1) * MOCK_POOL_PAGE_SIZE
-        end = start + MOCK_POOL_PAGE_SIZE - 1
-        pool_rows = (
-            admin.table("question_bank")
-            .select("id, paper_title, question_text, correct_option, created_at")
-            .eq("programme", GLOBAL_MOCK_PROGRAMME)
-            .order("created_at", desc=True)
-            .range(start, end)
-            .execute()
-            .data
-            or []
-        )
-        context["mock_pool_questions"] = pool_rows
-        context["mock_pool_page"] = page_use
-        context["mock_pool_num_pages"] = num_pages
-        context["mock_pool_prev_page"] = page_use - 1 if page_use > 1 else None
-        context["mock_pool_next_page"] = page_use + 1 if page_use < num_pages else None
+
+        slice_mock_num = None
+        if mq_slice_for:
+            try:
+                slice_mock_num = int(mq_slice_for)
+            except ValueError:
+                slice_mock_num = None
+        if slice_mock_num is not None:
+            exam_match = next(
+                (e for e in exams if int(e.get("mock_number") or 0) == slice_mock_num),
+                None,
+            )
+            needed = (
+                int(exam_match.get("question_count") or MOCK_QUESTION_BATCH_SIZE)
+                if exam_match
+                else MOCK_QUESTION_BATCH_SIZE
+            )
+            range_start = (slice_mock_num - 1) * needed
+            range_end = range_start + needed - 1
+            pool_rows = (
+                admin.table("question_bank")
+                .select("id, paper_title, question_text, correct_option, created_at")
+                .eq("programme", GLOBAL_MOCK_PROGRAMME)
+                .order("created_at", desc=False)
+                .range(range_start, range_end)
+                .execute()
+                .data
+                or []
+            )
+            context["mock_pool_questions"] = pool_rows
+            context["mock_pool_page"] = 1
+            context["mock_pool_num_pages"] = 1
+            context["mock_pool_prev_page"] = None
+            context["mock_pool_next_page"] = None
+            context["mock_pool_slice_mock_number"] = slice_mock_num
+        else:
+            num_pages = max(1, (pool_total + MOCK_POOL_PAGE_SIZE - 1) // MOCK_POOL_PAGE_SIZE) if pool_total else 1
+            page_use = min(mq_page, num_pages)
+            start = (page_use - 1) * MOCK_POOL_PAGE_SIZE
+            end = start + MOCK_POOL_PAGE_SIZE - 1
+            pool_rows = (
+                admin.table("question_bank")
+                .select("id, paper_title, question_text, correct_option, created_at")
+                .eq("programme", GLOBAL_MOCK_PROGRAMME)
+                .order("created_at", desc=True)
+                .range(start, end)
+                .execute()
+                .data
+                or []
+            )
+            context["mock_pool_questions"] = pool_rows
+            context["mock_pool_page"] = page_use
+            context["mock_pool_num_pages"] = num_pages
+            context["mock_pool_prev_page"] = page_use - 1 if page_use > 1 else None
+            context["mock_pool_next_page"] = page_use + 1 if page_use < num_pages else None
     except Exception:
         pass
+
+    _enrich_mock_exams_for_admin(exams, context.get("mock_pool_total", 0))
 
     if mq_edit:
         try:
@@ -2325,6 +2382,19 @@ def student_mock_exams(request):
         )
     except Exception:
         exams = []
+
+    try:
+        pool_cnt = (
+            admin.table("question_bank")
+            .select("id", count="exact", head=True)
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .execute()
+            .count
+            or 0
+        )
+    except Exception:
+        pool_cnt = 0
+    _enrich_mock_exams_for_admin(exams, pool_cnt)
 
     try:
         attempts = (
@@ -2390,6 +2460,18 @@ def student_take_mock_exam(request, exam_id):
     if not exam_rows:
         return redirect("/dashboard/mock-exams/")
     exam = exam_rows[0]
+    try:
+        pool_cnt = (
+            admin.table("question_bank")
+            .select("id", count="exact", head=True)
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .execute()
+            .count
+            or 0
+        )
+    except Exception:
+        pool_cnt = 0
+    _enrich_mock_exams_for_admin([exam], pool_cnt)
     if not exam.get("is_published"):
         return redirect("/dashboard/mock-exams/")
 
