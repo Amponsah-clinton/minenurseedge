@@ -44,6 +44,13 @@
               value="{% if edit_note %}{{ edit_note.subtopic|default:'' }}{% endif %}">
           </div>
           <div class="mb-3">
+            <label class="form-label">Group (optional)</label>
+            <input type="text" name="category" class="form-control"
+              placeholder="{{ lecture_note_default_category }} (default if left blank)"
+              value="{% if edit_note %}{{ edit_note.category|default:'' }}{% endif %}">
+            <small class="text-muted d-block mt-1">Student page groups notes by this label. Empty uses <strong>{{ lecture_note_default_category }}</strong>. Add a column <code>category</code> (text) in Supabase if saves fail.</small>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Default font size (student view) *</label>
             <select name="content_font_size_px" class="form-select" id="noteFontSizePx" style="max-width:220px;">
               {% if edit_note %}
@@ -83,7 +90,10 @@
                   <div>
                     <h6 class="mb-0">{{ note.topic }}</h6>
                     {% if note.subtopic %}<small class="text-muted">{{ note.subtopic }}</small>{% endif %}
-                    <div class="small text-muted mt-1">{{ note.display_font_px }} px · student view</div>
+                    <div class="small mt-1">
+                      <span class="badge bg-label-secondary">{{ note.category|default:lecture_note_default_category }}</span>
+                      <span class="text-muted"> · {{ note.display_font_px }} px</span>
+                    </div>
                   </div>
                   <div class="d-flex flex-shrink-0 gap-1">
                     <a href="/admin-panel/lecture-notes/?edit={{ note.id }}" class="btn btn-sm btn-outline-primary">Edit</a>

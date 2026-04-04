@@ -2898,6 +2898,24 @@ def student_general_tests(request):
     profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
     programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
 
+    # Fetch all active (non-submitted) attempts so we know which tests have a
+    # paused or in-progress session the student can resume.
+    active_attempts_map = {}  # full_paper_title → attempt row
+    try:
+        active_rows = (
+            admin.table("general_test_attempts")
+            .select("id, paper_title, status, paused_remaining_seconds, resumed_at, started_at, time_limit_minutes")
+            .eq("student_id", user_id)
+            .is_("submitted_at", "null")
+            .execute()
+            .data
+            or []
+        )
+        for row in active_rows:
+            active_attempts_map[row["paper_title"]] = row
+    except Exception:
+        pass
+
     tests = []
     try:
         q = (
@@ -2922,12 +2940,18 @@ def student_general_tests(request):
                 continue
             available_batches = count // GENERAL_TEST_QUESTION_BATCH_SIZE
             for test_number in range(1, available_batches + 1):
-                tests.append({
+                full_title = f"{paper} — General Test {test_number}"
+                active = active_attempts_map.get(full_title)
+
+                entry = {
                     "paper_title": paper,
                     "test_number": test_number,
                     "question_count": GENERAL_TEST_QUESTION_BATCH_SIZE,
                     "duration_minutes": _general_test_duration_minutes(paper),
-                })
+                    "attempt_id": active["id"] if active else None,
+                    "attempt_status": active.get("status", "in_progress") if active else None,
+                }
+                tests.append(entry)
 
         # Order by test number first (so Test 1 rows appear before Test 2),
         # and then by paper title for a stable UI.
@@ -2966,6 +2990,24 @@ def student_general_test_start(request):
 
     admin = _supabase_admin()
     user_id = request.session.get("user_id")
+    full_title = f"{paper_title} — General Test {test_number}"
+
+    # If a paused or in-progress attempt already exists for this exact test,
+    # redirect straight to it — never create a duplicate.
+    existing = (
+        admin.table("general_test_attempts")
+        .select("id")
+        .eq("student_id", user_id)
+        .eq("paper_title", full_title)
+        .is_("submitted_at", "null")
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if existing:
+        return redirect(f"/dashboard/general-tests/attempt/{existing[0]['id']}/")
+
     profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
     programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
 
@@ -2996,9 +3038,10 @@ def student_general_test_start(request):
         .insert({
             "student_id": user_id,
             "programme": programme,
-            "paper_title": f"{paper_title} — General Test {test_number}",
+            "paper_title": full_title,
             "time_limit_minutes": _general_test_duration_minutes(paper_title),
             "total_questions": len(batch_ids),
+            "status": "in_progress",
         })
         .execute()
     )
@@ -3036,6 +3079,19 @@ def student_general_test_attempt(request, attempt_id):
 
     if attempt.get("submitted_at"):
         return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/result/")
+
+    # If paused, show the paused landing screen
+    if attempt.get("status") == "paused":
+        return render(request, "dashboard/student_general_test_paused.html", {
+            "full_name": request.session.get("full_name", "Student"),
+            "email": request.session.get("email", ""),
+            "role": "student",
+            "active_page": "general_tests",
+            "student_unread_notifications": unread_count,
+            "has_unread_notifications": unread_count > 0,
+            "attempt": attempt,
+            "paused_remaining_seconds": attempt.get("paused_remaining_seconds") or 0,
+        })
 
     links = (
         admin.table("general_test_attempt_questions")
@@ -3079,6 +3135,53 @@ def student_general_test_attempt(request, attempt_id):
         selected_option = request.POST.get("selected_option", "").strip().upper()
         is_bookmarked = request.POST.get("is_bookmarked") == "1"
         is_flagged = request.POST.get("is_flagged") == "1"
+
+        # Compute remaining seconds at the moment this POST arrived
+        now_utc = datetime.now(timezone.utc)
+        if attempt.get("resumed_at"):
+            resumed_at = datetime.fromisoformat(attempt["resumed_at"].replace("Z", "+00:00"))
+            remaining_secs_db = int(attempt.get("paused_remaining_seconds") or 0)
+            end_time = resumed_at + timedelta(seconds=remaining_secs_db)
+        else:
+            started_at = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+            end_time = started_at + timedelta(minutes=int(attempt.get("time_limit_minutes") or 90))
+        remaining_now = max(0, int((end_time - now_utc).total_seconds()))
+
+        # ---- Pause ----
+        if action == "pause":
+            target = next((q for q in questions if q["id"] == qid), None)
+            if target:
+                payload = {
+                    "attempt_id": str(attempt_id),
+                    "question_id": qid,
+                    "selected_option": selected_option or None,
+                    "is_correct": bool(selected_option and selected_option == (target.get("correct_option") or "").upper()),
+                    "is_bookmarked": is_bookmarked,
+                    "is_flagged": is_flagged,
+                    "answered_at": datetime.now(timezone.utc).isoformat(),
+                }
+                existing_ans = answer_map.get(qid)
+                if existing_ans:
+                    admin.table("general_test_attempt_answers").update(payload).eq("id", existing_ans["id"]).execute()
+                else:
+                    admin.table("general_test_attempt_answers").insert(payload).execute()
+
+            admin.table("general_test_attempts").update({
+                "status": "paused",
+                "paused_remaining_seconds": remaining_now,
+                "paused_at_index": current_index,
+            }).eq("id", str(attempt_id)).execute()
+            return redirect("/dashboard/general-tests/")
+
+        # ---- Resume (POST from paused screen) ----
+        if action == "resume":
+            admin.table("general_test_attempts").update({
+                "status": "in_progress",
+                "resumed_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", str(attempt_id)).execute()
+            return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/")
+
+        # ---- Normal answer save ----
         target = next((q for q in questions if q["id"] == qid), None)
         if target:
             payload = {
@@ -3090,9 +3193,9 @@ def student_general_test_attempt(request, attempt_id):
                 "is_flagged": is_flagged,
                 "answered_at": datetime.now(timezone.utc).isoformat(),
             }
-            existing = answer_map.get(qid)
-            if existing:
-                admin.table("general_test_attempt_answers").update(payload).eq("id", existing["id"]).execute()
+            existing_ans = answer_map.get(qid)
+            if existing_ans:
+                admin.table("general_test_attempt_answers").update(payload).eq("id", existing_ans["id"]).execute()
             else:
                 admin.table("general_test_attempt_answers").insert(payload).execute()
 
@@ -3117,6 +3220,7 @@ def student_general_test_attempt(request, attempt_id):
                 "score": correct_answers,
                 "correct_answers": correct_answers,
                 "percentage": percentage,
+                "status": "submitted",
             }).eq("id", str(attempt_id)).execute()
             return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/result/")
 
@@ -3130,12 +3234,42 @@ def student_general_test_attempt(request, attempt_id):
         )
         answer_map = {a["question_id"]: a for a in answers}
 
+    # ---- Compute remaining for GET (or after navigation) ----
     now_utc = datetime.now(timezone.utc)
-    started_at = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
-    end_time = started_at + timedelta(minutes=int(attempt.get("time_limit_minutes") or 90))
+    if attempt.get("resumed_at"):
+        resumed_at = datetime.fromisoformat(attempt["resumed_at"].replace("Z", "+00:00"))
+        remaining_secs_db = int(attempt.get("paused_remaining_seconds") or 0)
+        end_time = resumed_at + timedelta(seconds=remaining_secs_db)
+    else:
+        started_at = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+        end_time = started_at + timedelta(minutes=int(attempt.get("time_limit_minutes") or 90))
     remaining = max(0, int((end_time - now_utc).total_seconds()))
+
     if remaining == 0:
+        final_answers = (
+            admin.table("general_test_attempt_answers")
+            .select("*")
+            .eq("attempt_id", str(attempt_id))
+            .execute()
+            .data
+            or []
+        )
+        total_questions = len(questions)
+        correct_answers = sum(1 for x in final_answers if x.get("is_correct"))
+        percentage = round((correct_answers / total_questions) * 100, 2) if total_questions else 0.0
+        admin.table("general_test_attempts").update({
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+            "score": correct_answers,
+            "correct_answers": correct_answers,
+            "percentage": percentage,
+            "status": "submitted",
+        }).eq("id", str(attempt_id)).execute()
         return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/result/")
+
+    # Restore last saved question index when coming back after a pause (GET)
+    if request.method == "GET" and attempt.get("paused_at_index"):
+        current_index = int(attempt["paused_at_index"])
+        current_index = max(1, min(current_index, len(questions)))
 
     current_question = questions[current_index - 1]
     current_answer = answer_map.get(current_question["id"], {})
@@ -4254,6 +4388,23 @@ def _lecture_body_for_render(note_row):
     return body
 
 
+DEFAULT_LECTURE_NOTE_CATEGORY_LABEL = "Surgery"
+
+
+def _group_student_lecture_notes(notes_list):
+    """Bucket notes by optional `category`; blank uses DEFAULT_LECTURE_NOTE_CATEGORY_LABEL."""
+    buckets = {}
+    for n in notes_list:
+        raw = (n.get("category") or "").strip()
+        label = raw if raw else DEFAULT_LECTURE_NOTE_CATEGORY_LABEL
+        buckets.setdefault(label, []).append(n)
+    order = sorted(
+        buckets.keys(),
+        key=lambda x: (0 if x == DEFAULT_LECTURE_NOTE_CATEGORY_LABEL else 1, x.lower()),
+    )
+    return [{"name": name, "notes": buckets[name]} for name in order]
+
+
 def student_lecture_notes(request):
     guard = _require_login(request)
     if guard:
@@ -4286,6 +4437,8 @@ def student_lecture_notes(request):
     except Exception:
         notes = []
 
+    note_groups = _group_student_lecture_notes(notes)
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -4294,6 +4447,7 @@ def student_lecture_notes(request):
         "student_unread_notifications": unread_count,
         "has_unread_notifications": unread_count > 0,
         "notes": notes,
+        "note_groups": note_groups,
     }
     return render(request, "dashboard/student_lecture_notes.html", context)
 
@@ -4325,6 +4479,7 @@ def admin_lecture_notes(request):
                     raise ValueError("Note ID is required.")
                 topic = request.POST.get("topic", "").strip()
                 subtopic = request.POST.get("subtopic", "").strip()
+                category = request.POST.get("category", "").strip()
                 content_html = request.POST.get("content_html", "").strip()
                 if not topic or not content_html:
                     raise ValueError("Topic and content are required.")
@@ -4333,22 +4488,36 @@ def admin_lecture_notes(request):
                 row = {
                     "topic": topic,
                     "subtopic": subtopic or None,
+                    "category": category or None,
                     "content_html": stored_html,
                     "content_font_size_px": font_px,
                 }
-                try:
-                    admin.table("lecture_notes").update(row).eq("id", note_id).execute()
-                except Exception as first_exc:
-                    err_txt = str(first_exc).lower()
-                    if "content_font_size_px" in err_txt or "pgrst204" in err_txt or "schema cache" in err_txt:
-                        row.pop("content_font_size_px", None)
+                while True:
+                    try:
                         admin.table("lecture_notes").update(row).eq("id", note_id).execute()
-                    else:
+                        break
+                    except Exception as exc:
+                        err_txt = str(exc).lower()
+                        if "category" in row and (
+                            "category" in err_txt
+                            or "pgrst204" in err_txt
+                            or "schema cache" in err_txt
+                        ):
+                            row.pop("category", None)
+                            continue
+                        if "content_font_size_px" in row and (
+                            "content_font_size_px" in err_txt
+                            or "pgrst204" in err_txt
+                            or "schema cache" in err_txt
+                        ):
+                            row.pop("content_font_size_px", None)
+                            continue
                         raise
                 success = "Lecture note updated."
                 return redirect("/admin-panel/lecture-notes/")
             topic = request.POST.get("topic", "").strip()
             subtopic = request.POST.get("subtopic", "").strip()
+            category = request.POST.get("category", "").strip()
             content_html = request.POST.get("content_html", "").strip()
             if not topic or not content_html:
                 raise ValueError("Topic and content are required.")
@@ -4357,19 +4526,32 @@ def admin_lecture_notes(request):
             ins = {
                 "topic": topic,
                 "subtopic": subtopic or None,
+                "category": category or None,
                 "content_html": stored_html,
                 "is_published": True,
                 "created_by": request.session.get("user_id"),
                 "content_font_size_px": font_px,
             }
-            try:
-                admin.table("lecture_notes").insert(ins).execute()
-            except Exception as first_exc:
-                err_txt = str(first_exc).lower()
-                if "content_font_size_px" in err_txt or "pgrst204" in err_txt or "schema cache" in err_txt:
-                    ins.pop("content_font_size_px", None)
+            while True:
+                try:
                     admin.table("lecture_notes").insert(ins).execute()
-                else:
+                    break
+                except Exception as exc:
+                    err_txt = str(exc).lower()
+                    if "category" in ins and (
+                        "category" in err_txt
+                        or "pgrst204" in err_txt
+                        or "schema cache" in err_txt
+                    ):
+                        ins.pop("category", None)
+                        continue
+                    if "content_font_size_px" in ins and (
+                        "content_font_size_px" in err_txt
+                        or "pgrst204" in err_txt
+                        or "schema cache" in err_txt
+                    ):
+                        ins.pop("content_font_size_px", None)
+                        continue
                     raise
             success = "Lecture note saved."
             return redirect("/admin-panel/lecture-notes/")
@@ -4424,6 +4606,7 @@ def admin_lecture_notes(request):
             "id": str(edit_note.get("id")),
             "topic": edit_note.get("topic") or "",
             "subtopic": edit_note.get("subtopic") or "",
+            "category": edit_note.get("category") or "",
             "content_html": edit_note.get("content_html") or "",
             "font_px": int(edit_note.get("content_font_size_px") or 16),
         }
@@ -4441,6 +4624,7 @@ def admin_lecture_notes(request):
         "edit_note": edit_note,
         "edit_form_initial": edit_form_initial,
         "lecture_note_font_sizes": LECTURE_NOTE_FONT_SIZES_PX,
+        "lecture_note_default_category": DEFAULT_LECTURE_NOTE_CATEGORY_LABEL,
     }
     return render(request, "dashboard/admin_lecture_notes.html", context)
 

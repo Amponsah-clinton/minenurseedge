@@ -1,0 +1,91 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Test Paused – {{ attempt.paper_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+
+    <div class="card text-center shadow-sm">
+      <div class="card-body py-5 px-4">
+
+        {# Pause icon #}
+        <div class="mb-3" style="font-size:64px;color:#6c757d;line-height:1;">
+          <i class="bx bx-pause-circle"></i>
+        </div>
+
+        <h3 class="fw-bold mb-1">Test Paused</h3>
+        <p class="text-muted mb-1">{{ attempt.paper_title }}</p>
+
+        {# Time remaining badge #}
+        {% with hrs=paused_remaining_seconds|floatformat:0 %}
+        <div class="mb-4">
+          {% if paused_remaining_seconds > 0 %}
+            {% with m=paused_remaining_seconds|divisibleby:60 %}
+            <span class="badge bg-label-warning fs-6 px-3 py-2">
+              <i class="bx bx-time me-1"></i>
+              Time remaining:
+              {% with total=paused_remaining_seconds %}
+                {% widthratio total 3600 1 %} h
+                {{ paused_remaining_seconds|add:"-0"|stringformat:"d" }}
+              {% endwith %}
+              {# simpler: just show MM:SS #}
+            </span>
+            {% endwith %}
+          {% else %}
+            <span class="badge bg-label-danger fs-6 px-3 py-2">Time expired</span>
+          {% endif %}
+        </div>
+        {% endwith %}
+
+        {# Nicely formatted time remaining computed in the template #}
+        <p class="text-muted small mb-4" id="pausedTimeText"></p>
+
+        <p class="text-muted mb-4" style="font-size:14px;line-height:1.7;">
+          Your progress has been saved. Your remaining time has been frozen and will
+          only count down once you click <strong>Resume Test</strong>.
+        </p>
+
+        <form method="POST" action="/dashboard/general-tests/attempt/{{ attempt.id }}/">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="resume">
+          <input type="hidden" name="current_index" value="{{ attempt.paused_at_index|default:1 }}">
+          <input type="hidden" name="question_id" value="">
+          <button type="submit" class="btn btn-primary btn-lg px-5">
+            <i class="bx bx-play-circle me-2"></i>Resume Test
+          </button>
+        </form>
+
+        <div class="mt-3">
+          <a href="/dashboard/general-tests/" class="btn btn-outline-secondary">
+            <i class="bx bx-arrow-back me-1"></i>Back to Tests
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var secs = {{ paused_remaining_seconds|default:0 }};
+  var el   = document.getElementById('pausedTimeText');
+  if (!el) return;
+  if (secs <= 0) {
+    el.textContent = 'No time remaining.';
+    return;
+  }
+  var h = Math.floor(secs / 3600);
+  var m = Math.floor((secs % 3600) / 60);
+  var s = secs % 60;
+  var parts = [];
+  if (h > 0) parts.push(h + ' hr' + (h !== 1 ? 's' : ''));
+  if (m > 0) parts.push(m + ' min' + (m !== 1 ? 's' : ''));
+  if (s > 0 || parts.length === 0) parts.push(s + ' sec');
+  el.textContent = 'Time remaining when paused: ' + parts.join(' ');
+})();
+</script>
+{% endblock %}

@@ -3,15 +3,136 @@
 
 {% block content %}
 <style>
-  .ln-student-note { line-height: 1.55; }
+  .ln-student-note { line-height: 1.55; max-width: 100%; }
   .ln-student-note p, .ln-student-note li, .ln-student-note td, .ln-student-note th { font-size: inherit !important; line-height: inherit; }
+  .ln-student-note pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  #lectureNotesRoot {
+    min-width: 0;
+  }
+
+  .lecture-notes-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+    min-width: 0;
+  }
+  @media (min-width: 768px) {
+    .lecture-notes-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Keep tiles inside grid columns (long words / URLs) */
+  .lecture-note-tile {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .lecture-note-tile .card-body {
+    min-width: 0;
+  }
+  .lecture-note-tile__title,
+  .lecture-note-tile__sub {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  .lecture-note-group-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8892a4;
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #e8eaf0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .lecture-note-group:first-child .lecture-note-group-title {
+    margin-top: 0;
+  }
+  .lecture-note-group:not(:first-child) {
+    margin-top: 1.75rem;
+  }
+
+  .lecture-note-tile--interactive {
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  }
+  .lecture-note-tile--interactive:hover {
+    border-color: #c7cdd8 !important;
+    box-shadow: 0 0.35rem 1rem rgba(26, 26, 46, 0.09) !important;
+    transform: translateY(-2px);
+  }
+  .lecture-note-tile--interactive:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.22);
+  }
+  .lecture-note-tile--interactive:focus:not(:focus-visible) {
+    box-shadow: none;
+  }
+  .lecture-note-tile--interactive:focus-visible {
+    box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.22);
+  }
+
+  #lectureNoteModal .modal-content {
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.5rem 2rem rgba(26, 26, 46, 0.12);
+  }
+  #lectureNoteModal .modal-header {
+    border-bottom: 1px solid #e8eaf0;
+    padding: 1.1rem 1.25rem;
+  }
+  #lectureNoteModal .modal-body {
+    background: #fafbfd;
+  }
+  #lectureNoteModalContent {
+    background: #fff;
+    border: 1px solid #eef0f5;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    min-height: 4rem;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  #lectureNoteModalContent img,
+  #lectureNoteModalContent video {
+    max-width: 100%;
+    height: auto;
+  }
+  #lectureNoteModalContent table {
+    max-width: 100%;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #lectureNoteModal .modal-title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  #lectureNoteModalSubtopic {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 </style>
 <div class="row mb-4">
   <div class="col-12">
     <div class="card">
       <div class="card-body">
         <h4 class="mb-1">Lecture Notes</h4>
-        <p class="text-muted mb-0">Read notes and export any note to PDF.</p>
+        <p class="text-muted mb-0">Read notes by group and export any note to PDF.</p>
       </div>
     </div>
   </div>
@@ -21,29 +142,42 @@
   <div class="col-12">
     <div class="card">
       <div class="card-body">
-        {% if notes %}
-          <div class="accordion" id="notesAccordion">
-            {% for note in notes %}
-              <div class="accordion-item mb-3 border rounded">
-                <h2 class="accordion-header" id="heading{{ forloop.counter }}">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
-                    <div>
-                      <strong>{{ note.topic }}</strong>
-                      {% if note.subtopic %}<div class="small text-muted">{{ note.subtopic }}</div>{% endif %}
+        {% if note_groups %}
+          <label class="form-label visually-hidden" for="lectureNotesSearch">Search lecture notes</label>
+          <div class="input-group input-group-merge mb-3">
+            <span class="input-group-text"><i class="bx bx-search"></i></span>
+            <input type="search"
+                   class="form-control"
+                   id="lectureNotesSearch"
+                   placeholder="Search by topic, subtopic, or content…"
+                   autocomplete="off" />
+          </div>
+          <p id="lectureNotesSearchEmpty" class="text-muted mb-3 d-none" role="status">No notes match your search.</p>
+          <div id="lectureNotesRoot">
+            {% for group in note_groups %}
+              <section class="lecture-note-group" data-group-name="{{ group.name|escape }}">
+                <h2 class="lecture-note-group-title">{{ group.name }}</h2>
+                <div class="lecture-notes-grid">
+                  {% for note in group.notes %}
+                    <div class="lecture-note-row lecture-note-tile lecture-note-tile--interactive card border shadow-sm h-100"
+                         role="button"
+                         tabindex="0"
+                         aria-label="Open note: {{ note.topic }}"
+                         data-topic="{{ note.topic|escape }}"
+                         data-subtopic="{{ note.subtopic|default_if_none:''|escape }}"
+                         data-font-px="{{ note.render_font_px }}">
+                      <div class="card-body d-flex align-items-start justify-content-between gap-2 py-3">
+                        <div class="min-w-0 flex-grow-1">
+                          <strong class="d-block lecture-note-tile__title">{{ note.topic }}</strong>
+                          {% if note.subtopic %}<div class="small text-muted lecture-note-tile__sub mt-1">{{ note.subtopic }}</div>{% endif %}
+                        </div>
+                        <span class="text-muted flex-shrink-0 align-self-center"><i class="bx bx-book-open fs-4"></i></span>
+                      </div>
+                      <div class="d-none lecture-note-source" aria-hidden="true">{{ note.render_html|safe }}</div>
                     </div>
-                  </button>
-                </h2>
-                <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#notesAccordion">
-                  <div class="accordion-body">
-                    <div id="noteContent{{ forloop.counter }}" class="lecture-note-body ln-student-note" style="font-size: {{ note.render_font_px }}px !important;">{{ note.render_html|safe }}</div>
-                    <div class="mt-3">
-                      <button class="btn btn-sm btn-outline-primary" onclick="downloadNotePdf('noteContent{{ forloop.counter }}', '{{ note.topic|escapejs }}')">
-                        Save as PDF
-                      </button>
-                    </div>
-                  </div>
+                  {% endfor %}
                 </div>
-              </div>
+              </section>
             {% endfor %}
           </div>
         {% else %}
@@ -53,11 +187,138 @@
     </div>
   </div>
 </div>
+
+{% if note_groups %}
+<!-- Lecture note reader -->
+<div class="modal fade" id="lectureNoteModal" tabindex="-1" aria-labelledby="lectureNoteModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="flex-grow-1 min-w-0 pe-2">
+          <h5 class="modal-title" id="lectureNoteModalTitle"></h5>
+          <p class="text-muted small mb-0 mt-1 d-none" id="lectureNoteModalSubtopic"></p>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="lectureNoteModalContent" class="lecture-note-body ln-student-note"></div>
+      </div>
+      <div class="modal-footer flex-wrap gap-2 border-top" style="background:#fafbfd;">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="lectureNotePdfBtn">
+          <i class="bx bx-download me-1"></i> Save as PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
+  (function () {
+    const input = document.getElementById("lectureNotesSearch");
+    const emptyMsg = document.getElementById("lectureNotesSearchEmpty");
+    const root = document.getElementById("lectureNotesRoot");
+    if (!input || !root) return;
+    const sections = root.querySelectorAll(".lecture-note-group");
+    function filterNotes() {
+      const q = input.value.trim().toLowerCase();
+      let totalVisible = 0;
+      sections.forEach(function (section) {
+        const items = section.querySelectorAll(".lecture-note-row");
+        let sectionVisible = 0;
+        items.forEach(function (item) {
+          const titleEl = item.querySelector(".card-body strong");
+          const subEl = item.querySelector(".card-body .small.text-muted");
+          const source = item.querySelector(".lecture-note-source");
+          const text =
+            ((titleEl && titleEl.innerText) || "") +
+            " " +
+            ((subEl && subEl.innerText) || "") +
+            " " +
+            ((source && source.innerText) || "");
+          const ok = !q || text.toLowerCase().indexOf(q) !== -1;
+          item.classList.toggle("d-none", !ok);
+          if (ok) sectionVisible += 1;
+        });
+        const hideSection = !!q && sectionVisible === 0;
+        section.classList.toggle("d-none", hideSection);
+        totalVisible += sectionVisible;
+      });
+      if (emptyMsg) {
+        emptyMsg.classList.toggle("d-none", totalVisible > 0 || !q);
+      }
+    }
+    input.addEventListener("input", filterNotes);
+    input.addEventListener("search", filterNotes);
+  })();
+
+  (function () {
+    const modalEl = document.getElementById("lectureNoteModal");
+    const titleEl = document.getElementById("lectureNoteModalTitle");
+    const subtopicEl = document.getElementById("lectureNoteModalSubtopic");
+    const bodyEl = document.getElementById("lectureNoteModalContent");
+    const pdfBtn = document.getElementById("lectureNotePdfBtn");
+    const root = document.getElementById("lectureNotesRoot");
+    if (!modalEl || !titleEl || !bodyEl || !root) return;
+
+    const BS = window.bootstrap;
+    function openLectureNoteModal(row) {
+      const topic = row.dataset.topic || "";
+      const subtopic = row.dataset.subtopic || "";
+      const fontPx = row.dataset.fontPx || "16";
+      const source = row.querySelector(".lecture-note-source");
+
+      titleEl.textContent = topic;
+      if (subtopic) {
+        subtopicEl.textContent = subtopic;
+        subtopicEl.classList.remove("d-none");
+      } else {
+        subtopicEl.textContent = "";
+        subtopicEl.classList.add("d-none");
+      }
+
+      bodyEl.innerHTML = source ? source.innerHTML : "";
+      bodyEl.style.fontSize = fontPx + "px";
+      bodyEl.className = "lecture-note-body ln-student-note";
+
+      modalEl.dataset.currentTopic = topic;
+
+      if (BS && typeof BS.Modal === "function") {
+        BS.Modal.getOrCreateInstance(modalEl).show();
+      }
+    }
+
+    root.addEventListener("click", function (e) {
+      const row = e.target.closest(".lecture-note-tile");
+      if (!row || !root.contains(row)) return;
+      openLectureNoteModal(row);
+    });
+
+    root.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const row = e.target.closest(".lecture-note-tile");
+      if (!row || !root.contains(row)) return;
+      e.preventDefault();
+      openLectureNoteModal(row);
+    });
+
+    if (pdfBtn) {
+      pdfBtn.addEventListener("click", function () {
+        const topic = modalEl.dataset.currentTopic || "";
+        downloadNotePdf("lectureNoteModalContent", topic);
+      });
+    }
+
+    modalEl.addEventListener("hidden.bs.modal", function () {
+      bodyEl.innerHTML = "";
+      modalEl.dataset.currentTopic = "";
+    });
+  })();
+
   async function downloadNotePdf(elementId, topic) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();

@@ -25,6 +25,7 @@
               <th>Test</th>
               <th>Questions</th>
               <th>Duration</th>
+              <th>Status</th>
               <th class="text-end">Action</th>
             </tr>
           </thead>
@@ -36,15 +37,37 @@
                 <td>General Test {{ test.test_number }}</td>
                 <td>{{ test.question_count }}</td>
                 <td>{{ test.duration_minutes }} mins</td>
+                <td>
+                  {% if test.attempt_status == "paused" %}
+                    <span class="badge bg-label-warning"><i class="bx bx-pause me-1"></i>Paused</span>
+                  {% elif test.attempt_status == "in_progress" %}
+                    <span class="badge bg-label-primary"><i class="bx bx-play me-1"></i>In Progress</span>
+                  {% else %}
+                    <span class="badge bg-label-secondary">Not Started</span>
+                  {% endif %}
+                </td>
                 <td class="text-end">
-                  <a href="/dashboard/general-tests/start/?paper_title={{ test.paper_title|urlencode }}&test_number={{ test.test_number }}" class="btn btn-sm btn-primary">
-                    Start Test
-                  </a>
+                  {% if test.attempt_id %}
+                    {# Existing attempt — go straight to it #}
+                    <a href="/dashboard/general-tests/attempt/{{ test.attempt_id }}/"
+                       class="btn btn-sm {% if test.attempt_status == 'paused' %}btn-warning{% else %}btn-primary{% endif %}">
+                      {% if test.attempt_status == "paused" %}
+                        <i class="bx bx-play-circle me-1"></i>Resume
+                      {% else %}
+                        <i class="bx bx-right-arrow-circle me-1"></i>Continue
+                      {% endif %}
+                    </a>
+                  {% else %}
+                    <a href="/dashboard/general-tests/start/?paper_title={{ test.paper_title|urlencode }}&test_number={{ test.test_number }}"
+                       class="btn btn-sm btn-primary">
+                      <i class="bx bx-play me-1"></i>Start Test
+                    </a>
+                  {% endif %}
                 </td>
               </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="4" class="text-center text-muted py-4">No general tests available yet.</td></tr>
+              <tr><td colspan="6" class="text-center text-muted py-4">No general tests available yet.</td></tr>
             {% endif %}
           </tbody>
         </table>

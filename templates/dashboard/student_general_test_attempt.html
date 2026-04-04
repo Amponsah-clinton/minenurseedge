@@ -88,6 +88,11 @@
                     title="Report an error in this question">
               <i class="bx bx-error-circle me-1"></i>Report
             </button>
+            <button type="submit" name="action" value="pause" class="btn btn-outline-secondary"
+                    title="Pause and continue later"
+                    onclick="return confirm('Pause test? Your progress and remaining time will be saved. You can resume anytime.');">
+              <i class="bx bx-pause me-1"></i>Pause
+            </button>
             <button type="submit" name="action" value="prev" class="btn btn-outline-secondary" {% if current_index == 1 %}disabled{% endif %}>Previous</button>
             <button type="submit" name="action" value="next" class="btn btn-primary" {% if current_index == questions|length %}disabled{% endif %}>Save & Next</button>
             <button type="submit" name="action" value="submit" class="btn btn-success ms-auto" onclick="return confirm('Submit test now?')">Submit Test</button>
