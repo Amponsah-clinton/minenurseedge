@@ -44,6 +44,11 @@
           <div class="d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-outline-warning" onclick="toggleBookmark()">Toggle Bookmark</button>
             <button type="submit" class="btn btn-outline-danger" onclick="toggleFlag()">Toggle Flag</button>
+            <button type="button" class="btn btn-outline-secondary"
+                    onclick="openReportModal('{{ current_question.id }}')"
+                    title="Report an error in this question">
+              <i class="bx bx-error-circle me-1"></i>Report
+            </button>
             <button type="submit" name="action" value="prev" class="btn btn-outline-secondary" {% if current_index == 1 %}disabled{% endif %}>Previous</button>
             <button type="submit" name="action" value="next" class="btn btn-primary" {% if current_index == questions|length %}disabled{% endif %}>Save & Next</button>
             <button type="submit" name="action" value="submit" class="btn btn-success ms-auto" onclick="return confirm('Submit test now?')">Submit Test</button>
@@ -66,6 +71,46 @@
     </div>
   </div>
 </div>
+{# ── Report Question modal ──────────────────────────────────────────────────── #}
+<div class="modal fade" id="reportQuestionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title"><i class="bx bx-error-circle me-2 text-warning"></i>Report Question</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">Help us improve the question bank by reporting errors.</p>
+        <input type="hidden" id="reportQuestionId" value="">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">What's wrong?</label>
+          <div class="d-flex flex-column gap-2">
+            <label class="d-flex align-items-center border rounded px-3 py-2" style="cursor:pointer;">
+              <input class="form-check-input me-2 flex-shrink-0" type="radio" name="reportReason" value="Wrong answer">
+              <span>The correct answer is wrong</span>
+            </label>
+            <label class="d-flex align-items-center border rounded px-3 py-2" style="cursor:pointer;">
+              <input class="form-check-input me-2 flex-shrink-0" type="radio" name="reportReason" value="Wrong or missing explanation">
+              <span>The explanation is wrong or missing</span>
+            </label>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Additional notes <span class="text-muted">(optional)</span></label>
+          <textarea id="reportNotes" class="form-control" rows="2" placeholder="Describe the issue…"></textarea>
+        </div>
+        <div id="reportFeedback" class="d-none"></div>
+      </div>
+      <div class="modal-footer border-top">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning" id="reportSubmitBtn" onclick="submitReport()">
+          <i class="bx bx-send me-1"></i>Submit Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -100,5 +145,61 @@
     render();
     setInterval(render, 1000);
   })();
+
+  /* ── Report Question ────────────────────────────────────────────────────── */
+  window.openReportModal = function (questionId) {
+    document.getElementById('reportQuestionId').value = questionId;
+    document.querySelectorAll('input[name="reportReason"]').forEach(function (r) { r.checked = false; });
+    document.getElementById('reportNotes').value = '';
+    var fb = document.getElementById('reportFeedback');
+    fb.className = 'd-none';
+    fb.textContent = '';
+    document.getElementById('reportSubmitBtn').disabled = false;
+    new bootstrap.Modal(document.getElementById('reportQuestionModal')).show();
+  };
+
+  window.submitReport = function () {
+    var questionId = document.getElementById('reportQuestionId').value;
+    var reason = '';
+    document.querySelectorAll('input[name="reportReason"]').forEach(function (r) { if (r.checked) reason = r.value; });
+    var notes = document.getElementById('reportNotes').value;
+    var fb    = document.getElementById('reportFeedback');
+    var btn   = document.getElementById('reportSubmitBtn');
+
+    if (!reason) {
+      fb.className = 'alert alert-warning py-2 small';
+      fb.textContent = 'Please select what is wrong.';
+      return;
+    }
+    btn.disabled = true;
+
+    var fd = new FormData();
+    fd.append('question_id', questionId);
+    fd.append('reason', reason);
+    fd.append('notes', notes);
+    fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('/dashboard/report-question/', { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        if (data.ok) {
+          fb.className = 'alert alert-success py-2 small';
+          fb.textContent = data.already ? 'You already reported this question.' : 'Report submitted — thank you!';
+          setTimeout(function () {
+            var m = bootstrap.Modal.getInstance(document.getElementById('reportQuestionModal'));
+            if (m) m.hide();
+          }, 1600);
+        } else {
+          fb.className = 'alert alert-danger py-2 small';
+          fb.textContent = data.error || 'Something went wrong. Please try again.';
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        fb.className = 'alert alert-danger py-2 small';
+        fb.textContent = 'Network error. Please try again.';
+      });
+  };
 </script>
 {% endblock %}

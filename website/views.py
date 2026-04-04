@@ -3257,6 +3257,158 @@ def student_quiz_result(request, attempt_id):
     return render(request, "dashboard/student_quiz_result.html", context)
 
 
+# ---------------------------------------------------------------------------
+# Report Question (AJAX POST)
+# ---------------------------------------------------------------------------
+
+def student_report_question(request):
+    """Receives an AJAX POST from any question-answering page and inserts a
+    row into question_reports.  Returns JSON {ok, already?, error?}."""
+    from django.http import JsonResponse
+
+    guard = _require_login(request)
+    if guard:
+        return JsonResponse({"ok": False, "error": "Not logged in"}, status=403)
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+
+    user_id     = request.session.get("user_id")
+    question_id = request.POST.get("question_id", "").strip()
+    reason      = request.POST.get("reason", "").strip()
+    notes       = request.POST.get("notes", "").strip()
+
+    VALID_REASONS = {"Wrong answer", "Wrong or missing explanation"}
+    if not question_id or reason not in VALID_REASONS:
+        return JsonResponse({"ok": False, "error": "Invalid input."}, status=400)
+
+    admin = _supabase_admin()
+    try:
+        existing = (
+            admin.table("question_reports")
+            .select("id")
+            .eq("question_id", question_id)
+            .eq("student_id", user_id)
+            .eq("status", "pending")
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if existing:
+            return JsonResponse({"ok": True, "already": True})
+
+        admin.table("question_reports").insert({
+            "question_id": question_id,
+            "student_id":  user_id,
+            "reason":      reason,
+            "notes":       notes or None,
+            "status":      "pending",
+        }).execute()
+        return JsonResponse({"ok": True})
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# Admin: Reported Questions
+# ---------------------------------------------------------------------------
+
+def admin_reported_questions(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin   = _supabase_admin()
+    success = error = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "").strip()
+
+        if action == "resolve":
+            report_id = request.POST.get("report_id", "").strip()
+            if report_id:
+                try:
+                    admin.table("question_reports").update({"status": "resolved"}).eq("id", report_id).execute()
+                    success = "Report marked as resolved."
+                except Exception as exc:
+                    error = str(exc)
+
+        elif action == "update_question":
+            question_id = request.POST.get("question_id", "").strip()
+            report_id   = request.POST.get("report_id", "").strip()
+            if question_id:
+                payload        = {}
+                correct_option = request.POST.get("correct_option", "").strip().upper()
+                explanation    = request.POST.get("explanation", "").strip()
+                if correct_option in ("A", "B", "C"):
+                    payload["correct_option"] = correct_option
+                if explanation:
+                    payload["explanation"] = explanation
+                try:
+                    if payload:
+                        admin.table("question_bank").update(payload).eq("id", question_id).execute()
+                    if report_id:
+                        admin.table("question_reports").update({"status": "resolved"}).eq("id", report_id).execute()
+                    success = "Question updated and report resolved."
+                except Exception as exc:
+                    error = str(exc)
+
+    # Fetch all reports (latest first) with joined question data
+    try:
+        reports = (
+            admin.table("question_reports")
+            .select("*, question_bank(id, question_text, paper_title, programme, correct_option, explanation, options)")
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        reports = []
+
+    # Resolve student names
+    student_ids = list({r["student_id"] for r in reports if r.get("student_id")})
+    name_map = {}
+    if student_ids:
+        try:
+            profiles = (
+                admin.table("profiles")
+                .select("id, full_name")
+                .in_("id", student_ids)
+                .execute()
+                .data
+                or []
+            )
+            name_map = {p["id"]: p.get("full_name", "Unknown") for p in profiles}
+        except Exception:
+            pass
+
+    for r in reports:
+        qb = r.get("question_bank") or {}
+        r["student_name"]  = name_map.get(r.get("student_id"), "Unknown")
+        r["question_text"] = qb.get("question_text", "—")
+        r["paper_title"]   = qb.get("paper_title", "—")
+        r["programme"]     = qb.get("programme", "—")
+        r["correct_option"]= qb.get("correct_option", "—")
+        r["explanation"]   = qb.get("explanation") or ""
+        r["options"]       = qb.get("options") or {}
+        r["q_id"]          = qb.get("id") or r.get("question_id")
+
+    pending_count = sum(1 for r in reports if r.get("status") == "pending")
+
+    context = {
+        "full_name":    request.session.get("full_name", "Admin"),
+        "email":        request.session.get("email", ""),
+        "role":         "admin",
+        "active_page":  "reported_questions",
+        "reports":      reports,
+        "pending_count": pending_count,
+        "success":      success,
+        "error":        error,
+    }
+    return render(request, "dashboard/admin_reported_questions.html", context)
+
+
 def student_bookmarks(request):
     guard = _require_login(request)
     if guard:

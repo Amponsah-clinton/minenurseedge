@@ -405,6 +405,18 @@
             </a>
           </li>
 
+          <li class="menu-item {% if active_page == 'reported_questions' %}active{% endif %}">
+            <a href="/admin-panel/reported-questions/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-error-circle"></i>
+              <div class="d-flex align-items-center justify-content-between w-100">
+                <span data-i18n="Reported Questions">Reported Questions</span>
+                {% if reported_questions_pending > 0 %}
+                <span class="badge bg-danger rounded-pill ms-1">{{ reported_questions_pending }}</span>
+                {% endif %}
+              </div>
+            </a>
+          </li>
+
           <!-- Finance -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Finance</span>
@@ -497,6 +509,13 @@
             </a>
           </li>
 
+          <li class="menu-item {% if active_page == 'flashcards' %}active{% endif %}">
+            <a href="/dashboard/flashcards/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-brain"></i>
+              <div data-i18n="Flashcards">Flashcards</div>
+            </a>
+          </li>
+
           <li class="menu-item {% if active_page == 'mock_exams' %}active open{% endif %}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-target-lock"></i>
@@ -519,13 +538,6 @@
           <!-- Tools -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Tools</span>
-          </li>
-
-          <li class="menu-item {% if active_page == 'flashcards' %}active{% endif %}">
-            <a href="/dashboard/flashcards/" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-brain"></i>
-              <div data-i18n="Flashcards">Flashcards</div>
-            </a>
           </li>
 
           <li class="menu-item">

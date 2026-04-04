@@ -41,6 +41,7 @@ urlpatterns = [
     path("dashboard/mock-exams/", views.student_mock_exams, name="student_mock_exams"),
     path("dashboard/mock-exams/<uuid:exam_id>/start/", views.student_take_mock_exam, name="student_take_mock_exam"),
     path("dashboard/mock-exams/<uuid:exam_id>/result/", views.student_mock_exam_result, name="student_mock_exam_result"),
+    path("dashboard/report-question/", views.student_report_question, name="student_report_question"),
 
     # Admin panel
     path("admin-panel/dashboard/", views.admin_dashboard, name="admin_dashboard"),
@@ -83,4 +84,5 @@ urlpatterns = [
     path("admin-panel/community/post/<uuid:post_id>/verify/", views.admin_community_verify_answer, name="admin_community_verify_answer"),
     path("admin-panel/community/warn-user/", views.admin_community_warn_user, name="admin_community_warn_user"),
     path("admin-panel/community/report/<uuid:report_id>/resolve/", views.admin_community_resolve_report, name="admin_community_resolve_report"),
+    path("admin-panel/reported-questions/", views.admin_reported_questions, name="admin_reported_questions"),
 ]
