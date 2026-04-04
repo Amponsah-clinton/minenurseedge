@@ -8,19 +8,19 @@
       <div class="card-body">
         <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-2">
           <h4 class="mb-0">Manage Questions</h4>
-          <div class="text-muted small">
+          <div class="text-muted small text-end" style="max-width: 36rem;">
             <span class="fs-5 fw-bold text-body">{{ question_bank_count }}</span>
-            {% if query %}
-            matching row{% if question_bank_count != 1 %}s{% endif %}
-            {% else %}
-            row{% if question_bank_count != 1 %}s{% endif %} in bank
+            database row{% if question_bank_count != 1 %}s{% endif %} match{% if question_bank_count == 1 %}es{% endif %} current filters
+            {% if pagination %}
+            <span class="mx-1">·</span>
+            loaded <span class="fw-semibold text-body">{{ pagination.raw_rows_loaded }}</span> row{% if pagination.raw_rows_loaded != 1 %}s{% endif %} for this list
             {% endif %}
             {% if pagination %}
             <span class="mx-1">·</span>
             page <span class="fw-semibold text-body">{{ pagination.page }}</span> of
             <span class="fw-semibold text-body">{{ pagination.num_pages }}</span>
             <span class="mx-1">·</span>
-            <span class="fw-semibold text-body">{{ pagination.total_logical }}</span> in list (deduped)
+            <span class="fw-semibold text-body">{{ pagination.total_logical }}</span> row{% if pagination.total_logical != 1 %}s{% endif %} after General Paper dedupe
             {% endif %}
           </div>
         </div>
@@ -37,7 +37,13 @@
 <div class="alert alert-danger" role="alert">{{ error }}</div>
 {% endif %}
 
-{# ── Question bank stats ──────────────────────────────────────────────────── #}
+{# ── Question bank stats (full bank; not affected by list filters) ─────────── #}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 px-1">
+  <p class="text-muted small mb-0">Overview below is <strong>bank-wide</strong> (ignores search / programme / paper filters on the list).</p>
+  <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mqStatsExplainModal">
+    <i class="bx bx-info-circle me-1"></i>How these numbers work
+  </button>
+</div>
 <div class="row g-3 mb-4">
 
   {# Mock pool #}
@@ -75,7 +81,7 @@
     </div>
   </div>
 
-  {# Programme-specific total #}
+  {# Total unique (general + programme papers) #}
   <div class="col-sm-6 col-xl-3">
     <div class="card border shadow-sm h-100">
       <div class="card-body d-flex align-items-center gap-3">
@@ -83,9 +89,9 @@
           <i class="bx bx-book-open fs-4 text-success"></i>
         </div>
         <div>
-          <p class="text-muted small mb-0">Programme-Specific</p>
+          <p class="text-muted small mb-0">Total unique (bank)</p>
           <h4 class="mb-0 fw-bold">{{ stats_unique_total }}</h4>
-          <small class="text-muted">total unique questions (General + specific)</small>
+          <small class="text-muted">General Paper unique + programme-specific rows</small>
         </div>
       </div>
     </div>
@@ -112,6 +118,45 @@
     </div>
   </div>
 
+</div>
+
+<div class="modal fade" id="mqStatsExplainModal" tabindex="-1" aria-labelledby="mqStatsExplainModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mqStatsExplainModalLabel">Question bank: what each number means</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small">These figures are computed from the whole <code>question_bank</code> table (exact counts where possible). They are <strong>not</strong> filtered by the list search or dropdowns.</p>
+        <dl class="row mb-0 small">
+          <dt class="col-sm-4">Total DB rows</dt>
+          <dd class="col-sm-8">{{ stats_db_total_rows }} — every stored question row (including duplicate General Paper copies per programme).</dd>
+
+          <dt class="col-sm-4">Mock pool</dt>
+          <dd class="col-sm-8">{{ stats_mock_count }} rows with programme &ldquo;All Programmes&rdquo;, used for mock exams. Batch size is {{ mock_question_batch_size }} questions per mock.</dd>
+
+          <dt class="col-sm-4">Non-mock rows</dt>
+          <dd class="col-sm-8">{{ stats_non_mock_rows }} — rows where programme is not the mock pool (general tests / programme banks). This is a <strong>database total</strong>. On the list, with <strong>All programmes</strong>, you see a <strong>mix</strong> of the newest mock and newest non-mock (half of the load cap each) so mocks do not hide everything else. Choose <strong>General tests only (non-mock)</strong> in the programme filter to list those rows (up to the load cap).</dd>
+
+          <dt class="col-sm-4">General Paper (unique)</dt>
+          <dd class="col-sm-8">{{ stats_general_count }} — distinct questions by text; one logical question is stored once per programme, so this is smaller than the row count below.</dd>
+
+          <dt class="col-sm-4">General Paper (DB rows)</dt>
+          <dd class="col-sm-8">{{ stats_general_paper_rows }} — total rows with paper &ldquo;General Paper&rdquo; (typically ≈ unique × number of programmes).</dd>
+
+          <dt class="col-sm-4">Programme-specific</dt>
+          <dd class="col-sm-8">{{ stats_prog_specific_row_sum }} rows across programmes (papers other than General Paper). The green card &ldquo;Total unique (bank)&rdquo; is <strong>{{ stats_general_count }} + {{ stats_prog_specific_row_sum }} = {{ stats_unique_total }}</strong> (unique General Paper + those rows).</dd>
+
+          <dt class="col-sm-4">Question list</dt>
+          <dd class="col-sm-8">With <strong>All programmes</strong> and no search, the table loads up to half of {{ manage_questions_max_fetch }} from <em>non-mock</em> and half from <em>mock</em> (each side newest first), merged by date. With a specific programme filter (including general-tests-only or mock-only), it loads up to {{ manage_questions_max_fetch }} newest rows for that filter. General Paper duplicates are collapsed in the table. Pagination applies only to the loaded set.</dd>
+        </dl>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="row">
@@ -221,6 +266,9 @@
               <option value="__mock__" {% if filter_prog == "__mock__" %}selected{% endif %}>
                 Mock Pool (All Programmes)
               </option>
+              <option value="__non_mock__" {% if filter_prog == "__non_mock__" %}selected{% endif %}>
+                General tests only (non-mock)
+              </option>
               {% for prog in programmes %}
               <option value="{{ prog }}" {% if filter_prog == prog %}selected{% endif %}>{{ prog }}</option>
               {% endfor %}
@@ -244,8 +292,11 @@
             </button>
           </div>
         </form>
-        {% if pagination and pagination.truncated_fetch %}
-        <p class="text-warning small mb-0 mt-2">Only the {{ pagination.max_fetch }} most recent matching rows are loaded. Use filters to narrow results.</p>
+        {% if pagination and pagination.list_incomplete %}
+        <p class="text-warning small mb-0 mt-2">
+          Incomplete list: {{ pagination.raw_rows_loaded }} of {{ pagination.db_rows_matching }} matching rows loaded
+          (cap {{ pagination.max_fetch }} newest). Older rows are hidden until you filter or search.
+        </p>
         {% endif %}
       </div>
       <div class="table-responsive">

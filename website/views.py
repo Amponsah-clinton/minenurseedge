@@ -440,6 +440,152 @@ MOCK_DURATION_MINUTES = 30
 GLOBAL_MOCK_PROGRAMME = "All Programmes"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
+# PostgREST / Supabase often caps each response (~1000 rows). Use range() chunks.
+POSTGREST_LIST_CHUNK = 1000
+
+
+def _mq_fetch_question_rows(admin, escaped, filter_prog, filter_paper, max_rows):
+    """
+    Fetch up to max_rows question_bank rows for the manage-questions list, newest first.
+    Uses repeated range() windows so we are not limited to a single response cap.
+    """
+    collected = []
+    offset = 0
+    while len(collected) < max_rows:
+        q = admin.table("question_bank").select(
+            "id, programme, paper_title, question_text, correct_option, created_at"
+        ).order("created_at", desc=True)
+        if escaped:
+            filt = (
+                f"question_text.ilike.%{escaped}%,programme.ilike.%{escaped}%,"
+                f"paper_title.ilike.%{escaped}%"
+            )
+            q = q.or_(filt)
+        if filter_prog == "__mock__":
+            q = q.eq("programme", GLOBAL_MOCK_PROGRAMME)
+        elif filter_prog == "__non_mock__":
+            q = q.neq("programme", GLOBAL_MOCK_PROGRAMME)
+        elif filter_prog:
+            q = q.eq("programme", filter_prog)
+        if filter_paper:
+            q = q.eq("paper_title", filter_paper)
+        end = offset + POSTGREST_LIST_CHUNK - 1
+        chunk = q.range(offset, end).execute().data or []
+        collected.extend(chunk)
+        if len(chunk) < POSTGREST_LIST_CHUNK:
+            break
+        offset += POSTGREST_LIST_CHUNK
+    return collected[:max_rows]
+
+
+def _mq_merge_mock_nonmock_rows(admin, escaped, filter_paper, max_rows):
+    """
+    For the default 'all programmes' list (no search): take up to half of max_rows
+    from non-mock and half from mock, then sort by created_at. Stops mock-only
+    uploads from crowding out general-test rows in the newest-N window.
+    """
+    half = max(1, max_rows // 2)
+    nm = _mq_fetch_question_rows(admin, escaped, "__non_mock__", filter_paper, half)
+    mk = _mq_fetch_question_rows(admin, escaped, "__mock__", filter_paper, half)
+    by_id = {}
+    for r in nm + mk:
+        rid = r.get("id")
+        if rid is not None:
+            by_id[rid] = r
+    return sorted(
+        by_id.values(),
+        key=lambda r: str(r.get("created_at") or ""),
+        reverse=True,
+    )
+
+
+def _mq_question_bank_stats(admin):
+    """
+    Bank-wide stats using count=head (exact) and chunked reads where needed.
+    Avoids the single-request row cap that made dashboard numbers wrong.
+    """
+    db_total = (
+        admin.table("question_bank")
+        .select("id", count="exact", head=True)
+        .execute()
+        .count
+        or 0
+    )
+    mock_count = (
+        admin.table("question_bank")
+        .select("id", count="exact", head=True)
+        .eq("programme", GLOBAL_MOCK_PROGRAMME)
+        .execute()
+        .count
+        or 0
+    )
+    non_mock_rows = (
+        admin.table("question_bank")
+        .select("id", count="exact", head=True)
+        .neq("programme", GLOBAL_MOCK_PROGRAMME)
+        .execute()
+        .count
+        or 0
+    )
+    general_paper_rows = (
+        admin.table("question_bank")
+        .select("id", count="exact", head=True)
+        .eq("paper_title", GENERAL_PAPER_TITLE)
+        .execute()
+        .count
+        or 0
+    )
+
+    general_unique_texts = set()
+    offset = 0
+    while True:
+        chunk = (
+            admin.table("question_bank")
+            .select("question_text")
+            .eq("paper_title", GENERAL_PAPER_TITLE)
+            .range(offset, offset + POSTGREST_LIST_CHUNK - 1)
+            .execute()
+            .data
+            or []
+        )
+        for row in chunk:
+            general_unique_texts.add((row.get("question_text") or "").strip().lower())
+        if len(chunk) < POSTGREST_LIST_CHUNK:
+            break
+        offset += POSTGREST_LIST_CHUNK
+
+    prog_specific = {}
+    for prog in PROGRAMME_NAMES:
+        cnt = (
+            admin.table("question_bank")
+            .select("id", count="exact", head=True)
+            .eq("programme", prog)
+            .neq("paper_title", GENERAL_PAPER_TITLE)
+            .execute()
+            .count
+            or 0
+        )
+        if cnt:
+            prog_specific[prog] = cnt
+
+    general_count = len(general_unique_texts)
+    unique_total = general_count + sum(prog_specific.values())
+    mock_batches = mock_count // MOCK_QUESTION_BATCH_SIZE
+    mock_remainder = mock_count % MOCK_QUESTION_BATCH_SIZE
+
+    return {
+        "stats_db_total_rows": db_total,
+        "stats_non_mock_rows": non_mock_rows,
+        "stats_general_paper_rows": general_paper_rows,
+        "stats_mock_count": mock_count,
+        "stats_mock_batches": mock_batches,
+        "stats_mock_remainder": mock_remainder,
+        "stats_general_count": general_count,
+        "stats_prog_specific": sorted(prog_specific.items()),
+        "stats_unique_total": unique_total,
+        "stats_prog_specific_row_sum": sum(prog_specific.values()),
+    }
+
 
 def _enrich_mock_exams_for_admin(exams, pool_total):
     """Add effective_question_count (pool slice size) and created_at_display per row."""
@@ -1606,6 +1752,8 @@ def admin_manage_questions(request):
         "programme_papers_json": json.dumps(PROGRAMME_PAPERS),
         "programmes": PROGRAMME_NAMES,
         "all_papers": ALL_PAPERS,
+        "mock_question_batch_size": MOCK_QUESTION_BATCH_SIZE,
+        "manage_questions_max_fetch": MANAGE_QUESTIONS_MAX_FETCH,
         "query": query,
         "filter_prog": filter_prog,
         "filter_paper": filter_paper,
@@ -1757,14 +1905,9 @@ def admin_manage_questions(request):
             else:
                 raise ValueError("Invalid action.")
 
-        # Fetch a bounded set, dedupe General Paper copies, then paginate the logical list.
+        # Exact row count for current filters, then fetch up to MANAGE_QUESTIONS_MAX_FETCH rows
+        # using chunked range() requests (avoids PostgREST single-response row caps).
         escaped = query.replace("%", "").replace(",", " ").strip() if query else ""
-        list_query = (
-            admin.table("question_bank")
-            .select("id, programme, paper_title, question_text, correct_option, created_at")
-            .order("created_at", desc=True)
-            .limit(MANAGE_QUESTIONS_MAX_FETCH)
-        )
         count_query = admin.table("question_bank").select("id", count="exact", head=True)
 
         if escaped:
@@ -1772,26 +1915,36 @@ def admin_manage_questions(request):
                 f"question_text.ilike.%{escaped}%,programme.ilike.%{escaped}%,"
                 f"paper_title.ilike.%{escaped}%"
             )
-            list_query  = list_query.or_(filt)
             count_query = count_query.or_(filt)
 
         if filter_prog == "__mock__":
-            list_query  = list_query.eq("programme", GLOBAL_MOCK_PROGRAMME)
             count_query = count_query.eq("programme", GLOBAL_MOCK_PROGRAMME)
+        elif filter_prog == "__non_mock__":
+            count_query = count_query.neq("programme", GLOBAL_MOCK_PROGRAMME)
         elif filter_prog:
-            list_query  = list_query.eq("programme", filter_prog)
             count_query = count_query.eq("programme", filter_prog)
 
         if filter_paper:
-            list_query  = list_query.eq("paper_title", filter_paper)
             count_query = count_query.eq("paper_title", filter_paper)
         try:
             context["question_bank_count"] = count_query.execute().count or 0
         except Exception:
             context["question_bank_count"] = 0
 
-        questions_raw = list_query.execute().data or []
-        truncated_fetch = len(questions_raw) >= MANAGE_QUESTIONS_MAX_FETCH
+        use_split_list = not filter_prog and not escaped
+        if use_split_list:
+            questions_raw = _mq_merge_mock_nonmock_rows(
+                admin, escaped, filter_paper, MANAGE_QUESTIONS_MAX_FETCH
+            )
+        else:
+            questions_raw = _mq_fetch_question_rows(
+                admin, escaped, filter_prog, filter_paper, MANAGE_QUESTIONS_MAX_FETCH
+            )
+        qb_count = context["question_bank_count"]
+        list_incomplete = qb_count > len(questions_raw) or (
+            len(questions_raw) >= MANAGE_QUESTIONS_MAX_FETCH
+            and qb_count > MANAGE_QUESTIONS_MAX_FETCH
+        )
         questions_deduped = _dedupe_general_paper_rows_for_admin_list(questions_raw)
         total_logical = len(questions_deduped)
         context["question_list_total_logical"] = total_logical
@@ -1856,7 +2009,10 @@ def admin_manage_questions(request):
             "next_url": _mq_url(page_clamped + 1),
             "cancel_url": _mq_url(page_clamped),
             "nav_items": nav_items,
-            "truncated_fetch": truncated_fetch,
+            "truncated_fetch": list_incomplete,
+            "list_incomplete": list_incomplete,
+            "raw_rows_loaded": len(questions_raw),
+            "db_rows_matching": qb_count,
             "max_fetch": MANAGE_QUESTIONS_MAX_FETCH,
         }
 
@@ -1876,56 +2032,20 @@ def admin_manage_questions(request):
         context["error"] = str(exc)
         context["form_data"] = {**EMPTY_QUESTION_FORM, **request.POST.dict()}
 
-    # ── Question bank stats ───────────────────────────────────────────────────
+    # ── Question bank stats (exact counts + chunked reads; not limited to ~1000 rows) ──
     try:
-        # Mock pool
-        mock_count = (
-            admin.table("question_bank")
-            .select("id", count="exact", head=True)
-            .eq("programme", GLOBAL_MOCK_PROGRAMME)
-            .execute()
-            .count or 0
-        )
-
-        # General test questions (all non-mock rows)
-        all_rows = (
-            admin.table("question_bank")
-            .select("programme, paper_title, question_text")
-            .neq("programme", GLOBAL_MOCK_PROGRAMME)
-            .execute()
-            .data or []
-        )
-
-        # General Paper questions are duplicated once per programme —
-        # deduplicate by question_text so they count as one.
-        general_unique_texts = set()
-        prog_specific = {}
-        for row in all_rows:
-            paper = (row.get("paper_title") or "").strip()
-            prog  = (row.get("programme")   or "").strip()
-            if paper == GENERAL_PAPER_TITLE:
-                general_unique_texts.add((row.get("question_text") or "").strip().lower())
-            else:
-                prog_specific[prog] = prog_specific.get(prog, 0) + 1
-
-        general_count   = len(general_unique_texts)
-        unique_total    = general_count + sum(prog_specific.values())
-        mock_batches    = mock_count // MOCK_QUESTION_BATCH_SIZE
-        mock_remainder  = mock_count % MOCK_QUESTION_BATCH_SIZE
-
-        context["stats_mock_count"]      = mock_count
-        context["stats_mock_batches"]    = mock_batches
-        context["stats_mock_remainder"]  = mock_remainder
-        context["stats_general_count"]   = general_count
-        context["stats_prog_specific"]   = sorted(prog_specific.items())
-        context["stats_unique_total"]    = unique_total
+        context.update(_mq_question_bank_stats(admin))
     except Exception:
-        context["stats_mock_count"]      = 0
-        context["stats_mock_batches"]    = 0
-        context["stats_mock_remainder"]  = 0
-        context["stats_general_count"]   = 0
-        context["stats_prog_specific"]   = []
-        context["stats_unique_total"]    = 0
+        context["stats_db_total_rows"] = 0
+        context["stats_non_mock_rows"] = 0
+        context["stats_general_paper_rows"] = 0
+        context["stats_mock_count"] = 0
+        context["stats_mock_batches"] = 0
+        context["stats_mock_remainder"] = 0
+        context["stats_general_count"] = 0
+        context["stats_prog_specific"] = []
+        context["stats_unique_total"] = 0
+        context["stats_prog_specific_row_sum"] = 0
 
     return render(request, "dashboard/admin_manage_questions.html", context)
 
