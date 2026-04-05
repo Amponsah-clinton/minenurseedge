@@ -91,6 +91,7 @@ urlpatterns = [
     path("admin-panel/community/warn-user/", views.admin_community_warn_user, name="admin_community_warn_user"),
     path("admin-panel/community/report/<uuid:report_id>/resolve/", views.admin_community_resolve_report, name="admin_community_resolve_report"),
     path("admin-panel/reported-questions/", views.admin_reported_questions, name="admin_reported_questions"),
+    path("admin-panel/free-users/", views.admin_free_users, name="admin_free_users"),
 
     # Security APIs
     path("api/screenshot-attempt/", views.screenshot_attempt_api, name="screenshot_attempt_api"),

@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import re
 import secrets
@@ -188,26 +189,96 @@ def _build_mock_leaderboard(supabase_client, exam_id, current_user_id, top_n=10)
     return leaderboard_rows, my_rank, my_row
 
 
-def _find_auth_user_by_email(email):
-    """Find an orphaned Supabase auth user by email via the admin REST API."""
-    import json, urllib.parse, urllib.request
-    base = (getattr(settings, "SUPABASE_URL", "") or "").rstrip("/")
-    key  = (getattr(settings, "SUPABASE_SERVICE_KEY", "") or "").strip()
-    if not base or not key:
+def _escape_like_pattern_exact(value: str) -> str:
+    """Escape %, _, \\ so ILIKE treats the string as a literal match (for emails)."""
+    return (
+        (value or "")
+        .replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+
+
+def _profile_by_email_flexible(admin_client, email: str):
+    """
+    Resolve a profile row by email: exact lowercase match first, then case-insensitive ILIKE.
+    """
+    email = (email or "").strip().lower()
+    if not email:
         return None
     try:
-        params = urllib.parse.urlencode({"filter": email, "page": 1, "per_page": 10})
-        req = urllib.request.Request(
-            f"{base}/auth/v1/admin/users?{params}",
-            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+        rows = (
+            admin_client.table("profiles")
+            .select("id, full_name, email, is_active")
+            .eq("email", email)
+            .limit(1)
+            .execute()
+            .data
+            or []
         )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.loads(r.read().decode())
-        for u in data.get("users", []):
-            if (u.get("email") or "").lower() == email.lower():
-                return u
+        if rows:
+            return rows[0]
     except Exception:
         pass
+    try:
+        rows = (
+            admin_client.table("profiles")
+            .select("id, full_name, email, is_active")
+            .ilike("email", _escape_like_pattern_exact(email))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if rows:
+            return rows[0]
+    except Exception:
+        pass
+    return None
+
+
+def _find_auth_user_by_email(email):
+    """
+    Find a Supabase Auth user by email (case-insensitive).
+    Uses the official client's admin list_users — raw REST ?filter=... is unreliable.
+    Returns a dict with id, email, user_metadata for compatibility with callers.
+    """
+    email_l = (email or "").strip().lower()
+    if not email_l:
+        return None
+    try:
+        admin = _supabase_admin()
+        page = 1
+        max_pages = 50  # up to 10k users
+        while page <= max_pages:
+            users = admin.auth.admin.list_users(page=page, per_page=200)
+            if not users:
+                break
+            for u in users:
+                ue = (getattr(u, "email", None) or "").strip().lower()
+                if ue == email_l:
+                    if hasattr(u, "model_dump"):
+                        data = u.model_dump()
+                    elif hasattr(u, "dict"):
+                        data = u.dict()
+                    else:
+                        data = {
+                            "id": getattr(u, "id", ""),
+                            "email": getattr(u, "email", ""),
+                            "user_metadata": getattr(u, "user_metadata", None) or {},
+                        }
+                    uid = data.get("id")
+                    return {
+                        "id": str(uid) if uid is not None else "",
+                        "email": data.get("email") or email_l,
+                        "user_metadata": data.get("user_metadata") or {},
+                    }
+            if len(users) < 200:
+                break
+            page += 1
+    except Exception:
+        if settings.DEBUG:
+            logging.getLogger(__name__).exception("Auth user lookup by email failed")
     return None
 
 
@@ -1012,27 +1083,33 @@ def forgot_password_page(request):
     if not email:
         return render(request, "forgot_password.html", {"error": "Please enter your email address."})
 
+    profile = None
+    auth_user = None
     try:
         admin = _supabase_admin()
-        resp = (
-            admin.table("profiles")
-            .select("id, full_name, email, is_active")
-            .eq("email", email)
-            .limit(1)
-            .execute()
-        )
-        profile = resp.data[0] if resp.data else None
+        profile = _profile_by_email_flexible(admin, email)
     except Exception:
+        if settings.DEBUG:
+            logging.getLogger(__name__).exception("Profile lookup for password reset failed")
         profile = None
 
-    # Always redirect to reset page — never reveal whether the email exists
-    if profile:
-        code = str(secrets.randbelow(900000) + 100000)          # 6-digit, never leading-zero
-        request.session["pw_reset_email"]   = email
-        request.session["pw_reset_code"]    = code
-        request.session["pw_reset_expires"] = int(time.time()) + 900  # 15 minutes
+    if not profile:
+        auth_user = _find_auth_user_by_email(email)
 
-        full_name = profile.get("full_name") or "Student"
+    # Send a code if we have either a profile row or a Supabase Auth user (password lives in Auth).
+    can_reset = bool(profile or auth_user)
+
+    # Always redirect to reset page — never reveal whether the email exists
+    if can_reset:
+        code = str(secrets.randbelow(900000) + 100000)  # 6-digit, never leading-zero
+        if profile:
+            full_name = (profile.get("full_name") or "").strip() or "Student"
+            mail_to = (profile.get("email") or email).strip().lower()
+        else:
+            meta = (auth_user.get("user_metadata") or {}) if auth_user else {}
+            full_name = (meta.get("full_name") or "").strip() or "Student"
+            mail_to = (auth_user.get("email") or email).strip().lower()
+
         subject = "NurseEdge — Your password reset code"
         body = (
             f"Hi {full_name},\n\n"
@@ -1048,13 +1125,27 @@ def forgot_password_page(request):
                 subject,
                 body,
                 settings.DEFAULT_FROM_EMAIL,
-                [email],
+                [mail_to],
                 fail_silently=False,
             )
         except Exception:
-            # Don't expose SMTP failures — still redirect so attackers can't
-            # distinguish "valid email / SMTP failed" from "invalid email".
-            pass
+            if settings.DEBUG:
+                logging.getLogger(__name__).exception(
+                    "Password reset email failed (check EMAIL_* in .env and Gmail app password)."
+                )
+            # Do not store a code in session if the email never left the server.
+            return redirect("/reset-password/?mail_err=1")
+
+        request.session["pw_reset_email"] = mail_to
+        request.session["pw_reset_code"] = code
+        request.session["pw_reset_expires"] = int(time.time()) + 900  # 15 minutes
+        request.session["pw_reset_just_sent"] = True
+        request.session.modified = True
+    elif settings.DEBUG:
+        logging.getLogger(__name__).warning(
+            "Password reset: no profile or auth user for email %s — no email sent.",
+            email,
+        )
 
     return redirect("/reset-password/")
 
@@ -1069,10 +1160,17 @@ def reset_password_page(request):
     import time
 
     if request.method == "GET":
-        # If there is no pending reset in the session, redirect back
-        if not request.session.get("pw_reset_email"):
-            return redirect("/forgot-password/")
-        return render(request, "reset_password.html", {})
+        if request.session.get("pw_reset_email"):
+            code_just_sent = bool(request.session.pop("pw_reset_just_sent", False))
+            request.session.modified = True
+            return render(
+                request,
+                "reset_password.html",
+                {"code_just_sent": code_just_sent},
+            )
+        if request.GET.get("mail_err") == "1":
+            return render(request, "reset_password.html", {"mail_delivery_failed": True})
+        return render(request, "reset_password.html", {"no_active_reset": True})
 
     # ── POST ──────────────────────────────────────────────────────────────────
     code             = request.POST.get("code", "").strip()
@@ -1679,6 +1777,155 @@ def admin_locked_accounts(request):
         "locked": locked,
     }
     return render(request, "dashboard/admin_locked_accounts.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Admin: Free-access user management
+# ---------------------------------------------------------------------------
+
+def admin_free_users(request):
+    """Create and manage accounts that are permanently exempt from payment."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin   = _supabase_admin()
+    success = error = None
+
+    PROGRAMME_CHOICES_LOCAL = [
+        "Registered General Nursing (RGN)",
+        "Registered Midwifery (RM)",
+        "Nurse Assistant Clinical (NAC/NAP)",
+        "Registered Mental Health Nursing (RMHN)",
+        "Registered Public Health Nursing (RPHN)",
+    ]
+
+    if request.method == "POST":
+        action = request.POST.get("action", "").strip()
+
+        if action == "create":
+            full_name = request.POST.get("full_name", "").strip()
+            email     = request.POST.get("email", "").strip().lower()
+            password  = request.POST.get("password", "").strip()
+            programme = request.POST.get("programme", "").strip()
+
+            if not all([full_name, email, password, programme]):
+                error = "All fields are required."
+            elif len(password) < 6:
+                error = "Password must be at least 6 characters."
+            else:
+                try:
+                    # Create Supabase Auth user
+                    auth_resp = admin.auth.admin.create_user({
+                        "email": email,
+                        "password": password,
+                        "email_confirm": True,  # skip email verification
+                    })
+                    user_id = str(auth_resp.user.id)
+
+                    # Upsert profile with free-access flag
+                    admin.table("profiles").upsert({
+                        "id": user_id,
+                        "email": email,
+                        "full_name": full_name,
+                        "programme": programme,
+                        "role": "student",
+                        "plan_slug": "premium",
+                        "subscription_status": "active",
+                        "is_active": True,
+                        "is_free_access": True,
+                    }).execute()
+
+                    # Create a permanent active subscription (no expiry)
+                    admin.table("subscriptions").insert({
+                        "user_id": user_id,
+                        "user_email": email,
+                        "user_name": full_name,
+                        "plan_slug": "premium",
+                        "amount_due": 0,
+                        "amount_paid": 0,
+                        "currency": "GHS",
+                        "status": "active",
+                        "payment_reference": "free_access",
+                        "started_at": datetime.now(timezone.utc).isoformat(),
+                        "expires_at": None,  # never expires
+                    }).execute()
+
+                    success = f"Free-access account created for {full_name} ({email})."
+                except Exception as exc:
+                    msg = str(exc).lower()
+                    if "already registered" in msg or "already exists" in msg or "duplicate" in msg:
+                        error = f"An account with email '{email}' already exists."
+                    else:
+                        error = f"Failed to create account: {exc}"
+
+        elif action == "revoke":
+            user_id = request.POST.get("user_id", "").strip()
+            if user_id:
+                try:
+                    admin.table("profiles").update({"is_free_access": False}).eq("id", user_id).execute()
+                    success = "Free access revoked. The user will need a subscription to log in."
+                except Exception as exc:
+                    error = str(exc)
+
+        elif action == "restore":
+            user_id = request.POST.get("user_id", "").strip()
+            if user_id:
+                try:
+                    admin.table("profiles").update({"is_free_access": True}).eq("id", user_id).execute()
+                    success = "Free access restored."
+                except Exception as exc:
+                    error = str(exc)
+
+        elif action == "reset_password":
+            user_id      = request.POST.get("user_id", "").strip()
+            new_password = request.POST.get("new_password", "").strip()
+            if not user_id or not new_password:
+                error = "User ID and new password are required."
+            elif len(new_password) < 6:
+                error = "Password must be at least 6 characters."
+            else:
+                try:
+                    admin.auth.admin.update_user_by_id(user_id, {"password": new_password})
+                    success = "Password updated successfully."
+                except Exception as exc:
+                    error = str(exc)
+
+        elif action == "delete":
+            user_id = request.POST.get("user_id", "").strip()
+            if user_id:
+                try:
+                    admin.auth.admin.delete_user(user_id)
+                    admin.table("profiles").delete().eq("id", user_id).execute()
+                    success = "Account permanently deleted."
+                except Exception as exc:
+                    error = str(exc)
+
+    # List all free-access users
+    try:
+        free_users = (
+            admin.table("profiles")
+            .select("id, full_name, email, programme, is_free_access, is_active, created_at")
+            .eq("is_free_access", True)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        free_users = []
+
+    context = {
+        "full_name":          request.session.get("full_name", "Admin"),
+        "email":              request.session.get("email", ""),
+        "role":               "admin",
+        "active_page":        "free_users",
+        "programmes":         PROGRAMME_CHOICES_LOCAL,
+        "free_users":         free_users,
+        "success":            success,
+        "error":              error,
+    }
+    return render(request, "dashboard/admin_free_users.html", context)
 
 
 def admin_messages(request):
@@ -6245,7 +6492,23 @@ def _expires_at_still_valid(expires_at):
 
 
 def subscription_allows_dashboard(user_id):
-    """Active subscription required for /dashboard/ (student)."""
+    """Active subscription required for /dashboard/ (student).
+    Free-access accounts (is_free_access=True) are always allowed in."""
+    try:
+        profile_rows = (
+            _supabase_admin()
+            .table("profiles")
+            .select("is_free_access")
+            .eq("id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if profile_rows and profile_rows[0].get("is_free_access"):
+            return True
+    except Exception:
+        pass
     sub = _get_active_subscription(user_id)
     if not sub or sub.get("status") != "active":
         return False
