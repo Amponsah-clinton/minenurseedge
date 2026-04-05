@@ -2,6 +2,70 @@
 {% block title %}My Dashboard - NurseEdge{% endblock %}
 
 {% block content %}
+{% if show_nmc_disclaimer %}
+{% csrf_token %}
+<style>
+  #nmcDisclaimerModal .modal-content {
+    background: #f4f6fa;
+    border: 1px solid #d8dee6;
+    border-radius: 14px;
+    box-shadow: 0 24px 56px rgba(22, 38, 55, 0.16);
+  }
+  #nmcDisclaimerModal .modal-header {
+    background: #fff;
+    border-bottom: 1px solid #e2e6ec;
+    border-radius: 14px 14px 0 0;
+    padding: 1.25rem 1.5rem;
+  }
+  #nmcDisclaimerModal .modal-body {
+    padding: 1.5rem 1.5rem 1.25rem;
+    color: #3a4a5c;
+    line-height: 1.65;
+    font-size: 0.95rem;
+  }
+  #nmcDisclaimerModal .modal-footer {
+    background: #fff;
+    border-top: 1px solid #e2e6ec;
+    border-radius: 0 0 14px 14px;
+    padding: 1rem 1.5rem;
+  }
+  #nmcDisclaimerModal .ne-disclaimer-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #eef2f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #566a7f;
+    font-size: 1.35rem;
+  }
+</style>
+<div class="modal fade" id="nmcDisclaimerModal" tabindex="-1" aria-labelledby="nmcDisclaimerModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header flex-column align-items-stretch gap-2 border-0 pb-0">
+        <div class="d-flex align-items-center gap-3">
+          <div class="ne-disclaimer-icon flex-shrink-0"><i class="bx bx-info-circle"></i></div>
+          <div>
+            <h5 class="modal-title mb-0" id="nmcDisclaimerModalLabel">Important Disclaimer</h5>
+            <p class="text-muted small mb-0 mt-1">Please read before you continue</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body pt-3">
+        <p class="mb-0">
+          NurseEdge is an independent platform and is <strong>not affiliated</strong> with the Nursing and Midwifery Council (NMC) of Ghana.
+          It is privately managed with the sole aim of supporting nursing students in their exam preparation.
+        </p>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-primary px-4" id="nmcDisclaimerAckBtn">I understand</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% if has_unread_notifications %}
 <div class="alert alert-warning" role="alert">
   You have {{ student_unread_notifications }} unread message{{ student_unread_notifications|pluralize }}.
@@ -443,4 +507,31 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if show_nmc_disclaimer %}
+<script>
+(function () {
+  var modalEl = document.getElementById("nmcDisclaimerModal");
+  if (!modalEl || typeof bootstrap === "undefined") return;
+  var modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
+  modal.show();
+  document.getElementById("nmcDisclaimerAckBtn").addEventListener("click", function () {
+    var inp = document.querySelector("[name=csrfmiddlewaretoken]");
+    var token = inp ? inp.value : "";
+    fetch("/dashboard/ack-disclaimer/", {
+      method: "POST",
+      headers: {
+        "X-CSRFToken": token,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    }).catch(function () {}).finally(function () {
+      modal.hide();
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

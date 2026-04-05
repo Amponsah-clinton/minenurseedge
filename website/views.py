@@ -8,7 +8,7 @@ from io import StringIO
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 
 from supabase import create_client
@@ -276,6 +276,30 @@ def _require_login(request):
     return None
 
 
+# Supabase: add once so acknowledgements persist across devices —
+#   alter table public.profiles add column if not exists dashboard_nmc_disclaimer_ack_at timestamptz;
+def _student_needs_dashboard_nmc_disclaimer(request, user_id):
+    """True until the student acknowledges the independent-platform disclaimer once."""
+    try:
+        admin = _supabase_admin()
+        rows = (
+            admin.table("profiles")
+            .select("dashboard_nmc_disclaimer_ack_at")
+            .eq("id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if rows and rows[0].get("dashboard_nmc_disclaimer_ack_at"):
+            return False
+        if rows:
+            return True
+    except Exception:
+        pass
+    return bool(request.session.get("pending_dashboard_disclaimer"))
+
+
 def _require_admin(request):
     """Returns None if admin; otherwise redirects appropriately."""
     check = _require_login(request)
@@ -331,6 +355,56 @@ PROGRAMME_PAPERS = {
 
 PROGRAMME_NAMES = list(PROGRAMME_PAPERS.keys())
 ALL_PAPERS = sorted({paper for papers in PROGRAMME_PAPERS.values() for paper in papers})
+
+
+def _question_bank_counts_by_paper(admin_client, programme):
+    """
+    Exact row counts per curriculum paper for a programme (count=head per paper).
+    Listing all question rows and grouping in Python hits PostgREST row caps (~1000),
+    so later papers alphabetically (e.g. Surgery after Medicine) can disappear.
+    """
+    grouped = {}
+    for paper in PROGRAMME_PAPERS.get(programme) or []:
+        try:
+            resp = (
+                admin_client.table("question_bank")
+                .select("id", count="exact", head=True)
+                .eq("programme", programme)
+                .eq("paper_title", paper)
+                .execute()
+            )
+            grouped[paper] = int(resp.count or 0)
+        except Exception:
+            grouped[paper] = 0
+    return grouped
+
+
+def _question_bank_counts_by_paper_chunked(admin_client, programme):
+    """Fallback when programme is not in PROGRAMME_PAPERS: aggregate with range chunks."""
+    grouped = {}
+    offset = 0
+    chunk = 1000
+    while True:
+        try:
+            rows = (
+                admin_client.table("question_bank")
+                .select("paper_title")
+                .eq("programme", programme)
+                .range(offset, offset + chunk - 1)
+                .execute()
+                .data
+                or []
+            )
+        except Exception:
+            break
+        for row in rows:
+            paper = (row.get("paper_title") or "Untitled").strip()
+            grouped[paper] = grouped.get(paper, 0) + 1
+        if len(rows) < chunk:
+            break
+        offset += chunk
+    return grouped
+
 
 GENERAL_PAPER_TITLE = "General Paper"
 
@@ -663,8 +737,7 @@ def login_page(request):
             # Block disabled accounts immediately
             if profile.get("is_active") is False:
                 return render(request, "login.html", {
-                    "error": "Your account has been disabled due to a concurrent login attempt. "
-                             "Please contact support to restore access."
+                    "error": "Your account has been disabled. Please contact support to restore access."
                 })
 
             role = profile.get("role", "student")
@@ -694,16 +767,10 @@ def login_page(request):
                     same_device = (current_ip == stored_ip and current_ua == stored_ua)
 
                     if not same_device:
-                        # Different device: credential sharing detected.
-                        # Evict the first session and disable the account.
+                        # Different device: evict the old session and allow this new login.
+                        # The previous session is immediately invalidated.
                         admin.table("active_sessions").delete().eq("user_id", user_id).execute()
-                        admin.table("profiles").update({"is_active": False}).eq("id", user_id).execute()
-                        return render(request, "login.html", {
-                            "error": "Concurrent login detected on a different device. "
-                                     "Your account has been disabled for security. "
-                                     "Please contact support."
-                        })
-                    # Same device: fall through — _create_session() will replace the old session
+                    # Same device or evicted old session: fall through to create new session
 
             _create_session(request, user_id, profile["email"], full_name, role)
 
@@ -882,6 +949,7 @@ def signup_page(request):
             if price_val <= 0 and sub_id:
                 _apply_successful_subscription_payment(user_id, sub_id, plan_slug, 0, "complimentary")
                 _create_session(request, user_id, email, full_name, "student")
+                request.session["pending_dashboard_disclaimer"] = True
                 return redirect("/dashboard/")
 
             # If Paystack reference provided, verify and activate immediately
@@ -898,9 +966,11 @@ def signup_page(request):
                         user_id, sub_id, plan_slug, amount_paid, paystack_reference
                     )
                     _create_session(request, user_id, email, full_name, "student")
+                    request.session["pending_dashboard_disclaimer"] = True
                     return redirect("/dashboard/")
 
             _create_session(request, user_id, email, full_name, "student")
+            request.session["pending_dashboard_disclaimer"] = True
             return redirect("/subscribe/")
 
         except Exception as exc:
@@ -1214,11 +1284,16 @@ def user_dashboard(request):
     except Exception:
         pass
 
+    show_nmc_disclaimer = False
+    if request.session.get("role") != "admin":
+        show_nmc_disclaimer = _student_needs_dashboard_nmc_disclaimer(request, user_id)
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
         "role": request.session.get("role", "student"),
         "active_page": "dashboard",
+        "show_nmc_disclaimer": show_nmc_disclaimer,
         "student_unread_notifications": unread_count,
         "has_unread_notifications": unread_count > 0,
         "mock_exam_count": mock_exam_count,
@@ -1234,6 +1309,27 @@ def user_dashboard(request):
         "sub_expires": (sub_expires or "")[:10] if sub_expires else "",
     }
     return render(request, "dashboard/user_dashboard.html", context)
+
+
+def dashboard_ack_nmc_disclaimer(request):
+    """POST: record one-time acknowledgement of the dashboard NMC independence disclaimer."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+    guard = _require_login(request)
+    if guard:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+    if request.session.get("role") == "admin":
+        return JsonResponse({"ok": True})
+    user_id = request.session.get("user_id")
+    request.session.pop("pending_dashboard_disclaimer", None)
+    try:
+        admin = _supabase_admin()
+        admin.table("profiles").update({
+            "dashboard_nmc_disclaimer_ack_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", str(user_id)).execute()
+    except Exception:
+        pass
+    return JsonResponse({"ok": True})
 
 
 def student_nmc_mastery(request):
@@ -3120,19 +3216,10 @@ def student_general_tests(request):
 
     tests = []
     try:
-        q = (
-            admin.table("question_bank")
-            .select("paper_title")
-            .eq("programme", programme)
-            .order("paper_title", desc=False)
-            .execute()
-            .data
-            or []
-        )
-        grouped = {}
-        for row in q:
-            paper = (row.get("paper_title") or "Untitled").strip()
-            grouped[paper] = grouped.get(paper, 0) + 1
+        if programme in PROGRAMME_PAPERS:
+            grouped = _question_bank_counts_by_paper(admin, programme)
+        else:
+            grouped = _question_bank_counts_by_paper_chunked(admin, programme)
 
         # Build General Test batches in order:
         # Test 1 consumes the first N questions, Test 2 consumes the next N, etc.
@@ -3155,9 +3242,8 @@ def student_general_tests(request):
                 }
                 tests.append(entry)
 
-        # Order by test number first (so Test 1 rows appear before Test 2),
-        # and then by paper title for a stable UI.
-        tests.sort(key=lambda x: (x["test_number"], x["paper_title"]))
+        # Group by paper in the UI: sort by paper title, then test number.
+        tests.sort(key=lambda x: (x["paper_title"], x["test_number"]))
     except Exception:
         tests = []
 
@@ -3640,6 +3726,224 @@ def admin_quizzes(request):
         "quiz_sample_data": _QUIZ_ADMIN_ITEMS,
     }
     return render(request, "dashboard/admin_quizzes.html", context)
+
+
+PRACTICE_QUIZ_QUESTION_TARGET = 10
+
+
+def _practice_quiz_question_count(admin, quiz_id):
+    try:
+        resp = (
+            admin.table("practice_quiz_questions")
+            .select("id", count="exact", head=True)
+            .eq("quiz_id", str(quiz_id))
+            .execute()
+        )
+        return int(resp.count or 0)
+    except Exception:
+        return 0
+
+
+def _practice_quiz_renumber_question_orders(admin, quiz_id):
+    rows = (
+        admin.table("practice_quiz_questions")
+        .select("id, question_order")
+        .eq("quiz_id", str(quiz_id))
+        .order("question_order", desc=False)
+        .execute()
+        .data
+        or []
+    )
+    for i, r in enumerate(rows, start=1):
+        if int(r.get("question_order") or 0) != i:
+            admin.table("practice_quiz_questions").update({"question_order": i}).eq("id", r["id"]).execute()
+
+
+def admin_quiz_questions_api(request):
+    """
+    Admin JSON API: list / create / update / delete practice_quiz_questions for a quiz.
+    GET  ?quiz_id=uuid
+    POST JSON { action: list|create|update|delete, ... }
+    """
+    if not request.session.get("user_id"):
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+    if request.session.get("role") != "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+
+    admin = _supabase_admin()
+
+    def _quiz_payload(quiz_id):
+        qrows = (
+            admin.table("practice_quizzes")
+            .select("id, title, is_published, sort_index")
+            .eq("id", str(quiz_id))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if not qrows:
+            return None, JsonResponse({"ok": False, "error": "Quiz not found"}, status=404)
+        qz = qrows[0]
+        questions = (
+            admin.table("practice_quiz_questions")
+            .select(
+                "id, quiz_id, question_order, question_text, option_a, option_b, option_c, "
+                "correct_option, explanation"
+            )
+            .eq("quiz_id", str(quiz_id))
+            .order("question_order", desc=False)
+            .execute()
+            .data
+            or []
+        )
+        n = len(questions)
+        qz["question_count"] = n
+        qz["student_ready"] = n == PRACTICE_QUIZ_QUESTION_TARGET
+        return {"quiz": qz, "questions": questions}, None
+
+    if request.method == "GET":
+        quiz_id = (request.GET.get("quiz_id") or "").strip()
+        if not quiz_id:
+            return JsonResponse({"ok": False, "error": "quiz_id required"}, status=400)
+        payload, err = _quiz_payload(quiz_id)
+        if err:
+            return err
+        return JsonResponse({"ok": True, **payload})
+
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    action = (body.get("action") or "").strip().lower()
+
+    def _norm_opt(x):
+        return (x or "").strip().upper()
+
+    if action == "list":
+        quiz_id = (body.get("quiz_id") or "").strip()
+        if not quiz_id:
+            return JsonResponse({"ok": False, "error": "quiz_id required"}, status=400)
+        payload, err = _quiz_payload(quiz_id)
+        if err:
+            return err
+        return JsonResponse({"ok": True, **payload})
+
+    if action == "update":
+        qid = (body.get("id") or "").strip()
+        if not qid:
+            return JsonResponse({"ok": False, "error": "id required"}, status=400)
+        existing = (
+            admin.table("practice_quiz_questions")
+            .select("id, quiz_id")
+            .eq("id", qid)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if not existing:
+            return JsonResponse({"ok": False, "error": "Question not found"}, status=404)
+        quiz_id = str(existing[0]["quiz_id"])
+        qt = (body.get("question_text") or "").strip()
+        oa = (body.get("option_a") or "").strip()
+        ob = (body.get("option_b") or "").strip()
+        oc = (body.get("option_c") or "").strip()
+        co = _norm_opt(body.get("correct_option"))
+        expl = (body.get("explanation") or "").strip()
+        if not qt or not oa or not ob or not oc:
+            return JsonResponse({"ok": False, "error": "All options and question text are required."}, status=400)
+        if co not in ("A", "B", "C"):
+            return JsonResponse({"ok": False, "error": "correct_option must be A, B, or C."}, status=400)
+        admin.table("practice_quiz_questions").update({
+            "question_text": qt,
+            "option_a": oa,
+            "option_b": ob,
+            "option_c": oc,
+            "correct_option": co,
+            "explanation": expl or None,
+        }).eq("id", qid).execute()
+        payload, err = _quiz_payload(quiz_id)
+        if err:
+            return err
+        return JsonResponse({"ok": True, **payload})
+
+    if action == "delete":
+        qid = (body.get("id") or "").strip()
+        if not qid:
+            return JsonResponse({"ok": False, "error": "id required"}, status=400)
+        row = (
+            admin.table("practice_quiz_questions")
+            .select("id, quiz_id")
+            .eq("id", qid)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if not row:
+            return JsonResponse({"ok": False, "error": "Question not found"}, status=404)
+        quiz_id = str(row[0]["quiz_id"])
+        admin.table("practice_quiz_questions").delete().eq("id", qid).execute()
+        _practice_quiz_renumber_question_orders(admin, quiz_id)
+        payload, err = _quiz_payload(quiz_id)
+        if err:
+            return err
+        return JsonResponse({"ok": True, **payload})
+
+    if action == "create":
+        quiz_id = (body.get("quiz_id") or "").strip()
+        if not quiz_id:
+            return JsonResponse({"ok": False, "error": "quiz_id required"}, status=400)
+        qcheck = (
+            admin.table("practice_quizzes")
+            .select("id")
+            .eq("id", quiz_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if not qcheck:
+            return JsonResponse({"ok": False, "error": "Quiz not found"}, status=404)
+        cnt = _practice_quiz_question_count(admin, quiz_id)
+        if cnt >= PRACTICE_QUIZ_QUESTION_TARGET:
+            return JsonResponse(
+                {"ok": False, "error": f"This quiz already has {PRACTICE_QUIZ_QUESTION_TARGET} questions. Delete one to add another."},
+                status=400,
+            )
+        qt = (body.get("question_text") or "").strip()
+        oa = (body.get("option_a") or "").strip()
+        ob = (body.get("option_b") or "").strip()
+        oc = (body.get("option_c") or "").strip()
+        co = _norm_opt(body.get("correct_option"))
+        expl = (body.get("explanation") or "").strip()
+        if not qt or not oa or not ob or not oc:
+            return JsonResponse({"ok": False, "error": "All options and question text are required."}, status=400)
+        if co not in ("A", "B", "C"):
+            return JsonResponse({"ok": False, "error": "correct_option must be A, B, or C."}, status=400)
+        next_order = cnt + 1
+        admin.table("practice_quiz_questions").insert({
+            "quiz_id": quiz_id,
+            "question_order": next_order,
+            "question_text": qt,
+            "option_a": oa,
+            "option_b": ob,
+            "option_c": oc,
+            "correct_option": co,
+            "explanation": expl or None,
+        }).execute()
+        _practice_quiz_renumber_question_orders(admin, quiz_id)
+        payload, err = _quiz_payload(quiz_id)
+        if err:
+            return err
+        return JsonResponse({"ok": True, **payload})
+
+    return JsonResponse({"ok": False, "error": "Unknown action"}, status=400)
 
 
 def student_quizzes(request):

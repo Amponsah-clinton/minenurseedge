@@ -18,6 +18,7 @@ urlpatterns = [
 
     # Student dashboard
     path("dashboard/", views.user_dashboard, name="user_dashboard"),
+    path("dashboard/ack-disclaimer/", views.dashboard_ack_nmc_disclaimer, name="dashboard_ack_nmc_disclaimer"),
     path("dashboard/nmc-mastery/", views.student_nmc_mastery, name="student_nmc_mastery"),
     path(
         "dashboard/hot-areas/",
@@ -56,6 +57,7 @@ urlpatterns = [
     path("admin-panel/manage-questions/", views.admin_manage_questions, name="admin_manage_questions"),
     path("admin-panel/mock-exams/", views.admin_mock_exams, name="admin_mock_exams"),
     path("admin-panel/quizzes/", views.admin_quizzes, name="admin_quizzes"),
+    path("admin-panel/quizzes/questions/", views.admin_quiz_questions_api, name="admin_quiz_questions_api"),
     path("admin-panel/lecture-notes/", views.admin_lecture_notes, name="admin_lecture_notes"),
     path("admin-panel/drug-cards/", views.admin_drug_cards, name="admin_drug_cards"),
     path("admin-panel/drug-cards/add/", views.admin_drug_card_form, name="admin_drug_card_add"),

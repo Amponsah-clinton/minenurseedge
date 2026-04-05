@@ -2,77 +2,260 @@
 {% block title %}General Tests - NurseEdge{% endblock %}
 
 {% block content %}
-<div class="row g-4">
+<style>
+  .gen-tests-page {
+    --gt-border: #e4e8f0;
+    --gt-muted: #6c7a89;
+    --gt-surface: #ffffff;
+    --gt-subtle: #f6f7fa;
+    --gt-shadow: 0 1px 2px rgba(28, 43, 68, 0.06), 0 4px 12px rgba(28, 43, 68, 0.04);
+    --gt-shadow-hover: 0 2px 6px rgba(28, 43, 68, 0.08), 0 8px 24px rgba(28, 43, 68, 0.06);
+  }
+  .gen-tests-hero {
+    background: var(--gt-surface);
+    border: 1px solid var(--gt-border);
+    border-radius: 14px;
+    box-shadow: var(--gt-shadow);
+    padding: 1.35rem 1.5rem;
+  }
+  .gen-tests-hero h4 {
+    letter-spacing: -0.02em;
+  }
+  .gen-tests-count {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gt-muted);
+    background: var(--gt-subtle);
+    border: 1px solid var(--gt-border);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+  }
+  .gen-tests-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gt-muted);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gt-border);
+  }
+  .gen-test-card {
+    background: var(--gt-surface);
+    border: 1px solid var(--gt-border);
+    border-radius: 12px;
+    box-shadow: var(--gt-shadow);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .gen-test-card:hover {
+    border-color: #cfd6e4;
+    box-shadow: var(--gt-shadow-hover);
+  }
+  .gen-test-card__body {
+    padding: 1.15rem 1.25rem 1rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .gen-test-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--gt-subtle);
+    border: 1px solid var(--gt-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4a5568;
+    font-size: 1.25rem;
+    margin-bottom: 0.85rem;
+  }
+  .gen-test-card__label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gt-muted);
+    margin-bottom: 0.25rem;
+  }
+  .gen-test-card__title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #2c3544;
+    line-height: 1.35;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+  .gen-test-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid #eef0f5;
+  }
+  .gen-test-card__meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    color: var(--gt-muted);
+  }
+  .gen-test-card__meta-item i {
+    font-size: 1rem;
+    opacity: 0.85;
+  }
+  .gen-test-card__footer {
+    padding: 0.85rem 1.25rem 1.1rem;
+    background: var(--gt-subtle);
+    border-top: 1px solid var(--gt-border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+  .gen-test-card__status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+  }
+  .gen-test-card__status--paused {
+    color: #8a6d1d;
+    background: #faf6eb;
+    border-color: #e8dcc4;
+  }
+  .gen-test-card__status--progress {
+    color: #1e4fad;
+    background: #eef3fc;
+    border-color: #c8d8f4;
+  }
+  .gen-test-card__status--new {
+    color: #5a6570;
+    background: #fff;
+    border-color: var(--gt-border);
+  }
+  .gen-test-card .btn-gen-action {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #4f56c9;
+    background: #5a5fcf;
+    color: #fff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  .gen-test-card .btn-gen-action:hover {
+    background: #4d52b8;
+    border-color: #454aad;
+    color: #fff;
+  }
+  .gen-test-card .btn-gen-action--warn {
+    border-color: #a67c00;
+    background: #b8890f;
+  }
+  .gen-test-card .btn-gen-action--warn:hover {
+    background: #9a7600;
+    border-color: #856600;
+    color: #fff;
+  }
+  .gen-tests-empty {
+    background: var(--gt-surface);
+    border: 1px dashed var(--gt-border);
+    border-radius: 12px;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--gt-muted);
+  }
+  .gen-tests-empty i {
+    font-size: 2.5rem;
+    opacity: 0.35;
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+</style>
+
+<div class="row g-4 gen-tests-page">
   <div class="col-12">
-    <div class="card">
-      <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-          <h4 class="mb-1">General Tests</h4>
-          <p class="text-muted mb-0">Choose a paper and test yourself under real exam timing.</p>
-        </div>
-        <span class="badge bg-label-primary fs-6">{{ tests|length }} test{{ tests|length|pluralize }}</span>
+    <div class="gen-tests-hero d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h4 class="mb-1">General Tests</h4>
+        <p class="text-muted mb-0" style="max-width: 36rem;">
+          Timed practice for each paper in your programme. Pick a test to start or resume where you left off.
+        </p>
       </div>
+      <span class="gen-tests-count">{{ tests|length }} available</span>
     </div>
   </div>
 
   <div class="col-12">
-    <div class="card">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th>Paper</th>
-              <th>Test</th>
-              <th>Questions</th>
-              <th>Duration</th>
-              <th>Status</th>
-              <th class="text-end">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% if tests %}
-              {% for test in tests %}
-              <tr>
-                <td class="fw-semibold">{{ test.paper_title }}</td>
-                <td>General Test {{ test.test_number }}</td>
-                <td>{{ test.question_count }}</td>
-                <td>{{ test.duration_minutes }} mins</td>
-                <td>
+    {% if tests %}
+      {% regroup tests by paper_title as paper_groups %}
+      {% for group in paper_groups %}
+        <section class="mb-4 {% if not forloop.first %}mt-2{% endif %}">
+          <h2 class="gen-tests-section-title mb-3">{{ group.grouper }}</h2>
+          <div class="row g-3">
+            {% for test in group.list %}
+            <div class="col-12 col-md-6 col-xl-4">
+              <article class="gen-test-card">
+                <div class="gen-test-card__body">
+                  <div class="gen-test-card__icon"><i class="bx bx-clipboard"></i></div>
+                  <div class="gen-test-card__label">General test</div>
+                  <h3 class="gen-test-card__title">Test {{ test.test_number }}</h3>
+                  <div class="gen-test-card__meta">
+                    <span class="gen-test-card__meta-item">
+                      <i class="bx bx-list-ul"></i>{{ test.question_count }} questions
+                    </span>
+                    <span class="gen-test-card__meta-item">
+                      <i class="bx bx-time"></i>{{ test.duration_minutes }} min
+                    </span>
+                  </div>
+                </div>
+                <div class="gen-test-card__footer">
                   {% if test.attempt_status == "paused" %}
-                    <span class="badge bg-label-warning"><i class="bx bx-pause me-1"></i>Paused</span>
+                    <span class="gen-test-card__status gen-test-card__status--paused"><i class="bx bx-pause me-1"></i>Paused</span>
                   {% elif test.attempt_status == "in_progress" %}
-                    <span class="badge bg-label-primary"><i class="bx bx-play me-1"></i>In Progress</span>
+                    <span class="gen-test-card__status gen-test-card__status--progress"><i class="bx bx-play me-1"></i>In progress</span>
                   {% else %}
-                    <span class="badge bg-label-secondary">Not Started</span>
+                    <span class="gen-test-card__status gen-test-card__status--new">Not started</span>
                   {% endif %}
-                </td>
-                <td class="text-end">
                   {% if test.attempt_id %}
-                    {# Existing attempt — go straight to it #}
                     <a href="/dashboard/general-tests/attempt/{{ test.attempt_id }}/"
-                       class="btn btn-sm {% if test.attempt_status == 'paused' %}btn-warning{% else %}btn-primary{% endif %}">
+                       class="btn-gen-action {% if test.attempt_status == 'paused' %}btn-gen-action--warn{% endif %}">
                       {% if test.attempt_status == "paused" %}
-                        <i class="bx bx-play-circle me-1"></i>Resume
+                        <i class="bx bx-play-circle"></i>Resume
                       {% else %}
-                        <i class="bx bx-right-arrow-circle me-1"></i>Continue
+                        <i class="bx bx-right-arrow-circle"></i>Continue
                       {% endif %}
                     </a>
                   {% else %}
                     <a href="/dashboard/general-tests/start/?paper_title={{ test.paper_title|urlencode }}&test_number={{ test.test_number }}"
-                       class="btn btn-sm btn-primary">
-                      <i class="bx bx-play me-1"></i>Start Test
+                       class="btn-gen-action">
+                      <i class="bx bx-play"></i>Start test
                     </a>
                   {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            {% else %}
-              <tr><td colspan="6" class="text-center text-muted py-4">No general tests available yet.</td></tr>
-            {% endif %}
-          </tbody>
-        </table>
+                </div>
+              </article>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    {% else %}
+      <div class="gen-tests-empty">
+        <i class="bx bx-book-open"></i>
+        <p class="mb-0 fw-medium">No general tests are available for your programme yet.</p>
       </div>
-    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
