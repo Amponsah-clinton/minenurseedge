@@ -718,6 +718,18 @@ def _mq_question_bank_stats(admin):
     mock_batches = mock_count // MOCK_QUESTION_BATCH_SIZE
     mock_remainder = mock_count % MOCK_QUESTION_BATCH_SIZE
 
+    paper_by_programme = []
+    for programme, papers in PROGRAMME_PAPERS.items():
+        counts = _question_bank_counts_by_paper(admin, programme)
+        paper_rows = [{"paper": p, "count": int(counts.get(p, 0))} for p in papers]
+        paper_by_programme.append(
+            {
+                "programme": programme,
+                "papers": paper_rows,
+                "subtotal": sum(pr["count"] for pr in paper_rows),
+            }
+        )
+
     return {
         "stats_db_total_rows": db_total,
         "stats_non_mock_rows": non_mock_rows,
@@ -729,6 +741,7 @@ def _mq_question_bank_stats(admin):
         "stats_prog_specific": sorted(prog_specific.items()),
         "stats_unique_total": unique_total,
         "stats_prog_specific_row_sum": sum(prog_specific.values()),
+        "stats_paper_by_programme": paper_by_programme,
     }
 
 
@@ -2389,6 +2402,7 @@ def admin_manage_questions(request):
         context["stats_prog_specific"] = []
         context["stats_unique_total"] = 0
         context["stats_prog_specific_row_sum"] = 0
+        context["stats_paper_by_programme"] = []
 
     return render(request, "dashboard/admin_manage_questions.html", context)
 

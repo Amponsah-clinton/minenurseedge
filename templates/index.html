@@ -12,7 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 
     <!--Favicon-->
-    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" title="NurseEdge Favicon"/>
+    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" title="NurseEdge Favicon"/>
 
     <!-- Main CSS Files -->
     <link rel="stylesheet" href="css/style.css">
@@ -167,6 +167,15 @@
             font-weight: 400;
             font-style: italic;
             color: #2a2a2a;
+            transition: opacity 0.5s ease;
+        }
+        .florence-quote-text.florence-quote-text--fade {
+            opacity: 0;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .florence-quote-text {
+                transition: none;
+            }
         }
         .florence-quote-cite {
             display: block;
@@ -228,7 +237,7 @@
                     <!--Logo-->
                     <div id="logo">
                         <a href="#banner">
-                            <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" alt="NurseEdge Logo">
+                            <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" alt="NurseEdge Logo">
                             <span>NurseEdge</span>
                         </a>
                     </div>
@@ -366,12 +375,12 @@
         </section>
         <!--End of Introduction-->
 
-        <section class="florence-quote-section scrollto clearfix" aria-label="Inspirational quote">
+        <section class="florence-quote-section scrollto clearfix" aria-label="Florence Nightingale quotes">
             <div class="row clearfix">
                 <div class="col-1">
                     <div class="florence-quote-card wow fadeInUp" data-wow-delay="0.15s">
                         <span class="florence-quote-mark" aria-hidden="true">&ldquo;</span>
-                        <blockquote class="florence-quote-text">
+                        <blockquote id="florence-quote-rotator-text" class="florence-quote-text" aria-live="polite">
                             Nursing is an art: and if it is to be made an art, it requires an exclusive devotion.
                         </blockquote>
                         <cite class="florence-quote-cite">Florence Nightingale</cite>
@@ -585,6 +594,36 @@
     (function () {
         var yearEl = document.getElementById("footer-year");
         if (yearEl) yearEl.textContent = new Date().getFullYear();
+    })();
+    (function () {
+        var quotes = [
+            "Nursing is an art: and if it is to be made an art, it requires an exclusive devotion.",
+            "I attribute my success to this: I never gave or took any excuse.",
+            "The very first requirement in a hospital is that it should do the sick no harm.",
+            "Let us never consider ourselves finished nurses… we must be learning all of our lives.",
+            "Live life when you have it. Life is a splendid gift.",
+            "Were there none who were discontented with what they have, the world would never reach anything better."
+        ];
+        var el = document.getElementById("florence-quote-rotator-text");
+        if (!el || quotes.length < 2) return;
+        var i = 0;
+        var everyMs = 5000;
+        var fadeMs = 500;
+        var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        function step() {
+            i = (i + 1) % quotes.length;
+            if (reduced) {
+                el.textContent = quotes[i];
+                return;
+            }
+            el.classList.add("florence-quote-text--fade");
+            setTimeout(function () {
+                el.textContent = quotes[i];
+                el.classList.remove("florence-quote-text--fade");
+            }, fadeMs);
+        }
+        setInterval(step, everyMs);
     })();
 </script>
 
