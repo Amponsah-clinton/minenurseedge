@@ -12,7 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
 
     <!--Favicon-->
-    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" title="NurseEdge Favicon"/>
+    <link rel="shortcut icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" title="NurseEdge Favicon"/>
 
     <!-- Main CSS Files -->
     <link rel="stylesheet" href="css/style.css">
@@ -131,6 +131,81 @@
                 font-size: 30px !important;
             }
         }
+        .florence-quote-section {
+            padding: 48px 0 36px;
+            background: #fafafa;
+        }
+        .florence-quote-card {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 36px 40px 32px;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+        .florence-quote-card::before,
+        .florence-quote-card::after {
+            content: none;
+        }
+        .florence-quote-mark {
+            display: block;
+            margin: 0 0 16px;
+            font-size: 42px;
+            line-height: 1;
+            color: #c8c8c8;
+            font-family: Georgia, "Times New Roman", serif;
+        }
+        .florence-quote-text {
+            margin: 0 0 22px;
+            padding: 0;
+            border: none;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.35rem;
+            line-height: 1.65;
+            font-weight: 400;
+            font-style: italic;
+            color: #2a2a2a;
+            transition: opacity 0.5s ease;
+        }
+        .florence-quote-text.florence-quote-text--fade {
+            opacity: 0;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .florence-quote-text {
+                transition: none;
+            }
+        }
+        .florence-quote-cite {
+            display: block;
+            font-family: "Open Sans", sans-serif;
+            font-size: 0.875rem;
+            font-weight: 600;
+            font-style: normal;
+            color: #5c5c5c;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .florence-quote-cite::before {
+            content: "— ";
+        }
+        @media only screen and (max-width: 767px) {
+            .florence-quote-section {
+                padding: 36px 0 28px;
+            }
+            .florence-quote-card {
+                padding: 28px 22px 24px;
+                margin-left: 12px;
+                margin-right: 12px;
+            }
+            .florence-quote-text {
+                font-size: 1.15rem;
+            }
+            .florence-quote-mark {
+                font-size: 34px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -162,7 +237,7 @@
                     <!--Logo-->
                     <div id="logo">
                         <a href="#banner">
-                            <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775042302/cbf945d7-993a-40f7-aa62-5a572f99e4f0_qikaqj.png" alt="NurseEdge Logo">
+                            <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" alt="NurseEdge Logo">
                             <span>NurseEdge</span>
                         </a>
                     </div>
@@ -300,8 +375,19 @@
         </section>
         <!--End of Introduction-->
 
-
-      
+        <section class="florence-quote-section scrollto clearfix" aria-label="Florence Nightingale quotes">
+            <div class="row clearfix">
+                <div class="col-1">
+                    <div class="florence-quote-card wow fadeInUp" data-wow-delay="0.15s">
+                        <span class="florence-quote-mark" aria-hidden="true">&ldquo;</span>
+                        <blockquote id="florence-quote-rotator-text" class="florence-quote-text" aria-live="polite">
+                            Nursing is an art: and if it is to be made an art, it requires an exclusive devotion.
+                        </blockquote>
+                        <cite class="florence-quote-cite">Florence Nightingale</cite>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!--Pricing Tables-->
         <section id="pricing" class="secondary-color text-center scrollto clearfix ">
@@ -436,7 +522,7 @@
                 <blockquote class="col-3 testimonial classic">
                     <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775051529/223_eo7qof.png" alt="Kwame Asante"/>
                     <q>NurseEdge completely changed how I studied. The mock exams felt exactly like the real NMC paper, and the AI explanations made difficult topics so easy to understand. I passed on my first attempt!</q>
-                    <footer>Kwame Asante</footer>
+                    <footer>Paul Asante</footer>
                 </blockquote>
                 <!-- End of Testimonial-->
 
@@ -508,6 +594,36 @@
     (function () {
         var yearEl = document.getElementById("footer-year");
         if (yearEl) yearEl.textContent = new Date().getFullYear();
+    })();
+    (function () {
+        var quotes = [
+            "Nursing is an art: and if it is to be made an art, it requires an exclusive devotion.",
+            "I attribute my success to this: I never gave or took any excuse.",
+            "The very first requirement in a hospital is that it should do the sick no harm.",
+            "Let us never consider ourselves finished nurses… we must be learning all of our lives.",
+            "Live life when you have it. Life is a splendid gift.",
+            "Were there none who were discontented with what they have, the world would never reach anything better."
+        ];
+        var el = document.getElementById("florence-quote-rotator-text");
+        if (!el || quotes.length < 2) return;
+        var i = 0;
+        var everyMs = 5000;
+        var fadeMs = 500;
+        var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        function step() {
+            i = (i + 1) % quotes.length;
+            if (reduced) {
+                el.textContent = quotes[i];
+                return;
+            }
+            el.classList.add("florence-quote-text--fade");
+            setTimeout(function () {
+                el.textContent = quotes[i];
+                el.classList.remove("florence-quote-text--fade");
+            }, fadeMs);
+        }
+        setInterval(step, everyMs);
     })();
 </script>
 

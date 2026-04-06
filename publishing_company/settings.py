@@ -12,13 +12,22 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-this-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["*", ".academicdigital.space", "doi.ms", "www.doi.ms"]
+ALLOWED_HOSTS = ["*", ".academicdigital.space", "doi.ms", "www.doi.ms", ".vercel.app"]
+
+_extra_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
+if _extra_allowed_hosts:
+    ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + _extra_allowed_hosts))
 
 CSRF_TRUSTED_ORIGINS = [
   
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "https://*.vercel.app",
 ]
+
+_extra_csrf_origins = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+if _extra_csrf_origins:
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS + _extra_csrf_origins))
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
@@ -28,6 +37,12 @@ CSRF_USE_SESSIONS = False
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+
+# Vercel serverless filesystem is read-only at runtime, so avoid DB-backed sessions there.
+if os.getenv("VERCEL"):
+    SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -160,11 +175,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_USE_TLS = True
-EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com").strip()
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or "no-reply@example.com"
+EMAIL_HOST_USER = (os.getenv("EMAIL_HOST_USER") or "").strip()
+# Gmail app passwords are 16 characters; Google often displays them with spaces — SMTP needs them removed.
+EMAIL_HOST_PASSWORD = (os.getenv("EMAIL_HOST_PASSWORD") or "").replace(" ", "").strip()
+DEFAULT_FROM_EMAIL = (os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "no-reply@example.com").strip()
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "25"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 IDENTIFIER_RESOLVER_DOMAIN = os.getenv("IDENTIFIER_RESOLVER_DOMAIN", "scholarindexing.academicdigital.space")
