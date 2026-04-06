@@ -589,13 +589,16 @@ GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 POSTGREST_LIST_CHUNK = 1000
 
 
-def _mq_fetch_question_rows(admin, escaped, filter_prog, filter_paper, max_rows):
+def _mq_fetch_question_rows(
+    admin, escaped, filter_prog, filter_paper, max_rows, start_offset=0
+):
     """
     Fetch up to max_rows question_bank rows for the manage-questions list, newest first.
     Uses repeated range() windows so we are not limited to a single response cap.
+    start_offset skips the first N rows of the ordered query (for backfill after a split fetch).
     """
     collected = []
-    offset = 0
+    offset = start_offset
     while len(collected) < max_rows:
         q = admin.table("question_bank").select(
             "id, programme, paper_title, question_text, correct_option, created_at"
@@ -628,20 +631,62 @@ def _mq_merge_mock_nonmock_rows(admin, escaped, filter_paper, max_rows):
     For the default 'all programmes' list (no search): take up to half of max_rows
     from non-mock and half from mock, then sort by created_at. Stops mock-only
     uploads from crowding out general-test rows in the newest-N window.
+
+    If one partition has fewer than half the rows, backfill from the other stream
+    (continuing past its first chunk) so we still load up to max_rows when possible.
     """
     half = max(1, max_rows // 2)
-    nm = _mq_fetch_question_rows(admin, escaped, "__non_mock__", filter_paper, half)
-    mk = _mq_fetch_question_rows(admin, escaped, "__mock__", filter_paper, half)
-    by_id = {}
-    for r in nm + mk:
-        rid = r.get("id")
-        if rid is not None:
-            by_id[rid] = r
-    return sorted(
-        by_id.values(),
-        key=lambda r: str(r.get("created_at") or ""),
-        reverse=True,
-    )
+    nm1 = _mq_fetch_question_rows(admin, escaped, "__non_mock__", filter_paper, half)
+    mk1 = _mq_fetch_question_rows(admin, escaped, "__mock__", filter_paper, half)
+    nm_all = list(nm1)
+    mk_all = list(mk1)
+
+    def _sorted_merge(rows_nm, rows_mk):
+        by_id = {}
+        for r in rows_nm + rows_mk:
+            rid = r.get("id")
+            if rid is not None:
+                by_id[rid] = r
+        return sorted(
+            by_id.values(),
+            key=lambda r: str(r.get("created_at") or ""),
+            reverse=True,
+        )
+
+    merged = _sorted_merge(nm_all, mk_all)
+    if len(merged) >= max_rows:
+        return merged[:max_rows]
+
+    surplus = max_rows - len(merged)
+    if len(nm1) >= half and surplus > 0:
+        nm_all.extend(
+            _mq_fetch_question_rows(
+                admin,
+                escaped,
+                "__non_mock__",
+                filter_paper,
+                surplus,
+                start_offset=len(nm1),
+            )
+        )
+        merged = _sorted_merge(nm_all, mk_all)
+    if len(merged) >= max_rows:
+        return merged[:max_rows]
+
+    surplus = max_rows - len(merged)
+    if len(mk1) >= half and surplus > 0:
+        mk_all.extend(
+            _mq_fetch_question_rows(
+                admin,
+                escaped,
+                "__mock__",
+                filter_paper,
+                surplus,
+                start_offset=len(mk1),
+            )
+        )
+        merged = _sorted_merge(nm_all, mk_all)
+    return merged[:max_rows]
 
 
 def _mq_question_bank_stats(admin):
