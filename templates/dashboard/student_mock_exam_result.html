@@ -1,6 +1,10 @@
 {% extends "dashboard/base_dashboard.html" %}
 {% block title %}Mock Result - NurseEdge{% endblock %}
 
+{% block dashboard_head %}
+<link rel="stylesheet" href="/css/confetti-celebration.css" />
+{% endblock %}
+
 {% block content %}
 <div class="row">
   <div class="col-lg-8 mx-auto">
@@ -74,8 +78,12 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/js/confetti-celebration.js"></script>
 <script>
   (function () {
+    if (window.NurseEdgeConfetti) {
+      window.NurseEdgeConfetti.start({ duration: 5200 });
+    }
     var el = document.getElementById("resultModal");
     if (!el) return;
     var modal = new bootstrap.Modal(el);

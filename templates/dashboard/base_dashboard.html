@@ -304,6 +304,7 @@
   <!-- Helpers -->
   <script src="/sneat-assets/vendor/js/helpers.js"></script>
   <script src="/sneat-assets/js/config.js"></script>
+  {% block dashboard_head %}{% endblock %}
 </head>
 
 <body>
@@ -709,6 +710,14 @@
         <div class="content-wrapper">
           <!-- Content -->
           <div class="container-xxl flex-grow-1 container-p-y">
+            {% if messages %}
+              {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible mb-3" role="alert">
+                  {{ message }}
+                  <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+              {% endfor %}
+            {% endif %}
             {% block content %}{% endblock %}
           </div>
           <!-- / Content -->

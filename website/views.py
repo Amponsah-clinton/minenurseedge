@@ -5037,6 +5037,78 @@ def student_attempt_review(request, test_type, attempt_id):
     return render(request, "dashboard/student_attempt_review.html", context)
 
 
+def _flashcard_session_key(user_id, review_date_iso):
+    return f"flashcard_reviewed:{user_id}:{review_date_iso}"
+
+
+def _session_flashcard_reviewed_ids(request, user_id, review_date_iso):
+    key = _flashcard_session_key(user_id, review_date_iso)
+    raw = request.session.get(key) or []
+    if not isinstance(raw, list):
+        return set()
+    return {str(x) for x in raw if x is not None}
+
+
+def _append_session_flashcard_review(request, user_id, review_date_iso, question_id):
+    key = _flashcard_session_key(user_id, review_date_iso)
+    lst = [str(x) for x in (request.session.get(key) or [])]
+    q = str(question_id)
+    if q not in lst:
+        lst.append(q)
+    request.session[key] = lst
+    request.session.modified = True
+
+
+def _remove_from_session_flashcard_review(request, user_id, review_date_iso, question_id):
+    key = _flashcard_session_key(user_id, review_date_iso)
+    lst = [str(x) for x in (request.session.get(key) or [])]
+    q = str(question_id)
+    lst = [x for x in lst if x != q]
+    if lst:
+        request.session[key] = lst
+    else:
+        request.session.pop(key, None)
+    request.session.modified = True
+
+
+def _save_flashcard_daily_review(admin, user_id, review_date_iso, question_id):
+    """
+    Record one flashcard as reviewed for (user_id, date, question_id).
+    Tries upsert (composite conflict), then insert, then update — survives
+    missing/odd Supabase upsert constraints in some projects.
+    """
+    row = {
+        "student_id": user_id,
+        "review_date": review_date_iso,
+        "question_id": question_id,
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    log = logging.getLogger(__name__)
+    try:
+        admin.table("flashcard_daily_reviews").upsert(
+            [row],
+            on_conflict="student_id,review_date,question_id",
+        ).execute()
+        return True
+    except Exception as exc1:
+        log.warning("flashcard_daily_reviews upsert failed: %s", exc1)
+    try:
+        admin.table("flashcard_daily_reviews").insert(row).execute()
+        return True
+    except Exception as exc2:
+        log.warning("flashcard_daily_reviews insert failed: %s", exc2)
+    try:
+        admin.table("flashcard_daily_reviews").update(
+            {"reviewed_at": row["reviewed_at"]}
+        ).eq("student_id", user_id).eq(
+            "review_date", review_date_iso
+        ).eq("question_id", question_id).execute()
+        return True
+    except Exception as exc3:
+        log.exception("flashcard_daily_reviews could not be saved: %s", exc3)
+    return False
+
+
 def student_flashcards(request):
     guard = _require_login(request)
     if guard:
@@ -5045,7 +5117,7 @@ def student_flashcards(request):
         return redirect("/admin-panel/dashboard/")
 
     admin = _supabase_admin()
-    user_id = request.session.get("user_id")
+    user_id = str(request.session.get("user_id") or "").strip()
     unread_count = _student_unread_count(user_id)
     today = datetime.now(timezone.utc).date().isoformat()
 
@@ -5079,7 +5151,9 @@ def student_flashcards(request):
     shuffled = list(question_pool)
     rng.shuffle(shuffled)
     daily_cards = shuffled[:10]
-    daily_ids = [item["id"] for item in daily_cards]
+    # Normalize IDs to strings for safe comparisons across form POST / DB payloads.
+    daily_ids = [str(item.get("id")) for item in daily_cards if item.get("id") is not None]
+    daily_id_set = set(daily_ids)
 
     reviewed_rows = []
     if daily_ids:
@@ -5096,36 +5170,30 @@ def student_flashcards(request):
             )
         except Exception:
             reviewed_rows = []
-    reviewed_ids = {row.get("question_id") for row in reviewed_rows}
+    reviewed_ids = {
+        str(row.get("question_id"))
+        for row in reviewed_rows
+        if row.get("question_id") is not None
+    }
+    reviewed_ids |= _session_flashcard_reviewed_ids(request, user_id, today)
 
     if request.method == "POST":
-        question_id = request.POST.get("question_id", "").strip()
-        if question_id and question_id in daily_ids:
-            try:
-                admin.table("flashcard_daily_reviews").upsert(
-                    {
-                        "student_id": user_id,
-                        "review_date": today,
-                        "question_id": question_id,
-                        "reviewed_at": datetime.now(timezone.utc).isoformat(),
-                    },
-                    on_conflict="student_id,review_date,question_id",
-                ).execute()
-                reviewed_ids.add(question_id)
-            except Exception:
-                pass
+        question_id = str(request.POST.get("question_id", "").strip())
+        if question_id and question_id in daily_id_set and user_id:
+            if _save_flashcard_daily_review(admin, user_id, today, question_id):
+                _remove_from_session_flashcard_review(request, user_id, today, question_id)
+            else:
+                _append_session_flashcard_review(request, user_id, today, question_id)
+        return redirect("/dashboard/flashcards/")
 
-    pending_cards = [card for card in daily_cards if card["id"] not in reviewed_ids]
-    reviewed_count = len(reviewed_ids)
+    pending_cards = [
+        card for card in daily_cards
+        if str(card.get("id")) not in reviewed_ids
+    ]
+    reviewed_count = len(reviewed_ids.intersection(daily_id_set))
     done_for_today = reviewed_count >= len(daily_cards)
 
-    current_idx = int(request.GET.get("idx", "0") or "0")
-    if current_idx < 0:
-        current_idx = 0
-    current_card = None
-    if pending_cards:
-        current_idx = min(current_idx, len(pending_cards) - 1)
-        current_card = pending_cards[current_idx]
+    current_card = pending_cards[0] if pending_cards else None
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
