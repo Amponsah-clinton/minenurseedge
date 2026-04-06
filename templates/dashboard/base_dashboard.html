@@ -280,6 +280,25 @@
         animation: botPulse 1.8s ease-out infinite;
       }
     }
+    .nurseedge-sidebar-brand {
+      font-size: 1.2rem !important;
+      letter-spacing: -0.02em !important;
+      text-transform: none !important;
+    }
+    .nurseedge-top-brand:hover {
+      opacity: 0.9;
+    }
+    .nurseedge-top-brand-text {
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    @media (max-width: 575.98px) {
+      .nurseedge-top-brand-text {
+        font-size: 1rem;
+      }
+    }
   </style>
 
   <!-- Helpers -->
@@ -302,7 +321,7 @@
               <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png"
                    alt="NurseEdge" style="height:28px;width:auto;" />
             </span>
-            <span class="app-brand-text menu-text fw-bolder ms-2" style="font-size:1.75rem;letter-spacing:-0.5px;text-transform:none;"><span style="color:#696cff;">N</span>urse<span style="color:#696cff;">E</span>dge</span>
+            <span class="app-brand-text menu-text fw-bolder ms-2 nurseedge-sidebar-brand">NurseEdge</span>
           </a>
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
@@ -626,13 +645,19 @@
         <!-- Navbar -->
         <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
              id="layout-navbar">
-          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-2 me-sm-3 me-xl-0 d-xl-none">
             <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
               <i class="bx bx-menu bx-sm"></i>
             </a>
           </div>
 
-          <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+          <a href="/" class="nurseedge-top-brand d-flex align-items-center text-body text-decoration-none me-2 me-md-3 flex-shrink-0 py-0" title="NurseEdge">
+            <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png"
+                 alt="NurseEdge" width="28" height="28" class="flex-shrink-0" style="height:28px;width:auto;" />
+            <span class="nurseedge-top-brand-text fw-bold mb-0 ms-2">NurseEdge</span>
+          </a>
+
+          <div class="navbar-nav-right d-flex align-items-center flex-grow-1" id="navbar-collapse">
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">

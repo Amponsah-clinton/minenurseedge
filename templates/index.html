@@ -131,9 +131,171 @@
                 font-size: 30px !important;
             }
         }
+        /* Hero tagline: namari-color.css is linked after style.css, so its #banner h2 was
+           undoing responsive type and shadow — tagline looked unstyled vs the headline. */
+        #banner .section-heading h2.banner-tagline::after {
+            display: none !important;
+            content: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            margin: 0 !important;
+        }
+        #banner h2.banner-tagline {
+            color: #111;
+            font-family: "Open Sans", sans-serif, Arial, Helvetica;
+            max-width: 36em;
+            text-wrap: balance;
+            margin-top: 12px;
+            margin-bottom: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            font-weight: 400 !important;
+            text-shadow:
+                0 0 1px rgba(255, 255, 255, 0.95),
+                0 1px 2px rgba(255, 255, 255, 0.9),
+                0 0 20px rgba(255, 255, 255, 0.45);
+        }
+        @media all and (max-width: 1024px) {
+            #banner h2.banner-tagline {
+                font-size: 16px !important;
+                line-height: 1.5 !important;
+            }
+        }
+        @media (min-width: 481px) and (max-width: 767px) {
+            #banner h2.banner-tagline {
+                font-size: 15px !important;
+            }
+        }
+        @media (max-width: 480px) {
+            #banner h2.banner-tagline {
+                font-size: 14px !important;
+                line-height: 1.55 !important;
+            }
+        }
+        .nursing-programmes-band {
+            padding: 32px 0 12px;
+            margin-top: 24px;
+            border-top: 1px solid #e8e8e8;
+        }
+        .nursing-programmes-band .nursing-programmes-heading {
+            margin: 0 0 10px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #6b7280;
+        }
+        .nursing-programmes-band .nursing-programmes-intro {
+            margin: 0 0 20px;
+            max-width: 52em;
+            font-size: 16px;
+            line-height: 1.65;
+            color: #3f3f46;
+        }
+        /* Two-column band: text left (col-3), programme list right (col-2-3) */
+        .nursing-programmes-band .col-3 .nursing-programmes-intro {
+            max-width: none;
+            margin-bottom: 0;
+        }
+        .nursing-programmes-band .col-2-3 .nursing-programmes-panel {
+            max-width: none;
+            width: 100%;
+        }
+        .nursing-programmes-panel {
+            max-width: 40rem;
+            border: 1px solid #e5e5e5;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        .nursing-programmes-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .nursing-programmes-list li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px 20px;
+            margin: 0;
+            padding: 16px 22px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .nursing-programmes-list li:last-child {
+            border-bottom: none;
+        }
+        .nursing-programmes-list .prog-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #18181b;
+            line-height: 1.45;
+            flex: 1;
+            min-width: 0;
+        }
+        .nursing-programmes-list .prog-abbr {
+            flex-shrink: 0;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #52525b;
+            padding: 5px 11px;
+            border-radius: 7px;
+            background: #f4f4f5;
+            border: 1px solid #e4e4e7;
+        }
+        @media only screen and (max-width: 767px) {
+            .nursing-programmes-band {
+                padding: 24px 0 8px;
+                margin-top: 16px;
+            }
+            .nursing-programmes-band .nursing-programmes-intro {
+                font-size: 15px;
+                margin-bottom: 16px;
+            }
+            .nursing-programmes-band .col-3 .nursing-programmes-intro {
+                margin-bottom: 16px;
+            }
+            .nursing-programmes-panel {
+                max-width: none;
+                border-radius: 12px;
+            }
+            .nursing-programmes-list li {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 16px 18px;
+                gap: 10px;
+            }
+            .nursing-programmes-list .prog-abbr {
+                align-self: flex-start;
+            }
+        }
         .florence-quote-section {
+            position: relative;
             padding: 48px 0 36px;
-            background: #fafafa;
+            background-color: #252525;
+            background-image: url("https://images.unsplash.com/photo-1624727828489-a1e03b79bba8?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bnVyc2VzfGVufDB8fDB8fHww");
+            /* Slightly smaller than cover = zoom out; edges fill with background-color */
+            background-size: 92% auto;
+            background-position: center center;
+            background-repeat: no-repeat;
+        }
+        .florence-quote-section::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.48);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .florence-quote-section > .row {
+            position: relative;
+            z-index: 1;
         }
         .florence-quote-card {
             max-width: 820px;
@@ -281,7 +443,7 @@
 
                 <div class="section-heading">
                     <h1>Pass Your NMC Licensure Exams With Confidence</h1>
-                    <h2>The smartest way for Ghanaian nursing <br> students to study, practice, and succeed.</h2>
+                    <h2 class="banner-tagline">The smartest way for Ghanaian nursing&nbsp;students to study, practice, and succeed.</h2>
                 </div>
 
                 <!--Call to Action-->
@@ -371,6 +533,38 @@
 
             </div>
 
+            <div class="row clearfix nursing-programmes-band">
+                <div class="col-3">
+                    <h3 class="nursing-programmes-heading">Programmes on the system</h3>
+                    <p class="nursing-programmes-intro">Alongside everything above, questions and practice are organised for nursing students across these registration pathways:</p>
+                </div>
+                <div class="col-2-3">
+                    <div class="nursing-programmes-panel">
+                        <ul class="nursing-programmes-list">
+                            <li>
+                                <span class="prog-name">Registered General Nursing</span>
+                                <span class="prog-abbr">RGN</span>
+                            </li>
+                            <li>
+                                <span class="prog-name">Registered Midwifery</span>
+                                <span class="prog-abbr">RM</span>
+                            </li>
+                            <li>
+                                <span class="prog-name">Nurse Assistant Clinical</span>
+                                <span class="prog-abbr">NAC / NAP</span>
+                            </li>
+                            <li>
+                                <span class="prog-name">Registered Mental Health Nursing</span>
+                                <span class="prog-abbr">RMHN</span>
+                            </li>
+                            <li>
+                                <span class="prog-name">Registered Public Health Nursing</span>
+                                <span class="prog-abbr">RPHN</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
 
         </section>
         <!--End of Introduction-->
