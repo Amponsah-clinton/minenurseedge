@@ -12,13 +12,22 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-this-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = ["*", ".academicdigital.space", "doi.ms", "www.doi.ms"]
+ALLOWED_HOSTS = ["*", ".academicdigital.space", "doi.ms", "www.doi.ms", ".vercel.app"]
+
+_extra_allowed_hosts = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
+if _extra_allowed_hosts:
+    ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + _extra_allowed_hosts))
 
 CSRF_TRUSTED_ORIGINS = [
   
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "https://*.vercel.app",
 ]
+
+_extra_csrf_origins = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
+if _extra_csrf_origins:
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS + _extra_csrf_origins))
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
@@ -28,6 +37,12 @@ CSRF_USE_SESSIONS = False
 SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+
+# Vercel serverless filesystem is read-only at runtime, so avoid DB-backed sessions there.
+if os.getenv("VERCEL"):
+    SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",

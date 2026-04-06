@@ -834,6 +834,10 @@ def about(request):
     return render(request, "about.html")
 
 
+def nclex_page(request):
+    return render(request, "nclex.html")
+
+
 # ---------------------------------------------------------------------------
 # Auth views
 # ---------------------------------------------------------------------------

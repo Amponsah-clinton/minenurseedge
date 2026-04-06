@@ -182,7 +182,7 @@
         if (typeof showAppMessageModal === 'function') {
           showAppMessageModal('Content is required.', 'Validation');
         } else {
-          alert('Content is required.');
+          console.warn('showAppMessageModal is unavailable.');
         }
         return;
       }

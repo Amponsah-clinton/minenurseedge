@@ -80,6 +80,7 @@
                         <ul>
                             <li><a href="/">Home</a></li>
                             <li><a href="/about/">About</a></li>
+                            <li><a href="/nclex/">NCLEX</a></li>
                             <li><a href="/contact/">Contact</a></li>
                             <li><a href="/login/">Login</a></li>
                             <li><a href="/signup/">Signup</a></li>
@@ -112,10 +113,90 @@
 <script src="/js/jquery.stickyNavbar.min.js"></script>
 <script src="/js/jquery.waypoints.min.js"></script>
 <script src="/js/site.js"></script>
+<style>
+    .app-msg-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        padding: 16px;
+    }
+    .app-msg-modal {
+        width: min(460px, 96vw);
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+    }
+    .app-msg-modal-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid #eceff4;
+        font-weight: 700;
+    }
+    .app-msg-modal-body {
+        padding: 16px;
+        color: #334155;
+        line-height: 1.5;
+    }
+    .app-msg-modal-foot {
+        padding: 12px 16px;
+        border-top: 1px solid #eceff4;
+        display: flex;
+        justify-content: flex-end;
+    }
+    .app-msg-modal-btn {
+        border: none;
+        background: #1a1a2e;
+        color: #fff;
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+</style>
+<div id="appMessageModalBase" class="app-msg-modal-backdrop" aria-hidden="true">
+    <div class="app-msg-modal" role="dialog" aria-modal="true" aria-labelledby="appMsgBaseTitle">
+        <div class="app-msg-modal-head" id="appMsgBaseTitle">Notice</div>
+        <div class="app-msg-modal-body" id="appMsgBaseBody">Something needs your attention.</div>
+        <div class="app-msg-modal-foot">
+            <button type="button" class="app-msg-modal-btn" id="appMsgBaseCloseBtn">OK</button>
+        </div>
+    </div>
+</div>
 <script>
     (function () {
         var yearEl = document.getElementById("footer-year");
         if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+        var modal = document.getElementById("appMessageModalBase");
+        var titleEl = document.getElementById("appMsgBaseTitle");
+        var bodyEl = document.getElementById("appMsgBaseBody");
+        var closeBtn = document.getElementById("appMsgBaseCloseBtn");
+        if (!modal || !titleEl || !bodyEl || !closeBtn) return;
+
+        function closeModal() {
+            modal.style.display = "none";
+            modal.setAttribute("aria-hidden", "true");
+        }
+        function openModal(message, title) {
+            titleEl.textContent = title || "Notice";
+            bodyEl.textContent = message || "Something needs your attention.";
+            modal.style.display = "flex";
+            modal.setAttribute("aria-hidden", "false");
+            closeBtn.focus();
+        }
+        closeBtn.addEventListener("click", closeModal);
+        modal.addEventListener("click", function (e) {
+            if (e.target === modal) closeModal();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && modal.style.display === "flex") closeModal();
+        });
+
+        window.showAppMessageModal = openModal;
     })();
 </script>
 {% block scripts %}{% endblock %}
