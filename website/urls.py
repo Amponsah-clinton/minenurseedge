@@ -7,6 +7,7 @@ urlpatterns = [
     # Public
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
+    path("nclex/", views.nclex_page, name="nclex_page"),
     path("contact/", views.contact_page, name="contact"),
 
     # Auth

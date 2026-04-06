@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}NCLEX - NurseEdge{% endblock %}
+{% block head_extra %}
+<style>
+    body {
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    }
+    .nclex-wrap {
+        min-height: calc(100vh - 170px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+    }
+    .nclex-card {
+        width: 100%;
+        max-width: 760px;
+        background: #ffffff;
+        border: 1px solid #e7eaf1;
+        border-radius: 16px;
+        box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
+        padding: 44px 28px;
+        text-align: center;
+    }
+    .nclex-badge {
+        display: inline-block;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-weight: 700;
+        color: #4f46e5;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 999px;
+        padding: 6px 12px;
+        margin-bottom: 16px;
+    }
+    .nclex-title {
+        margin: 0 0 10px;
+        font-size: clamp(30px, 5vw, 44px);
+        font-weight: 800;
+        color: #111827;
+        line-height: 1.1;
+    }
+    .nclex-sub {
+        margin: 0 auto;
+        max-width: 560px;
+        font-size: 16px;
+        line-height: 1.7;
+        color: #4b5563;
+    }
+    .nclex-coming {
+        margin: 26px 0 0;
+        font-size: 22px;
+        font-weight: 800;
+        color: #1e293b;
+    }
+    .nclex-back {
+        margin-top: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 42px;
+        padding: 0 16px;
+        border-radius: 10px;
+        border: 1px solid #d1d5db;
+        background: #fff;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+    .nclex-back:hover {
+        background: #f9fafb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="nclex-wrap">
+    <section class="nclex-card" aria-labelledby="nclex-title">
+        <span class="nclex-badge">NurseEdge NCLEX</span>
+        <h1 class="nclex-title" id="nclex-title">NCLEX Prep Hub</h1>
+        <p class="nclex-sub">
+            We are building a dedicated NCLEX experience with focused question sets,
+            smart practice plans, and targeted review workflows.
+        </p>
+        <p class="nclex-coming">Coming Soon</p>
+        <a href="/" class="nclex-back">Back to Home</a>
+    </section>
+</main>
+{% endblock %}
