@@ -70,21 +70,35 @@
     .ab-bullets li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:#333; line-height:1.6; }
     .ab-bullets li i { color:#d2b356; flex-shrink:0; margin-top:3px; }
 
+    .ab-groups { background:#fff; padding:70px 24px; border-top:1px solid #ededed; border-bottom:1px solid #ededed; }
+    .ab-groups-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
+    .ab-groups-left { flex:0 0 280px; }
+    .ab-groups-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 14px; line-height:1.2; }
+    .ab-groups-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; margin:0; }
+    .ab-groups-right { flex:1; }
+    .ab-groups-list { list-style:none; margin:0; padding:0; border:1px solid #e6e6e6; border-radius:12px; overflow:hidden; background:#fff; }
+    .ab-groups-list li { display:flex; align-items:center; justify-content:space-between; gap:12px 18px; padding:16px 20px; border-bottom:1px solid #f1f1f1; }
+    .ab-groups-list li:last-child { border-bottom:none; }
+    .ab-groups-name { font-size:15px; font-weight:600; color:#18181b; line-height:1.45; }
+    .ab-groups-code { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#4b5563; border:1px solid #e5e7eb; background:#f8fafc; border-radius:999px; padding:6px 12px; white-space:nowrap; }
+
     .ab-cta { background:#f8f8f8; border-top:1px solid #ebebeb; padding:90px 24px; text-align:center; }
     .ab-cta-inner { max-width:580px; margin:0 auto; }
     .ab-cta h2 { font-size:36px; font-weight:800; color:#111; margin:0 0 14px; }
     .ab-cta p { font-size:17px; font-weight:300; color:#555; line-height:1.8; margin:0 0 36px; }
 
     @media(max-width:900px){
-        .ab-story-inner, .ab-platform-inner { flex-direction:column; gap:40px; }
+        .ab-story-inner, .ab-platform-inner, .ab-groups-inner { flex-direction:column; gap:40px; }
         .ab-bullets { grid-template-columns:1fr; }
     }
     @media(max-width:600px){
         .ab-hero { height:420px; }
         .ab-hero h1 { font-size:30px; }
         .ab-hero p { font-size:15px; }
-        .ab-story-left h2, .ab-platform-left h2, .ab-cta h2 { font-size:26px; }
+        .ab-story-left h2, .ab-platform-left h2, .ab-groups-left h2, .ab-cta h2 { font-size:26px; }
         .ab-section-head h2 { font-size:26px; }
+        .ab-groups { padding:52px 16px; }
+        .ab-groups-list li { flex-direction:column; align-items:flex-start; padding:14px 16px; }
     }
 </style>
 {% endblock %}
@@ -112,6 +126,25 @@
             <span class="ab-eyebrow">What NurseEdge Is</span>
             <h2 style="font-size:28px;font-weight:800;color:#111;margin:12px 0 16px;">One Platform. Total Readiness.</h2>
             <p>NurseEdge is a smart exam preparation and learning platform built specifically for nursing students in Ghana. From your first year on the wards to the final NMC licensure exams, NurseEdge gives you one place to learn, practice, and measure your readiness — without the chaos.</p>
+        </div>
+    </div>
+</section>
+
+<section class="ab-groups">
+    <div class="ab-groups-inner">
+        <div class="ab-groups-left wow fadeInLeft" data-wow-delay="0.1s">
+            <span class="ab-eyebrow">Who Can Use NurseEdge</span>
+            <h2>Nursing Groups We Support</h2>
+            <p>Questions, practice tests, and learning flows are structured for these pathways.</p>
+        </div>
+        <div class="ab-groups-right wow fadeInRight" data-wow-delay="0.2s">
+            <ul class="ab-groups-list">
+                <li><span class="ab-groups-name">Registered General Nursing</span><span class="ab-groups-code">RGN</span></li>
+                <li><span class="ab-groups-name">Registered Midwifery</span><span class="ab-groups-code">RM</span></li>
+                <li><span class="ab-groups-name">Nurse Assistant Clinical</span><span class="ab-groups-code">NAC / NAP</span></li>
+                <li><span class="ab-groups-name">Registered Mental Health Nursing</span><span class="ab-groups-code">RMHN</span></li>
+                <li><span class="ab-groups-name">Registered Public Health Nursing</span><span class="ab-groups-code">RPHN</span></li>
+            </ul>
         </div>
     </div>
 </section>

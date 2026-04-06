@@ -1072,14 +1072,15 @@
         const BytezModule = await import("https://unpkg.com/bytez.js@3.0.0/dist/index.mjs");
         const Bytez = BytezModule.default;
         const sdk   = new Bytez(bytezApiKey);
-        const model = sdk.model("innuendo142857/bert-finetuned-squad");
+        // Use the requested QA model
+        const model = sdk.model("deepset/roberta-base-squad2");
 
         const { error, output } = await model.run({
           "context": NURSING_CONTEXT,
           "question": question
         });
 
-        // bert-finetuned-squad returns: { answer, score, start, end }
+        // roberta-base-squad2 returns an answer payload (e.g. answer/score/start/end).
         if (output !== undefined && output !== null) {
           if (typeof output === 'object' && !Array.isArray(output)) {
             var raw = output.answer || output.text || output.generated_text || output.response;
