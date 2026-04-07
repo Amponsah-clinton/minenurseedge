@@ -139,20 +139,35 @@
                   {% endif %}
                 </td>
                 <td>
-                  <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
-                    {% csrf_token %}
-                    {% if user.is_active %}
-                      <button type="submit" class="btn btn-sm btn-outline-danger"
-                              onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
-                        <i class="bx bx-block me-1"></i>Disable
+                  <div class="d-flex flex-nowrap gap-1">
+                    <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
+                      {% csrf_token %}
+                      {% if user.is_active %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
+                                title="Disable account"
+                                aria-label="Disable account"
+                                onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
+                          <i class="bx bx-block"></i>
+                        </button>
+                      {% else %}
+                        <button type="submit" class="btn btn-sm btn-outline-success btn-icon"
+                                title="Enable account"
+                                aria-label="Enable account"
+                                onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
+                          <i class="bx bx-check-circle"></i>
+                        </button>
+                      {% endif %}
+                    </form>
+                    <form method="POST" action="/admin-panel/users/{{ user.id }}/delete/" style="display:inline;">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-danger btn-icon"
+                              title="Delete account"
+                              aria-label="Delete account"
+                              onclick="return confirm('Delete {{ user.full_name|default:user.email }} permanently? This cannot be undone.');">
+                        <i class="bx bx-trash"></i>
                       </button>
-                    {% else %}
-                      <button type="submit" class="btn btn-sm btn-outline-success"
-                              onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
-                        <i class="bx bx-check-circle me-1"></i>Enable
-                      </button>
-                    {% endif %}
-                  </form>
+                    </form>
+                  </div>
                 </td>
               </tr>
               {% endfor %}

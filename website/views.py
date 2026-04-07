@@ -1807,6 +1807,70 @@ def admin_toggle_user_status(request, user_id):
     return redirect(next_url)
 
 
+def admin_delete_user(request, user_id):
+    """Permanently delete a student account (admin-only, POST-only)."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    if request.method != "POST":
+        return redirect("/admin-panel/users/")
+
+    admin = _supabase_admin()
+    try:
+        profile_resp = (
+            admin.table("profiles")
+            .select("id, role")
+            .eq("id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+        if not profile_resp.data:
+            return redirect("/admin-panel/users/")
+
+        profile = profile_resp.data[0]
+        # Never allow deleting admin accounts from this endpoint.
+        if profile.get("role") == "admin":
+            return redirect("/admin-panel/users/")
+
+        # Clear live session token(s) first so user is immediately evicted.
+        try:
+            admin.table("active_sessions").delete().eq("user_id", str(user_id)).execute()
+        except Exception:
+            pass
+
+        # Delete Supabase Auth user (usually cascades related auth identities).
+        try:
+            admin.auth.admin.delete_user(str(user_id))
+        except Exception:
+            pass
+
+        # Best-effort cleanup for app-owned records linked by user_id/student_id.
+        for table_name, col_name in (
+            ("mock_attempt_answers", "student_id"),
+            ("mock_attempts", "student_id"),
+            ("quiz_attempt_answers", "student_id"),
+            ("quiz_attempts", "student_id"),
+            ("student_notifications", "student_id"),
+            ("subscriptions", "user_id"),
+            ("active_sessions", "user_id"),
+        ):
+            try:
+                admin.table(table_name).delete().eq(col_name, str(user_id)).execute()
+            except Exception:
+                pass
+
+        # Remove profile row.
+        try:
+            admin.table("profiles").delete().eq("id", str(user_id)).execute()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    return redirect("/admin-panel/users/")
+
+
 def admin_locked_accounts(request):
     """Lists all student accounts that have been disabled (is_active = false).
     Provides a one-click unlock button for each."""

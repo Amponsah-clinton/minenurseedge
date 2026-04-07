@@ -2,6 +2,10 @@
 {% block title %}Daily Flashcards - NurseEdge{% endblock %}
 
 {% block content %}
+
+{# ── Security layer (screenshot prevention, text-selection block, etc.) ── #}
+{% include "dashboard/_test_security.html" %}
+
 <div class="row g-4">
   <div class="col-12">
     <div class="card">
