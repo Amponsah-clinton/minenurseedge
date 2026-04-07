@@ -602,11 +602,10 @@
                         <h3>{{ basic.name|default:"Basic" }}</h3>
                         <p class="pricing-sub">{{ basic.tagline|default:"Essential study tools to get you started" }}</p>
                         <div class="pricing">
-                            <div class="price">GHS {{ basic.price|default:"50.0" }}</div>
+                            <div class="price">GHS {{ basic.price|default:"70" }}</div>
                             <p>/ {{ basic.duration_days|default:365 }} days</p>
                         </div>
                         <ul>
-                            <li>Standardized Test Preparation</li>
                             {% if basic.features %}
                                 {% for f in basic.features %}
                                 <li>{{ f }}</li>
@@ -615,7 +614,6 @@
                                 <li>Access to all Practice Questions</li>
                                 <li>Mock Exams &amp; Leaderboard</li>
                                 <li>Drug Cards Reference</li>
-                                <li>Dosage Calculator</li>
                                 <li>Admin Announcements</li>
                             {% endif %}
                         </ul>
@@ -630,21 +628,23 @@
                         <h3>{{ premium.name|default:"Premium" }}</h3>
                         <p class="pricing-sub">{{ premium.tagline|default:"Full unlimited access to every NurseEdge feature" }}</p>
                         <div class="pricing">
-                            <div class="price">GHS {{ premium.price|default:"200.0" }}</div>
+                            <div class="price">GHS {{ premium.price|default:"150" }}</div>
                             <p>/ {{ premium.duration_days|default:365 }} days</p>
                         </div>
                         <ul>
-                            <li>Advanced Standardized Test Preparation</li>
                             {% if premium.features %}
                                 {% for f in premium.features %}
                                 <li>{{ f }}</li>
                                 {% endfor %}
                             {% else %}
+                            <li>Advanced Standardized Test Preparation</li>
                                 <li>Everything in Basic</li>
                                 <li>Lecture Notes (all years)</li>
                                 <li>Flashcards &amp; Spaced Repetition</li>
                                 <li>AI Study Assistant</li>
                                 <li>Community Forums</li>
+                                <li>Dosage Calculator</li>
+                            <li>Competitive Quiz</li>
                                 <li>Detailed Performance Analytics</li>
                             {% endif %}
                         </ul>

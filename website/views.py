@@ -6731,13 +6731,13 @@ def _ensure_plan_defaults():
             db.table("subscription_plans").insert({
                 "slug": "premium", "name": "Premium",
                 "tagline": "Full unlimited access to every NurseEdge feature",
-                "price": 200.0, "currency": "GHS", "duration_days": 365,
+                "price": 150.0, "currency": "GHS", "duration_days": 365,
                 "is_active": True, "features": [], "payment_instructions": "",
                 "updated_at": now,
             }).execute()
-        elif em["premium"] == 0.0:
+        elif em["premium"] in (0.0, 200.0):          # migrate legacy price
             db.table("subscription_plans").update({
-                "price": 200.0, "updated_at": now,
+                "price": 150.0, "updated_at": now,
             }).eq("slug", "premium").execute()
 
         _PLAN_DEFAULTS_SEEDED = True
@@ -6750,12 +6750,22 @@ def _get_plans():
     _ensure_plan_defaults()
     try:
         rows = _supabase_admin().table("subscription_plans").select("*").eq("is_active", True).execute().data or []
-        return {r["slug"]: r for r in rows}
+        plans = {r["slug"]: r for r in rows}
+        premium = plans.get("premium")
+        if premium is not None:
+            feats = premium.get("features")
+            if not isinstance(feats, list):
+                feats = []
+            # Ensure landing page always advertises this premium feature.
+            if not any(str(f).strip().lower() in ("competitive quiz", "competitive quizzes") for f in feats):
+                feats.append("Competitive Quizzes")
+            premium["features"] = feats
+        return plans
     except Exception:
         return {
             "basic": {"slug": "basic", "name": "Basic", "price": 70, "currency": "GHS",
                       "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
-            "premium": {"slug": "premium", "name": "Premium", "price": 200, "currency": "GHS",
+            "premium": {"slug": "premium", "name": "Premium", "price": 150, "currency": "GHS",
                         "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
         }
 
