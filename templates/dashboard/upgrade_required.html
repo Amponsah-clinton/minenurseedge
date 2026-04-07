@@ -1,0 +1,213 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Upgrade to Premium - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .upgrade-wrap {
+    max-width: 640px;
+    margin: 40px auto;
+  }
+  .upgrade-card {
+    background: #fff;
+    border: 1px solid #e8eaf0;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    overflow: hidden;
+  }
+  .upgrade-header {
+    background: #1a1a2e;
+    padding: 32px 32px 28px;
+    text-align: center;
+  }
+  .upgrade-header-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #fff;
+    margin: 0 auto 16px;
+  }
+  .upgrade-header h2 {
+    font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0 0 6px;
+  }
+  .upgrade-header p {
+    font-size: 0.88rem; color: #94a3b8; margin: 0;
+  }
+  .upgrade-body { padding: 28px 32px; }
+
+  .locked-feature-box {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .locked-feature-box i {
+    font-size: 22px; color: #dc2626; flex-shrink: 0; margin-top: 1px;
+  }
+  .locked-feature-box strong { font-size: 0.9rem; color: #991b1b; display: block; margin-bottom: 3px; }
+  .locked-feature-box span { font-size: 0.82rem; color: #b91c1c; line-height: 1.55; }
+
+  .upgrade-section-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.6px; color: #9098b0; margin: 0 0 12px;
+  }
+  .feature-list { list-style: none; padding: 0; margin: 0 0 24px; }
+  .feature-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #f1f3f8;
+    font-size: 0.87rem; color: #1f2d40;
+  }
+  .feature-list li:last-child { border-bottom: none; }
+  .feature-list li i {
+    font-size: 17px; flex-shrink: 0;
+  }
+  .feature-list li i.check { color: #3ea76a; }
+  .feature-list li i.lock  { color: #c8cdd8; }
+  .feature-list li .fi-label { font-weight: 600; }
+  .feature-list li .fi-note  { font-size: 0.78rem; color: #9098b0; margin-left: 2px; }
+
+  .upgrade-price-row {
+    background: #f8f9fc;
+    border: 1px solid #e8eaf0;
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .upgrade-price-label { font-size: 0.82rem; color: #9098b0; margin: 0 0 2px; font-weight: 600; }
+  .upgrade-price-value { font-size: 1.5rem; font-weight: 800; color: #1f2d40; line-height: 1; }
+  .upgrade-price-value small { font-size: 0.78rem; font-weight: 400; color: #9098b0; }
+
+  .btn-upgrade {
+    display: block; width: 100%; text-align: center;
+    background: #1a1a2e; color: #fff;
+    border: none; border-radius: 10px;
+    padding: 14px 20px;
+    font-size: 1rem; font-weight: 700;
+    text-decoration: none;
+    transition: background .15s;
+  }
+  .btn-upgrade:hover { background: #2d2d50; color: #fff; }
+
+  .btn-back {
+    display: block; text-align: center;
+    margin-top: 12px;
+    font-size: 0.82rem; color: #9098b0; text-decoration: none;
+    font-weight: 600;
+  }
+  .btn-back:hover { color: #5a5ce8; }
+</style>
+
+<div class="upgrade-wrap">
+  <div class="upgrade-card">
+
+    {# ── Header ──────────────────────────────────────────────────────────── #}
+    <div class="upgrade-header">
+      <div class="upgrade-header-icon">
+        <i class="bx bx-crown"></i>
+      </div>
+      <h2>Premium Feature</h2>
+      <p>Upgrade your plan to unlock <strong style="color:#fff;">{{ feature_label }}</strong></p>
+    </div>
+
+    {# ── Body ─────────────────────────────────────────────────────────────── #}
+    <div class="upgrade-body">
+
+      {# Blocked feature callout #}
+      <div class="locked-feature-box">
+        <i class="bx bx-lock-alt"></i>
+        <div>
+          <strong>{{ feature_label }}</strong>
+          <span>{{ feature_description }}</span>
+        </div>
+      </div>
+
+      {# What's in your current plan #}
+      <p class="upgrade-section-label">Your current plan — Basic</p>
+      <ul class="feature-list">
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">Mock Exams &amp; Leaderboard</span></li>
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">General Tests</span></li>
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">Drug Cards Reference</span></li>
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">Dosage Calculator</span></li>
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">NMC Mastery</span></li>
+        <li><i class="bx bx-check-circle check"></i><span class="fi-label">Admin Announcements</span></li>
+      </ul>
+
+      {# What Premium adds #}
+      <p class="upgrade-section-label">Premium unlocks everything above, plus</p>
+      <ul class="feature-list">
+        <li>
+          <i class="bx {% if feature == 'lecture_notes' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">Lecture Notes</span>
+            <span class="fi-note">All years &amp; topics</span>
+          </span>
+        </li>
+        <li>
+          <i class="bx {% if feature == 'flashcards' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">Flashcards &amp; Spaced Repetition</span>
+            <span class="fi-note">Daily review cards</span>
+          </span>
+        </li>
+        <li>
+          <i class="bx {% if feature == 'quizzes' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">Competitive Quizzes</span>
+            <span class="fi-note">Timed practice with rankings</span>
+          </span>
+        </li>
+        <li>
+          <i class="bx {% if feature == 'community' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">Community Forums</span>
+            <span class="fi-note">Join study groups with peers</span>
+          </span>
+        </li>
+        <li>
+          <i class="bx {% if feature == 'performance' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">Detailed Performance Analytics</span>
+            <span class="fi-note">Charts &amp; insights across all exams</span>
+          </span>
+        </li>
+        <li>
+          <i class="bx {% if feature == 'ai_assistant' %}bx-star text-warning{% else %}bx-lock lock{% endif %}"></i>
+          <span>
+            <span class="fi-label">AI Study Assistant</span>
+            <span class="fi-note">Instant AI-powered answers</span>
+          </span>
+        </li>
+      </ul>
+
+      {# Price row #}
+      <div class="upgrade-price-row">
+        <div>
+          <p class="upgrade-price-label">Premium Plan</p>
+          <p class="upgrade-price-value">GHS 150 <small>/ 365 days</small></p>
+        </div>
+        <span style="font-size:0.75rem;background:#ecfdf5;color:#065f46;border-radius:6px;padding:4px 10px;font-weight:700;">
+          Full access
+        </span>
+      </div>
+
+      {# CTA #}
+      <a href="/subscribe/" class="btn-upgrade">
+        <i class="bx bx-crown me-2"></i>Upgrade to Premium
+      </a>
+      <a href="javascript:history.back();" class="btn-back">
+        ← Go back
+      </a>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

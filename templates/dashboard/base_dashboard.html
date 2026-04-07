@@ -496,36 +496,50 @@
             </a>
           </li>
 
+          {# Plan helper: True for premium, free-access, or admin #}
+          {% with is_pro=request.session.plan_slug %}
+
           <!-- Study -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Study</span>
           </li>
 
+          {# Lecture Notes — Premium only #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'lecture_notes' %}active{% endif %}">
             <a href="/dashboard/lecture-notes/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-book-open"></i>
-              <div data-i18n="Lecture Notes">Lecture Notes</div>
+              <div>Lecture Notes</div>
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=lecture_notes" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-book-open" style="opacity:.5;"></i>
+              <div style="opacity:.55;">Lecture Notes</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
 
           <li class="menu-item {% if active_page == 'nmc_mastery' %}active{% endif %}">
             <a href="/dashboard/nmc-mastery/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bolt-circle"></i>
-              <div data-i18n="NMC Mastery">NMC Mastery</div>
+              <div>NMC Mastery</div>
             </a>
           </li>
 
           <li class="menu-item {% if active_page == 'drug_cards' %}active{% endif %}">
             <a href="/dashboard/drug-cards/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-capsule"></i>
-              <div data-i18n="Drug Cards">Drug Cards</div>
+              <div>Drug Cards</div>
             </a>
           </li>
 
           <li class="menu-item {% if active_page == 'dosage_calculator' %}active{% endif %}">
             <a href="/dashboard/dosage-calculator/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-calculator"></i>
-              <div data-i18n="Dosage Calculations">Dosage Calculations</div>
+              <div>Dosage Calculations</div>
             </a>
           </li>
 
@@ -537,84 +551,143 @@
           <li class="menu-item {% if active_page == 'general_tests' %}active{% endif %}">
             <a href="/dashboard/general-tests/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-question-mark"></i>
-              <div data-i18n="General Tests">General Tests</div>
+              <div>General Tests</div>
             </a>
           </li>
 
+          {# Competitive Quizzes — Premium only #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'quizzes' %}active{% endif %}">
             <a href="/dashboard/quizzes/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-list-check"></i>
-              <div data-i18n="Quizzes">Quizzes</div>
+              <div>Quizzes</div>
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=quizzes" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-list-check" style="opacity:.5;"></i>
+              <div style="opacity:.55;">Quizzes</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
 
+          {# Flashcards — Premium only #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'flashcards' %}active{% endif %}">
             <a href="/dashboard/flashcards/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-brain"></i>
-              <div data-i18n="Flashcards">Flashcards</div>
+              <div>Flashcards</div>
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=flashcards" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-brain" style="opacity:.5;"></i>
+              <div style="opacity:.55;">Flashcards</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
 
           <li class="menu-item {% if active_page == 'mock_exams' %}active open{% endif %}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-target-lock"></i>
-              <div data-i18n="Mock Exams">Mock Exams</div>
+              <div>Mock Exams</div>
             </a>
             <ul class="menu-sub">
               <li class="menu-item {% if active_page == 'mock_exams' %}active{% endif %}">
-                <a href="/dashboard/mock-exams/" class="menu-link"><div>Mock Exams & Leaderboard</div></a>
+                <a href="/dashboard/mock-exams/" class="menu-link"><div>Mock Exams &amp; Leaderboard</div></a>
               </li>
             </ul>
           </li>
 
+          {# Performance Analytics — Premium only #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'performance' %}active{% endif %}">
             <a href="/dashboard/performance/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-              <div data-i18n="Performance">Performance</div>
+              <div>Performance</div>
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=performance" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2" style="opacity:.5;"></i>
+              <div style="opacity:.55;">Performance</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
 
           <!-- Tools -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Tools</span>
           </li>
 
+          {# AI Assistant — Premium only (coming soon) #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item">
             <a href="#" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bot"></i>
-              <div data-i18n="AI Assistant">AI Assistant</div>
+              <div>AI Assistant</div>
+              <span class="badge ms-2" style="font-size:0.58rem;background:#ecfdf5;color:#065f46;border-radius:4px;padding:1px 6px;font-weight:700;">Soon</span>
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=ai_assistant" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-bot" style="opacity:.5;"></i>
+              <div style="opacity:.55;">AI Assistant</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
 
           <li class="menu-item {% if active_page == 'bookmarks' %}active{% endif %}">
             <a href="/dashboard/bookmarks/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bookmark"></i>
-              <div data-i18n="Bookmarks">Bookmarks</div>
+              <div>Bookmarks</div>
             </a>
           </li>
 
+          {# Community Forums — Premium only #}
+          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'community' %}active{% endif %}">
             <a href="/dashboard/community/" class="menu-link d-flex align-items-center justify-content-between">
               <span class="d-flex align-items-center">
                 <i class="menu-icon tf-icons bx bx-group"></i>
-                <span data-i18n="Community">Community</span>
+                <span>Community</span>
               </span>
               {% if community_unread %}
               <span class="badge bg-label-primary rounded-pill">{{ community_unread }}</span>
               {% endif %}
             </a>
           </li>
+          {% else %}
+          <li class="menu-item">
+            <a href="/dashboard/upgrade/?feature=community" class="menu-link" title="Premium feature">
+              <i class="menu-icon tf-icons bx bx-group" style="opacity:.5;"></i>
+              <div style="opacity:.55;">Community</div>
+              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+            </a>
+          </li>
+          {% endif %}
+
           <li class="menu-item {% if active_page == 'student_messages' %}active{% endif %}">
             <a href="/dashboard/messages/" class="menu-link d-flex align-items-center justify-content-between">
               <span class="d-flex align-items-center">
                 <i class="menu-icon tf-icons bx bx-bell"></i>
-                <span data-i18n="Messages">Messages</span>
+                <span>Messages</span>
               </span>
               {% if student_unread_notifications %}
               <span class="badge bg-label-danger rounded-pill">{{ student_unread_notifications }}</span>
               {% endif %}
             </a>
           </li>
+
+          {% endwith %}
 
           <!-- Account -->
           <li class="menu-header small text-uppercase">

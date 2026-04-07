@@ -330,6 +330,49 @@ def _create_session(request, user_id, email, full_name, role):
     request.session["role"] = role
 
 
+# ── Plan-based feature access control ────────────────────────────────────────
+# Features that require a Premium subscription. Basic users are redirected
+# to /dashboard/upgrade/ when they try to reach any of these.
+_PREMIUM_ONLY_FEATURES = frozenset({
+    "lecture_notes",
+    "flashcards",
+    "community",
+    "performance",
+    "quizzes",
+    "ai_assistant",
+})
+
+_FEATURE_LABELS = {
+    "lecture_notes": ("Lecture Notes", "Access all lecture notes organised by year and topic."),
+    "flashcards":    ("Flashcards & Spaced Repetition", "Review key concepts with daily flashcards and spaced repetition."),
+    "community":     ("Community Forums", "Join study groups and discuss exam topics with peers."),
+    "performance":   ("Detailed Performance Analytics", "Track your progress across every exam type with rich charts and insights."),
+    "quizzes":       ("Competitive Quizzes", "Practice with timed competitive quizzes and compare your score with others."),
+    "ai_assistant":  ("AI Study Assistant", "Get instant AI-powered answers to your nursing exam questions."),
+}
+
+
+def _is_premium(request):
+    """Return True if the current session is Premium, free-access, or admin."""
+    if request.session.get("role") == "admin":
+        return True
+    if request.session.get("is_free_access"):
+        return True
+    return request.session.get("plan_slug", "basic") == "premium"
+
+
+def _plan_gate(request, feature):
+    """
+    Return an HttpResponseRedirect to the upgrade page if `feature` is
+    premium-only and the current user is on the Basic plan.
+    Returns None if access should be allowed.
+    """
+    if feature not in _PREMIUM_ONLY_FEATURES or _is_premium(request):
+        return None
+    return redirect(f"/dashboard/upgrade/?feature={feature}")
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _destroy_session(request):
     user_id = request.session.get("user_id")
     if user_id:
@@ -907,6 +950,11 @@ def login_page(request):
 
             _create_session(request, user_id, profile["email"], full_name, role)
 
+            # Store plan info for feature-gating in templates and view guards.
+            # profile was fetched with select("*") so all columns are available.
+            request.session["plan_slug"]     = (profile.get("plan_slug") or "basic")
+            request.session["is_free_access"] = bool(profile.get("is_free_access"))
+
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
@@ -1448,6 +1496,9 @@ def user_dashboard(request):
         community_unread = _community_unread_count(user_id)
     except Exception:
         pass
+
+    # Refresh plan_slug in session — catches upgrades made since last login
+    request.session["plan_slug"] = plan_slug
 
     show_nmc_disclaimer = False
     if request.session.get("role") != "admin":
@@ -4405,6 +4456,9 @@ def student_quizzes(request):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "quizzes")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -4462,6 +4516,9 @@ def student_quiz_take(request, quiz_id):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "quizzes")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -4569,6 +4626,9 @@ def student_quiz_result(request, attempt_id):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "quizzes")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -4920,6 +4980,9 @@ def student_performance(request):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "performance")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -5009,6 +5072,9 @@ def student_attempt_review(request, test_type, attempt_id):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "performance")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -5258,6 +5324,9 @@ def student_flashcards(request):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
+    gate = _plan_gate(request, "flashcards")
+    if gate:
+        return gate
 
     admin = _supabase_admin()
     user_id = str(request.session.get("user_id") or "").strip()
@@ -5438,6 +5507,9 @@ def student_lecture_notes(request):
         return guard
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/lecture-notes/")
+    gate = _plan_gate(request, "lecture_notes")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     unread_count = _student_unread_count(user_id)
@@ -5980,6 +6052,9 @@ def community_home(request):
     guard = _require_login(request)
     if guard:
         return guard
+    gate = _plan_gate(request, "community")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     db = _supabase_admin()
@@ -6071,6 +6146,9 @@ def community_detail(request, slug):
     guard = _require_login(request)
     if guard:
         return guard
+    gate = _plan_gate(request, "community")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     community = _get_community_by_slug(slug)
@@ -6185,6 +6263,9 @@ def community_post_detail(request, slug, post_id):
     guard = _require_login(request)
     if guard:
         return guard
+    gate = _plan_gate(request, "community")
+    if gate:
+        return gate
 
     user_id = request.session.get("user_id")
     community = _get_community_by_slug(slug)
@@ -7112,6 +7193,40 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
     }
 
 
+def plan_upgrade_required(request):
+    """
+    Shown when a Basic-plan student tries to access a Premium-only feature.
+    Displays a branded upgrade prompt with the blocked feature name and a
+    list of Premium benefits.
+    """
+    guard = _require_login(request)
+    if guard:
+        return guard
+    # Already premium — redirect to dashboard (shouldn't normally reach here)
+    if _is_premium(request):
+        return redirect("/dashboard/")
+
+    feature = (request.GET.get("feature") or "").strip()
+    label, description = _FEATURE_LABELS.get(
+        feature, ("Premium Feature", "This feature requires a Premium subscription.")
+    )
+    user_id = request.session.get("user_id")
+    context = {
+        "full_name":   request.session.get("full_name", "Student"),
+        "email":       request.session.get("email", ""),
+        "role":        request.session.get("role", "student"),
+        "active_page": "",
+        "plan_slug":   request.session.get("plan_slug", "basic"),
+        "student_unread_notifications": _student_unread_count(user_id),
+        "has_unread_notifications":     _student_unread_count(user_id) > 0,
+        "community_unread": 0,
+        "feature":          feature,
+        "feature_label":    label,
+        "feature_description": description,
+    }
+    return render(request, "dashboard/upgrade_required.html", context)
+
+
 def student_subscribe(request):
     guard = _require_login(request)
     if guard:
@@ -7265,6 +7380,8 @@ def student_subscribe_success(request):
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
         except Exception:
             return redirect("/subscribe/?error=save_failed")
+        # Refresh plan in session so feature gates take effect immediately
+        request.session["plan_slug"] = plan_slug
         return redirect("/dashboard/")
 
     if session_id and stripe_secret:

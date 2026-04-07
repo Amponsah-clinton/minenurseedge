@@ -46,6 +46,7 @@ urlpatterns = [
     path("dashboard/mock-exams/<uuid:exam_id>/start/", views.student_take_mock_exam, name="student_take_mock_exam"),
     path("dashboard/mock-exams/<uuid:exam_id>/result/", views.student_mock_exam_result, name="student_mock_exam_result"),
     path("dashboard/report-question/", views.student_report_question, name="student_report_question"),
+    path("dashboard/upgrade/", views.plan_upgrade_required, name="plan_upgrade_required"),
 
     # Admin panel
     path("admin-panel/dashboard/", views.admin_dashboard, name="admin_dashboard"),

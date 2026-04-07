@@ -391,9 +391,15 @@
           <p style="font-size:0.76rem;color:#9098b0;margin:0;">{{ total_questions_available }} questions &bull; {{ mock_exam_count }} mock exams</p>
         </div>
         <div style="margin-top:14px;">
+          {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
           <a href="/dashboard/performance/" style="font-size:0.78rem;font-weight:700;color:#5a5ce8;text-decoration:none;">
             View performance →
           </a>
+          {% else %}
+          <a href="/dashboard/upgrade/?feature=performance" style="font-size:0.78rem;font-weight:700;color:#9098b0;text-decoration:none;">
+            <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 5px;font-weight:700;margin-right:4px;">PRO</span>Unlock analytics →
+          </a>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -412,38 +418,53 @@
             <div>
               <p class="dash-section-label" style="margin-bottom:0;">My Communities</p>
               <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">
-                {% if joined_communities %}{{ joined_communities|length }} joined{% else %}None joined yet{% endif %}
-                {% if community_unread %}&nbsp;<span style="background:#1a1a2e;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.67rem;font-weight:700;">{{ community_unread }} new</span>{% endif %}
+                {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
+                  {% if joined_communities %}{{ joined_communities|length }} joined{% else %}None joined yet{% endif %}
+                  {% if community_unread %}&nbsp;<span style="background:#1a1a2e;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.67rem;font-weight:700;">{{ community_unread }} new</span>{% endif %}
+                {% else %}
+                  Premium feature
+                {% endif %}
               </p>
             </div>
           </div>
+          {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
           <a href="/dashboard/community/" class="dash-section-link">
             Browse all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
           </a>
+          {% endif %}
         </div>
 
-        {% if joined_communities %}
-        <div class="comm-chips">
-          {% for c in joined_communities %}
-          <a href="/dashboard/community/{{ c.slug }}/" class="comm-chip">
-            <div class="comm-chip__icon">
-              <i class="bx {{ c.icon }}"></i>
-            </div>
-            <div style="min-width:0;">
-              <div class="comm-chip__name">{{ c.name }}</div>
-              <div class="comm-chip__meta">{{ c.member_count }} member{{ c.member_count|pluralize }}</div>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
+        {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
+          {% if joined_communities %}
+          <div class="comm-chips">
+            {% for c in joined_communities %}
+            <a href="/dashboard/community/{{ c.slug }}/" class="comm-chip">
+              <div class="comm-chip__icon"><i class="bx {{ c.icon }}"></i></div>
+              <div style="min-width:0;">
+                <div class="comm-chip__name">{{ c.name }}</div>
+                <div class="comm-chip__meta">{{ c.member_count }} member{{ c.member_count|pluralize }}</div>
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="comm-empty">
+            <i class="bx bx-group" style="font-size:2rem;color:#c8cdd8;"></i>
+            <p>You haven't joined any communities yet.</p>
+            <a href="/dashboard/community/" class="btn btn-sm btn-dark" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#1a1a2e;border:none;">
+              Explore Communities
+            </a>
+          </div>
+          {% endif %}
         {% else %}
-        <div class="comm-empty">
-          <i class="bx bx-group" style="font-size:2rem;color:#c8cdd8;"></i>
-          <p>You haven't joined any communities yet.</p>
-          <a href="/dashboard/community/" class="btn btn-sm btn-dark" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#1a1a2e;border:none;">
-            Explore Communities
-          </a>
-        </div>
+          {# Basic plan — show upgrade prompt #}
+          <div class="comm-empty">
+            <i class="bx bx-lock-alt" style="font-size:2rem;color:#c8cdd8;"></i>
+            <p>Join study groups and discuss with peers. Available on the <strong>Premium</strong> plan.</p>
+            <a href="/dashboard/upgrade/?feature=community" class="btn btn-sm" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#5a5ce8;color:#fff;border:none;text-decoration:none;">
+              Upgrade to Premium
+            </a>
+          </div>
         {% endif %}
 
       </div>
@@ -514,7 +535,10 @@
         </div>
       </div>
       <div class="card-body">
+        {% with is_pro=request.session.plan_slug %}
         <ul class="p-0 m-0">
+
+          {# ── Messages (all plans) ─────────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-bell"></i></span>
@@ -523,60 +547,88 @@
               <div class="me-2">
                 <h6 class="mb-0">Messages</h6>
                 <small class="text-muted">
-                  {% if student_unread_notifications and student_unread_notifications > 0 %}
-                    {{ student_unread_notifications }} unread
-                  {% else %}
-                    No unread messages
-                  {% endif %}
+                  {% if student_unread_notifications and student_unread_notifications > 0 %}{{ student_unread_notifications }} unread{% else %}No unread messages{% endif %}
                 </small>
               </div>
-              <div>
-                <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary">Open</a>
-              </div>
+              <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary">Open</a>
             </div>
           </li>
+
+          {# ── Lecture Notes (Premium) ───────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
+              <span class="avatar-initial rounded {% if is_pro == 'premium' or request.session.is_free_access %}bg-label-primary{% else %}bg-label-secondary{% endif %}"><i class="bx bx-book-open"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Lecture Notes</h6>
+                <h6 class="mb-0 d-flex align-items-center gap-2">
+                  Lecture Notes
+                  {% if not is_pro == 'premium' and not request.session.is_free_access %}
+                  <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+                  {% endif %}
+                </h6>
                 <small class="text-muted">Notes organised by year &amp; topic</small>
               </div>
-              <div>
-                <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary">Browse</a>
-              </div>
+              {% if is_pro == "premium" or request.session.is_free_access %}
+              <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary">Browse</a>
+              {% else %}
+              <a href="/dashboard/upgrade/?feature=lecture_notes" class="btn btn-sm btn-outline-secondary">Upgrade</a>
+              {% endif %}
             </div>
           </li>
+
+          {# ── Mock Exams (all plans) ────────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-success"><i class="bx bx-target-lock"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Mock Exam</h6>
+                <h6 class="mb-0">Mock Exams</h6>
                 <small class="text-muted">Simulate the real NMC licensure exam</small>
               </div>
-              <div>
-                <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success">Start</a>
-              </div>
+              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success">Start</a>
             </div>
           </li>
+
+          {# ── Flashcards (Premium) ──────────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
+              <span class="avatar-initial rounded {% if is_pro == 'premium' or request.session.is_free_access %}bg-label-warning{% else %}bg-label-secondary{% endif %}"><i class="bx bx-brain"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Flashcards</h6>
-                <small class="text-muted">Review key concepts with spaced repetition</small>
+                <h6 class="mb-0 d-flex align-items-center gap-2">
+                  Flashcards
+                  {% if not is_pro == 'premium' and not request.session.is_free_access %}
+                  <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
+                  {% endif %}
+                </h6>
+                <small class="text-muted">Spaced repetition review</small>
               </div>
-              <div>
-                <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning">Review</a>
-              </div>
+              {% if is_pro == "premium" or request.session.is_free_access %}
+              <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning">Review</a>
+              {% else %}
+              <a href="/dashboard/upgrade/?feature=flashcards" class="btn btn-sm btn-outline-secondary">Upgrade</a>
+              {% endif %}
             </div>
           </li>
+
+          {# ── General Tests (all plans) ─────────────────────────────────── #}
+          <li class="d-flex mb-4 pb-1">
+            <div class="avatar flex-shrink-0 me-3">
+              <span class="avatar-initial rounded bg-label-info"><i class="bx bx-question-mark"></i></span>
+            </div>
+            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+              <div class="me-2">
+                <h6 class="mb-0">General Tests</h6>
+                <small class="text-muted">Standardized test preparation</small>
+              </div>
+              <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info">Practice</a>
+            </div>
+          </li>
+
+          {# ── Dosage Calculator (all plans) ─────────────────────────────── #}
           <li class="d-flex">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-info"><i class="bx bx-calculator"></i></span>
@@ -584,14 +636,14 @@
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
                 <h6 class="mb-0">Dosage Calculations</h6>
-                <small class="text-muted">Drills for tablet, injection, IV &amp; drip rate</small>
+                <small class="text-muted">Tablet, injection, IV &amp; drip rate drills</small>
               </div>
-              <div>
-                <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info">Practice</a>
-              </div>
+              <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info">Practice</a>
             </div>
           </li>
+
         </ul>
+        {% endwith %}
       </div>
     </div>
   </div>
