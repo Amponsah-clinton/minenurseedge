@@ -1,0 +1,59 @@
+/* Full-screen confetti overlay (quiz / mock / general test completion) */
+.ne-confetti-root {
+  position: fixed;
+  top: 0 !important;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  z-index: 10000;
+  background: transparent;
+  border: none;
+  overflow: hidden;
+}
+
+@keyframes confetti-slow {
+  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
+  100% { transform: translate3d(25px, 105vh, 0) rotateX(360deg) rotateY(180deg); }
+}
+
+@keyframes confetti-medium {
+  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
+  100% { transform: translate3d(100px, 105vh, 0) rotateX(100deg) rotateY(360deg); }
+}
+
+@keyframes confetti-fast {
+  0% { transform: translate3d(0, 0, 0) rotateX(0) rotateY(0); }
+  100% { transform: translate3d(-50px, 105vh, 0) rotateX(10deg) rotateY(250deg); }
+}
+
+.ne-confetti-root .confetti-container {
+  perspective: 700px;
+  position: absolute;
+  overflow: hidden;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.ne-confetti-root .confetti {
+  position: absolute;
+  z-index: 1;
+  top: -10px;
+  border-radius: 0;
+}
+
+.ne-confetti-root .confetti--animation-slow {
+  animation: confetti-slow 2.25s linear 1 forwards;
+}
+
+.ne-confetti-root .confetti--animation-medium {
+  animation: confetti-medium 1.75s linear 1 forwards;
+}
+
+.ne-confetti-root .confetti--animation-fast {
+  animation: confetti-fast 1.25s linear 1 forwards;
+}

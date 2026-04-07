@@ -23,11 +23,6 @@
     align-items: start;
     min-width: 0;
   }
-  @media (min-width: 768px) {
-    .lecture-notes-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
 
   /* Keep tiles inside grid columns (long words / URLs) */
   .lecture-note-tile {
@@ -103,6 +98,8 @@
     padding: 1.25rem;
     min-height: 4rem;
     max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
