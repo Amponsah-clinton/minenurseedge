@@ -103,33 +103,122 @@
 
   <!-- My Plan -->
   <div class="col-lg-4 col-md-12 mb-4">
-    <div style="background:#fff;border:1px solid #e8eaf0;border-radius:12px;padding:22px;color:#1f2d40;display:flex;flex-direction:column;justify-content:space-between;min-height:160px;height:100%;box-shadow:0 2px 6px rgba(0,0,0,.04);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="width:38px;height:38px;border-radius:9px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a5ce8;">
-          <i class="bx bx-shield-quarter"></i>
+    <div class="card h-100" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 6px rgba(0,0,0,.04);">
+      <div class="card-body" style="padding:22px;display:flex;flex-direction:column;">
+
+        {# ── Header row: icon + status badge ──────────────────────────────── #}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="width:38px;height:38px;border-radius:9px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a5ce8;">
+            <i class="bx bx-shield-quarter"></i>
+          </div>
+          {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
+            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#f3f4f6;color:#6b7280;">Expired</span>
+          {% elif sub_status == 'active' %}
+            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#ecfdf5;color:#065f46;">Active</span>
+          {% elif sub_status == 'pending_payment' %}
+            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#fffbeb;color:#92400e;">Pending</span>
+          {% else %}
+            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#f3f4f6;color:#6b7280;">{{ sub_status|title }}</span>
+          {% endif %}
         </div>
-        <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 10px;color:#fff;
-          {% if sub_status == 'active' %}background:#3ea76a;{% elif sub_status == 'pending_payment' %}background:#cc8800;{% else %}background:#9098b0;{% endif %}">
-          {% if sub_status == 'active' %}Active{% elif sub_status == 'pending_payment' %}Pending{% else %}{{ sub_status|title }}{% endif %}
-        </span>
-      </div>
-      <div>
-        <p style="font-size:0.75rem;color:#9098b0;margin:0 0 3px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">My Plan</p>
-        <p style="font-size:1.4rem;font-weight:800;margin:0 0 4px;color:#1f2d40;">{{ plan_name }}</p>
-        <p style="font-size:0.76rem;color:#9098b0;margin:0;">
-          {% if sub_expires %}Expires {{ sub_expires }}{% elif sub_status == 'pending_payment' %}Awaiting payment verification{% else %}No active plan{% endif %}
-        </p>
-      </div>
-      <div style="margin-top:14px;">
-        {% if sub_status != 'active' %}
-        <a href="/subscribe/" style="font-size:0.78rem;font-weight:700;color:#fff;background:#5a5ce8;border:1px solid #4a4cd8;border-radius:7px;padding:6px 14px;text-decoration:none;display:inline-block;">
-          Complete Payment →
-        </a>
-        {% else %}
-        <a href="/payment/" style="font-size:0.78rem;font-weight:700;color:#5a5ce8;text-decoration:none;">
-          View subscription
-        </a>
-        {% endif %}
+
+        {# ── Plan name ─────────────────────────────────────────────────────── #}
+        <p style="font-size:0.72rem;color:#9098b0;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">My Plan</p>
+        <p style="font-size:1.35rem;font-weight:800;margin:0 0 16px;color:#1f2d40;">{{ plan_name }}</p>
+
+        {# ── Countdown / status body ───────────────────────────────────────── #}
+        <div class="flex-grow-1">
+          {% if sub_status == 'active' %}
+
+            {% if days_remaining is None %}
+              {# Free-access: no expiry #}
+              <div style="display:flex;align-items:center;gap:6px;color:#065f46;font-size:0.82rem;font-weight:600;">
+                <i class="bx bx-infinite" style="font-size:1.1rem;"></i>
+                Never expires
+              </div>
+
+            {% elif days_remaining <= 0 %}
+              {# Expired #}
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 13px;">
+                <p style="font-size:0.82rem;font-weight:700;color:#991b1b;margin:0 0 2px;">
+                  <i class="bx bx-error-circle me-1"></i>Subscription expired
+                </p>
+                {% if sub_expires_display %}
+                <p style="font-size:0.74rem;color:#b91c1c;margin:0;">Expired {{ sub_expires_display }}</p>
+                {% endif %}
+              </div>
+
+            {% else %}
+              {# Active with countdown #}
+              {# Colour scheme: green > 60 days, amber 30-60, red < 30 #}
+              {% if days_remaining > 60 %}
+                {% with bar_color="#3ea76a" text_color="#065f46" %}
+                <div style="background:#f1f5f1;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
+                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
+                </div>
+                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
+                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
+                </p>
+                {% endwith %}
+              {% elif days_remaining > 30 %}
+                {% with bar_color="#d97706" text_color="#92400e" %}
+                <div style="background:#fef3c7;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
+                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
+                </div>
+                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
+                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
+                </p>
+                {% endwith %}
+              {% else %}
+                {% with bar_color="#dc2626" text_color="#991b1b" %}
+                <div style="background:#fef2f2;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
+                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
+                </div>
+                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
+                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
+                </p>
+                {% endwith %}
+              {% endif %}
+
+              {% if sub_expires_display %}
+              <p style="font-size:0.74rem;color:#9098b0;margin:0;">
+                <i class="bx bx-calendar me-1"></i>Expires {{ sub_expires_display }}
+              </p>
+              {% endif %}
+            {% endif %}
+
+          {% elif sub_status == 'pending_payment' %}
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;">
+              <p style="font-size:0.82rem;font-weight:700;color:#92400e;margin:0 0 2px;">
+                <i class="bx bx-time-five me-1"></i>Payment pending
+              </p>
+              <p style="font-size:0.74rem;color:#b45309;margin:0;">Complete payment to activate access</p>
+            </div>
+
+          {% else %}
+            <p style="font-size:0.78rem;color:#9098b0;margin:0;">No active subscription</p>
+          {% endif %}
+        </div>
+
+        {# ── CTA ──────────────────────────────────────────────────────────── #}
+        <div style="margin-top:18px;">
+          {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
+            <a href="/subscribe/"
+               style="font-size:0.8rem;font-weight:700;color:#fff;background:#1f2d40;border-radius:8px;padding:9px 18px;text-decoration:none;display:inline-block;border:1px solid #1f2d40;">
+              Renew Subscription →
+            </a>
+          {% elif sub_status != 'active' %}
+            <a href="/subscribe/"
+               style="font-size:0.8rem;font-weight:700;color:#fff;background:#5a5ce8;border-radius:8px;padding:9px 18px;text-decoration:none;display:inline-block;border:1px solid #4a4cd8;">
+              Complete Payment →
+            </a>
+          {% else %}
+            <a href="/payment/" style="font-size:0.8rem;font-weight:700;color:#5a5ce8;text-decoration:none;">
+              View subscription →
+            </a>
+          {% endif %}
+        </div>
+
       </div>
     </div>
   </div>

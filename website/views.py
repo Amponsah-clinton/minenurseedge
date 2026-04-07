@@ -1330,6 +1330,11 @@ def user_dashboard(request):
         return guard
 
     user_id = request.session.get("user_id")
+
+    # Mid-session expiry check — catches subscriptions that expired while the
+    # user was already logged in (login only checks at login time).
+    if request.session.get("role") == "student" and not subscription_allows_dashboard(user_id):
+        return redirect("/subscribe/?reason=payment_required")
     unread_count = _student_unread_count(user_id)
     mock_exam_count = 0
     best_mock_percentage = 0
@@ -1448,6 +1453,22 @@ def user_dashboard(request):
     if request.session.get("role") != "admin":
         show_nmc_disclaimer = _student_needs_dashboard_nmc_disclaimer(request, user_id)
 
+    # Subscription countdown ─────────────────────────────────────────────────
+    days_remaining    = None   # None = unknown / no expiry (free access)
+    plan_progress_pct = 100    # bar width % (100 = full / just activated)
+    sub_expires_display = ""   # human-readable date string
+    from datetime import date as _date
+    _sub_expires_str = (sub_expires or "")[:10]
+    if _sub_expires_str and sub_status == "active":
+        try:
+            expiry_date      = _date.fromisoformat(_sub_expires_str)
+            days_remaining   = (expiry_date - _date.today()).days
+            plan_progress_pct = max(0, min(100, round(max(days_remaining, 0) / 365 * 100)))
+            sub_expires_display = "{} {} {}".format(expiry_date.day, expiry_date.strftime("%b"), expiry_date.year)
+        except Exception:
+            pass
+    # ─────────────────────────────────────────────────────────────────────────
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -1466,7 +1487,10 @@ def user_dashboard(request):
         "plan_name": plan_name,
         "plan_slug": plan_slug,
         "sub_status": sub_status,
-        "sub_expires": (sub_expires or "")[:10] if sub_expires else "",
+        "sub_expires": _sub_expires_str,
+        "sub_expires_display": sub_expires_display,
+        "days_remaining": days_remaining,
+        "plan_progress_pct": plan_progress_pct,
     }
     return render(request, "dashboard/user_dashboard.html", context)
 
@@ -6668,16 +6692,70 @@ def admin_community_resolve_report(request, report_id):
 # SUBSCRIPTION / PAYMENT MODULE
 # ===========================================================================
 
+_PLAN_DEFAULTS_SEEDED = False
+
+
+def _ensure_plan_defaults():
+    """
+    Seed / migrate subscription_plans table on first call per process:
+      • Insert the plan row if it doesn't exist yet.
+      • Migrate Basic price from legacy GHS 50 → GHS 70 (unchanged admin prices
+        that differ from 0 or 50 are left alone).
+    Guarded by a module-level flag so it only hits Supabase once per worker.
+    """
+    global _PLAN_DEFAULTS_SEEDED
+    if _PLAN_DEFAULTS_SEEDED:
+        return
+    try:
+        db  = _supabase_admin()
+        now = datetime.now(timezone.utc).isoformat()
+        existing = db.table("subscription_plans").select("slug, price").execute().data or []
+        em = {r["slug"]: float(r.get("price") or 0) for r in existing}
+
+        # ── Basic plan ──────────────────────────────────────────────────────
+        if "basic" not in em:
+            db.table("subscription_plans").insert({
+                "slug": "basic", "name": "Basic",
+                "tagline": "Essential study tools to get you started",
+                "price": 70.0, "currency": "GHS", "duration_days": 365,
+                "is_active": True, "features": [], "payment_instructions": "",
+                "updated_at": now,
+            }).execute()
+        elif em["basic"] in (0.0, 50.0):          # migrate legacy price
+            db.table("subscription_plans").update({
+                "price": 70.0, "updated_at": now,
+            }).eq("slug", "basic").execute()
+
+        # ── Premium plan ─────────────────────────────────────────────────────
+        if "premium" not in em:
+            db.table("subscription_plans").insert({
+                "slug": "premium", "name": "Premium",
+                "tagline": "Full unlimited access to every NurseEdge feature",
+                "price": 200.0, "currency": "GHS", "duration_days": 365,
+                "is_active": True, "features": [], "payment_instructions": "",
+                "updated_at": now,
+            }).execute()
+        elif em["premium"] == 0.0:
+            db.table("subscription_plans").update({
+                "price": 200.0, "updated_at": now,
+            }).eq("slug", "premium").execute()
+
+        _PLAN_DEFAULTS_SEEDED = True
+    except Exception:
+        pass
+
+
 def _get_plans():
     """Fetch both plans from Supabase. Returns dict keyed by slug."""
+    _ensure_plan_defaults()
     try:
         rows = _supabase_admin().table("subscription_plans").select("*").eq("is_active", True).execute().data or []
         return {r["slug"]: r for r in rows}
     except Exception:
         return {
-            "basic": {"slug": "basic", "name": "Basic", "price": 0, "currency": "GHS",
+            "basic": {"slug": "basic", "name": "Basic", "price": 70, "currency": "GHS",
                       "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
-            "premium": {"slug": "premium", "name": "Premium", "price": 0, "currency": "GHS",
+            "premium": {"slug": "premium", "name": "Premium", "price": 200, "currency": "GHS",
                         "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
         }
 
