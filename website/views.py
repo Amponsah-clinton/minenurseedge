@@ -3513,6 +3513,15 @@ def _general_test_duration_minutes(paper_title):
     return 90 if _is_general_paper(paper_title) else 180
 
 
+def _general_test_question_count(paper_title):
+    """
+    Standardized NMC structure:
+    - General Paper: 100 questions
+    - All other nursing papers: 180 questions
+    """
+    return 100 if _is_general_paper(paper_title) else 180
+
+
 def _practice_quiz_title_from_sort_index(sort_index):
     """sort_index 0 -> Quiz A, 1 -> Quiz B, ... 25 -> Quiz Z, 26 -> Quiz AA."""
     n = int(sort_index)
@@ -3731,7 +3740,8 @@ def student_general_tests(request):
         for paper, count in grouped.items():
             if count <= 0:
                 continue
-            available_batches = count // GENERAL_TEST_QUESTION_BATCH_SIZE
+            batch_size = _general_test_question_count(paper)
+            available_batches = count // batch_size
             for test_number in range(1, available_batches + 1):
                 full_title = f"{paper} — General Test {test_number}"
                 active = active_attempts_map.get(full_title)
@@ -3739,7 +3749,7 @@ def student_general_tests(request):
                 entry = {
                     "paper_title": paper,
                     "test_number": test_number,
-                    "question_count": GENERAL_TEST_QUESTION_BATCH_SIZE,
+                    "question_count": batch_size,
                     "duration_minutes": _general_test_duration_minutes(paper),
                     "attempt_id": active["id"] if active else None,
                     "attempt_status": active.get("status", "in_progress") if active else None,
@@ -3803,9 +3813,11 @@ def student_general_test_start(request):
     profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
     programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
 
+    batch_size = _general_test_question_count(paper_title)
+
     # Fetch enough questions to cover this batch, then slice in Python.
     # This avoids needing server-side offset support.
-    limit_needed = test_number * GENERAL_TEST_QUESTION_BATCH_SIZE
+    limit_needed = test_number * batch_size
     rows = (
         admin.table("question_bank")
         .select("id")
@@ -3818,8 +3830,8 @@ def student_general_test_start(request):
         or []
     )
     question_ids = [r.get("id") for r in rows if r.get("id")]
-    start_idx = (test_number - 1) * GENERAL_TEST_QUESTION_BATCH_SIZE
-    end_idx = start_idx + GENERAL_TEST_QUESTION_BATCH_SIZE
+    start_idx = (test_number - 1) * batch_size
+    end_idx = start_idx + batch_size
     batch_ids = question_ids[start_idx:end_idx]
 
     if not batch_ids:
