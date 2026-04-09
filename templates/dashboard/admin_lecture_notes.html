@@ -76,6 +76,88 @@
         </form>
       </div>
     </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="mb-0">Bulk Upload (JSON)</h5>
+      </div>
+      <div class="card-body">
+        <p class="text-muted mb-2">
+          Upload multiple notes at once. Each item is saved as a separate lecture note (no category needed).
+        </p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="bulk_create_json">
+          <div class="mb-3">
+            <label class="form-label">JSON payload *</label>
+            <textarea
+              name="bulk_notes_json"
+              class="form-control"
+              rows="10"
+              placeholder='[
+  {
+    "topic": "Cardiology",
+    "subtopic": "Heart Failure",
+    "content_html": "<h3>Overview</h3><p>Core concepts and nursing care...</p>",
+    "content_font_size_px": 16
+  },
+  {
+    "topic": "Renal Nursing",
+    "sections": [
+      {
+        "heading": "Acute Kidney Injury",
+        "paragraphs": ["AKI is a sudden decline in kidney function."],
+        "points": ["Check urine output", "Monitor creatinine", "Maintain fluid balance"]
+      },
+      {
+        "heading": "Nursing Care Plan",
+        "points": ["Assess vitals regularly", "Document intake/output", "Report red flags early"]
+      }
+    ]
+  }
+]'
+              required
+            ></textarea>
+            <small class="text-muted d-block mt-1">
+              Accepted formats: an array of note objects, or an object with a <code>notes</code> array.
+              Required per item: <code>topic</code> and one of <code>content_html</code>, <code>content</code>, or structured <code>sections</code>.
+            </small>
+          </div>
+          <button type="submit" class="btn btn-primary">Upload JSON Notes</button>
+        </form>
+        <hr>
+        <label class="form-label mb-1">Sample JSON (copy/paste)</label>
+        <textarea class="form-control" rows="13" readonly>[
+  {
+    "topic": "Maternal Nursing",
+    "subtopic": "Postpartum Hemorrhage",
+    "content_html": "<h3>Definition</h3><p>PPH is blood loss after delivery...</p><h3>Immediate Actions</h3><ul><li>Call for help</li><li>Start uterine massage</li><li>Monitor vitals</li></ul>",
+    "content_font_size_px": 16
+  },
+  {
+    "topic": "Medical-Surgical Nursing",
+    "subtopic": "Diabetes Mellitus",
+    "sections": [
+      {
+        "heading": "Overview",
+        "paragraphs": [
+          "Diabetes mellitus is a chronic condition with high blood glucose."
+        ]
+      },
+      {
+        "heading": "Nursing Priorities",
+        "points": [
+          "Monitor blood sugar trends",
+          "Educate on medication adherence",
+          "Promote foot care and hydration"
+        ]
+      }
+    ],
+    "content_font_size_px": 18
+  }
+]</textarea>
+      </div>
+    </div>
   </div>
 
   <div class="col-lg-5">

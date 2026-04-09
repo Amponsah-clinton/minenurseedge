@@ -228,6 +228,30 @@
         </div>
       </div>
     </div>
+
+    {% if peer_comparison %}
+    <div class="mb-4">
+      <div class="card" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 4px 12px rgba(15,23,42,.05);">
+        <div class="card-body" style="padding:18px 20px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <span style="width:36px;height:36px;border-radius:10px;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
+              <i class="bx bx-trophy"></i>
+            </span>
+            <div style="min-width:0;">
+              <p style="margin:0;font-size:0.74rem;letter-spacing:.5px;text-transform:uppercase;font-weight:700;color:#7b8ba5;">Peer Comparison (Anonymized)</p>
+              <p style="margin:6px 0 4px;font-size:0.95rem;color:#1f2d40;font-weight:700;line-height:1.45;">
+                You scored {{ peer_comparison.score }}% on {{ peer_comparison.subject_label }}.
+                You are in the top {{ peer_comparison.top_percent }}% of {{ peer_comparison.year_of_study }} {{ peer_comparison.programme }} students this week.
+              </p>
+              <p style="margin:0;font-size:0.78rem;color:#8a94a6;">
+                Based on anonymized scores from {{ peer_comparison.cohort_size }} peers in your cohort. No student names are shown.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- My Plan -->

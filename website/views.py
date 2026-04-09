@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import random
 import re
 import secrets
@@ -11,6 +12,7 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
+from django.utils.html import escape
 
 from supabase import create_client
 EMPTY_QUESTION_FORM = {
@@ -1376,6 +1378,138 @@ def contact_page(request):
 # Student dashboard
 # ---------------------------------------------------------------------------
 
+def _subject_label_from_mock_title(title):
+    txt = (title or "").strip()
+    low = txt.lower()
+    keyword_map = [
+        ("medicine", "Medicine"),
+        ("surgery", "Surgery"),
+        ("paedi", "Paediatrics"),
+        ("pediatric", "Paediatrics"),
+        ("obstetric", "Obstetrics"),
+        ("gynaec", "Gynaecology"),
+        ("community", "Community Health"),
+        ("mental", "Mental Health"),
+    ]
+    for needle, label in keyword_map:
+        if needle in low:
+            return label
+    for sep in (" - ", " | ", ":"):
+        if sep in txt:
+            first = txt.split(sep, 1)[0].strip()
+            if first:
+                return first
+    return txt or "Mock Exam"
+
+
+def _build_weekly_peer_comparison(admin_client, user_id):
+    """
+    Anonymized weekly cohort comparison based on mock attempts.
+    Cohort = same programme + year_of_study.
+    """
+    profile_rows = (
+        admin_client.table("profiles")
+        .select("programme, year_of_study")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not profile_rows:
+        return None
+    programme = (profile_rows[0].get("programme") or "").strip()
+    year_of_study = (profile_rows[0].get("year_of_study") or "").strip()
+    if not programme or not year_of_study:
+        return None
+
+    week_start = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    my_attempts = (
+        admin_client.table("mock_attempts")
+        .select("mock_exam_id, percentage, submitted_at")
+        .eq("student_id", user_id)
+        .not_.is_("submitted_at", "null")
+        .gte("submitted_at", week_start)
+        .order("submitted_at", desc=True)
+        .limit(20)
+        .execute()
+        .data
+        or []
+    )
+    latest = next((a for a in my_attempts if a.get("mock_exam_id")), None)
+    if not latest:
+        return None
+
+    mock_exam_id = latest.get("mock_exam_id")
+    my_score = float(latest.get("percentage") or 0)
+    exam_rows = (
+        admin_client.table("mock_exams")
+        .select("title")
+        .eq("id", mock_exam_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    subject_label = _subject_label_from_mock_title(exam_rows[0].get("title") if exam_rows else "")
+
+    cohort_rows = (
+        admin_client.table("profiles")
+        .select("id")
+        .eq("programme", programme)
+        .eq("year_of_study", year_of_study)
+        .execute()
+        .data
+        or []
+    )
+    cohort_ids = [str(r.get("id")) for r in cohort_rows if r.get("id")]
+    if not cohort_ids:
+        return None
+
+    attempt_rows = (
+        admin_client.table("mock_attempts")
+        .select("student_id, percentage")
+        .eq("mock_exam_id", mock_exam_id)
+        .in_("student_id", cohort_ids)
+        .not_.is_("submitted_at", "null")
+        .gte("submitted_at", week_start)
+        .execute()
+        .data
+        or []
+    )
+    if not attempt_rows:
+        return None
+
+    best_by_student = {}
+    for row in attempt_rows:
+        sid = str(row.get("student_id") or "").strip()
+        if not sid:
+            continue
+        pct = float(row.get("percentage") or 0)
+        if sid not in best_by_student or pct > best_by_student[sid]:
+            best_by_student[sid] = pct
+
+    scores = list(best_by_student.values())
+    cohort_size = len(scores)
+    if cohort_size < 5:
+        return None
+
+    higher_count = sum(1 for s in scores if s > my_score)
+    less_or_equal_count = sum(1 for s in scores if s <= my_score)
+    top_percent = max(1, min(100, int(math.ceil(((higher_count + 1) / cohort_size) * 100))))
+    percentile = max(1, min(100, int(round((less_or_equal_count / cohort_size) * 100))))
+
+    return {
+        "score": int(round(my_score)),
+        "subject_label": subject_label,
+        "year_of_study": year_of_study,
+        "programme": programme,
+        "cohort_size": cohort_size,
+        "top_percent": top_percent,
+        "percentile": percentile,
+    }
+
+
 def user_dashboard(request):
     guard = _require_login(request)
     if guard:
@@ -1394,6 +1528,7 @@ def user_dashboard(request):
     best_mock_percentage = 0
     total_questions_available = 0
     recent_messages = []
+    peer_comparison = None
     try:
         admin = _supabase_admin()
         profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
@@ -1456,6 +1591,7 @@ def user_dashboard(request):
         )
         if best_attempt_rows:
             best_mock_percentage = int(float(best_attempt_rows[0].get("percentage") or 0))
+        peer_comparison = _build_weekly_peer_comparison(admin, user_id)
     except Exception:
         pass
 
@@ -1552,6 +1688,7 @@ def user_dashboard(request):
         "sub_expires_display": sub_expires_display,
         "days_remaining": days_remaining,
         "plan_progress_pct": plan_progress_pct,
+        "peer_comparison": peer_comparison,
     }
     return render(request, "dashboard/user_dashboard.html", context)
 
@@ -5584,6 +5721,65 @@ def admin_lecture_notes(request):
     edit_id = request.GET.get("edit", "").strip()
     edit_note = None
 
+    def _insert_lecture_note_with_fallback(payload):
+        row = dict(payload)
+        while True:
+            try:
+                admin.table("lecture_notes").insert(row).execute()
+                break
+            except Exception as exc:
+                err_txt = str(exc).lower()
+                if "category" in row and (
+                    "category" in err_txt
+                    or "pgrst204" in err_txt
+                    or "schema cache" in err_txt
+                ):
+                    row.pop("category", None)
+                    continue
+                if "content_font_size_px" in row and (
+                    "content_font_size_px" in err_txt
+                    or "pgrst204" in err_txt
+                    or "schema cache" in err_txt
+                ):
+                    row.pop("content_font_size_px", None)
+                    continue
+                raise
+
+    def _html_from_note_json(item):
+        direct_html = str(item.get("content_html", "")).strip()
+        if direct_html:
+            return direct_html
+
+        plain_content = str(item.get("content", "")).strip()
+        if plain_content:
+            lines = [ln.strip() for ln in plain_content.splitlines() if ln.strip()]
+            if lines:
+                return "".join(f"<p>{escape(ln)}</p>" for ln in lines)
+
+        sections = item.get("sections")
+        if not isinstance(sections, list) or not sections:
+            return ""
+
+        html_parts = []
+        for sec in sections:
+            if not isinstance(sec, dict):
+                continue
+            heading = str(sec.get("heading", "")).strip()
+            if heading:
+                html_parts.append(f"<h3>{escape(heading)}</h3>")
+            paragraphs = sec.get("paragraphs") or []
+            if isinstance(paragraphs, list):
+                for p in paragraphs:
+                    txt = str(p).strip()
+                    if txt:
+                        html_parts.append(f"<p>{escape(txt)}</p>")
+            points = sec.get("points") or []
+            if isinstance(points, list):
+                clean_points = [escape(str(pt).strip()) for pt in points if str(pt).strip()]
+                if clean_points:
+                    html_parts.append("<ul>" + "".join(f"<li>{pt}</li>" for pt in clean_points) + "</ul>")
+        return "".join(html_parts)
+
     if request.method == "POST":
         action = request.POST.get("action", "create").strip()
         try:
@@ -5636,6 +5832,58 @@ def admin_lecture_notes(request):
                         raise
                 success = "Lecture note updated."
                 return redirect("/admin-panel/lecture-notes/")
+            if action == "bulk_create_json":
+                raw_json = request.POST.get("bulk_notes_json", "").strip()
+                if not raw_json:
+                    raise ValueError("Please provide JSON data for bulk upload.")
+                try:
+                    decoded = json.loads(raw_json)
+                except Exception as exc:
+                    raise ValueError(f"Invalid JSON: {exc}")
+
+                if isinstance(decoded, dict):
+                    items = decoded.get("notes")
+                    if items is None:
+                        raise ValueError(
+                            "JSON object must contain a 'notes' array. "
+                            "Example: {\"notes\":[{\"topic\":\"...\",\"content_html\":\"...\"}]}"
+                        )
+                elif isinstance(decoded, list):
+                    items = decoded
+                else:
+                    raise ValueError("JSON payload must be an array or an object with a 'notes' array.")
+
+                if not isinstance(items, list) or not items:
+                    raise ValueError("No notes found. Provide at least one note object.")
+
+                created_count = 0
+                for index, item in enumerate(items, start=1):
+                    if not isinstance(item, dict):
+                        raise ValueError(f"Item #{index} must be an object.")
+                    topic = str(item.get("topic", "")).strip()
+                    subtopic = str(item.get("subtopic", "")).strip()
+                    content_html = _html_from_note_json(item)
+                    if not topic or not content_html:
+                        raise ValueError(
+                            f"Item #{index} requires 'topic' and content. "
+                            "Use 'content_html', 'content', or structured 'sections'."
+                        )
+                    font_px = _coerce_lecture_note_font_px(item.get("content_font_size_px"))
+                    stored_html = _lecture_meta_encode(font_px, content_html)
+                    ins = {
+                        "topic": topic,
+                        "subtopic": subtopic or None,
+                        "category": None,
+                        "content_html": stored_html,
+                        "is_published": True,
+                        "created_by": request.session.get("user_id"),
+                        "content_font_size_px": font_px,
+                    }
+                    _insert_lecture_note_with_fallback(ins)
+                    created_count += 1
+                success = f"{created_count} lecture notes uploaded successfully."
+                return redirect("/admin-panel/lecture-notes/")
+
             topic = request.POST.get("topic", "").strip()
             subtopic = request.POST.get("subtopic", "").strip()
             category = request.POST.get("category", "").strip()
@@ -5653,27 +5901,7 @@ def admin_lecture_notes(request):
                 "created_by": request.session.get("user_id"),
                 "content_font_size_px": font_px,
             }
-            while True:
-                try:
-                    admin.table("lecture_notes").insert(ins).execute()
-                    break
-                except Exception as exc:
-                    err_txt = str(exc).lower()
-                    if "category" in ins and (
-                        "category" in err_txt
-                        or "pgrst204" in err_txt
-                        or "schema cache" in err_txt
-                    ):
-                        ins.pop("category", None)
-                        continue
-                    if "content_font_size_px" in ins and (
-                        "content_font_size_px" in err_txt
-                        or "pgrst204" in err_txt
-                        or "schema cache" in err_txt
-                    ):
-                        ins.pop("content_font_size_px", None)
-                        continue
-                    raise
+            _insert_lecture_note_with_fallback(ins)
             success = "Lecture note saved."
             return redirect("/admin-panel/lecture-notes/")
         except Exception as exc:
