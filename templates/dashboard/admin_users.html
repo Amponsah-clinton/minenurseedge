@@ -158,12 +158,16 @@
                         </button>
                       {% endif %}
                     </form>
-                    <form method="POST" action="/admin-panel/users/{{ user.id }}/delete/" style="display:inline;">
+                    <form method="POST"
+                          action="/admin-panel/users/{{ user.id }}/delete/"
+                          style="display:inline;"
+                          class="delete-user-form"
+                          data-user-name="{{ user.full_name|default:user.email|escape }}"
+                          data-delete-url="/admin-panel/users/{{ user.id }}/delete/">
                       {% csrf_token %}
-                      <button type="submit" class="btn btn-sm btn-danger btn-icon"
+                      <button type="button" class="btn btn-sm btn-danger btn-icon js-open-delete-modal"
                               title="Delete account"
-                              aria-label="Delete account"
-                              onclick="return confirm('Delete {{ user.full_name|default:user.email }} permanently? This cannot be undone.');">
+                              aria-label="Delete account">
                         <i class="bx bx-trash"></i>
                       </button>
                     </form>
@@ -188,4 +192,60 @@
 
   </div>
 </div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="modal fade" id="deleteUserConfirmModal" tabindex="-1" aria-labelledby="deleteUserConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-danger" id="deleteUserConfirmModalLabel">
+          <i class="bx bx-error-circle me-2"></i>Delete Account
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="mb-2">Are you sure you want to permanently delete this account?</p>
+        <p class="mb-0 fw-semibold" id="deleteUserTargetName">—</p>
+        <small class="text-muted d-block mt-2">This action cannot be undone.</small>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <form method="POST" id="deleteUserConfirmForm">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm">
+            <i class="bx bx-trash me-1"></i>Yes, delete account
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var modalEl = document.getElementById("deleteUserConfirmModal");
+  if (!modalEl || !window.bootstrap) return;
+
+  var modal = new bootstrap.Modal(modalEl);
+  var targetNameEl = document.getElementById("deleteUserTargetName");
+  var confirmForm = document.getElementById("deleteUserConfirmForm");
+
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest(".js-open-delete-modal");
+    if (!btn) return;
+
+    var wrapperForm = btn.closest(".delete-user-form");
+    if (!wrapperForm) return;
+
+    var userName = wrapperForm.getAttribute("data-user-name") || "this user";
+    var deleteUrl = wrapperForm.getAttribute("data-delete-url") || "";
+
+    targetNameEl.textContent = userName;
+    confirmForm.setAttribute("action", deleteUrl);
+    modal.show();
+  });
+});
+</script>
 {% endblock %}

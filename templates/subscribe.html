@@ -14,8 +14,7 @@
     font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
     color: #8892a4; margin: 0 0 14px;
   }
-  .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 560px) { .plan-grid { grid-template-columns: 1fr; } }
+  .plan-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .plan-card {
     position: relative; border: 2px solid #e4e8f0; border-radius: 10px; padding: 16px 14px;
     cursor: pointer; background: #fff; transition: border-color 0.15s;
@@ -23,8 +22,7 @@
   .plan-card input { position: absolute; opacity: 0; width: 0; height: 0; }
   .plan-card.selected { border-color: #1a1a2e; box-shadow: 0 0 0 3px rgba(26,26,46,.07); }
   .plan-badge { font-size: 0.67rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; display: inline-block; margin-bottom: 8px; }
-  .plan-badge-basic { background: #f0f2ff; color: #5a5ce8; }
-  .plan-badge-premium { background: #1a1a2e; color: #fff; }
+  .plan-badge-standard { background: #1a1a2e; color: #fff; }
   .plan-name { font-size: 0.95rem; font-weight: 800; color: #1f2d40; margin: 0 0 4px; }
   .plan-price { font-size: 1.35rem; font-weight: 800; color: #1a1a2e; }
   .plan-price small { font-size: 0.75rem; color: #9098b0; font-weight: 400; }
@@ -39,14 +37,19 @@
 
 <div class="sub-wrap">
   <div class="sub-head">
-    <h4>Complete your subscription</h4>
-    <p>Choose your plan and pay securely with card. Your dashboard unlocks after payment succeeds.</p>
+    <h4>Complete your annual subscription</h4>
+    <p>One account type for all users. Current amount: GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days.</p>
   </div>
 
   {% if request.GET.reason == 'payment_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
     Your subscription is not active yet. Complete payment below to access your dashboard.
     <div class="small mt-2 mb-0 text-muted">If you already paid when you registered, your server must use a valid Paystack <strong>secret</strong> key so we can confirm the charge. After fixing <code>PAYSTACK_SECRET_KEY</code>, refresh this page or log in again — we will verify automatically without charging twice.</div>
+  </div>
+  {% endif %}
+  {% if request.GET.reason == 'renewal_required' %}
+  <div class="alert alert-warning mb-3" style="border-radius:10px;">
+    Your annual subscription has expired. Renew now to restore dashboard access.
   </div>
   {% endif %}
   {% if request.GET.reason == 'cancelled' %}
@@ -68,23 +71,13 @@
   <form method="post" action="/subscribe/">
     {% csrf_token %}
     <div class="sub-card">
-      <p class="sub-card-title">Select plan</p>
+      <p class="sub-card-title">Annual access plan</p>
       <div class="plan-grid">
-        <label class="plan-card {% if checkout_row.plan_slug == 'basic' %}selected{% endif %}" id="pc-basic">
-          <input type="radio" name="plan_slug" value="basic"
-            {% if checkout_row.plan_slug == 'basic' %}checked{% endif %}
-            onchange="document.getElementById('pc-basic').classList.add('selected'); document.getElementById('pc-premium').classList.remove('selected');">
-          <span class="plan-badge plan-badge-basic">Basic</span>
-          <div class="plan-name">{{ basic.name|default:"Basic" }}</div>
-          <div class="plan-price">GHS {{ basic.price|default:"0" }}<small> / {{ basic.duration_days|default:365 }} days</small></div>
-        </label>
-        <label class="plan-card {% if checkout_row.plan_slug == 'premium' %}selected{% endif %}" id="pc-premium">
-          <input type="radio" name="plan_slug" value="premium"
-            {% if checkout_row.plan_slug == 'premium' %}checked{% endif %}
-            onchange="document.getElementById('pc-premium').classList.add('selected'); document.getElementById('pc-basic').classList.remove('selected');">
-          <span class="plan-badge plan-badge-premium">Premium</span>
-          <div class="plan-name">{{ premium.name|default:"Premium" }}</div>
-          <div class="plan-price">GHS {{ premium.price|default:"0" }}<small> / {{ premium.duration_days|default:365 }} days</small></div>
+        <label class="plan-card selected" id="pc-standard">
+          <input type="radio" name="plan_slug" value="standard" checked>
+          <span class="plan-badge plan-badge-standard">Annual Access</span>
+          <div class="plan-name">{{ standard.name|default:"Annual Access" }}</div>
+          <div class="plan-price">GHS {{ standard.price|default:"50" }}<small> / {{ standard.duration_days|default:365 }} days</small></div>
         </label>
       </div>
       <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
@@ -98,4 +91,33 @@
     <a href="/payment/">View payment history</a>
   </p>
 </div>
+{% if request.GET.reason == 'renewal_required' %}
+<div class="modal fade" id="renewalRequiredModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:12px;">
+      <div class="modal-header">
+        <h5 class="modal-title">Renewal Required</h5>
+      </div>
+      <div class="modal-body">
+        Your subscription has ended. Renew with <strong>GHS {{ standard.price|default:"50" }} / {{ standard.duration_days|default:365 }} days</strong> to continue using dashboard features.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Renew Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{{ block.super }}
+{% if request.GET.reason == 'renewal_required' %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (window.bootstrap) {
+    new bootstrap.Modal(document.getElementById("renewalRequiredModal")).show();
+  }
+});
+</script>
+{% endif %}
 {% endblock %}

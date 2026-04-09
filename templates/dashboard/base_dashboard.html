@@ -496,31 +496,17 @@
             </a>
           </li>
 
-          {# Plan helper: True for premium, free-access, or admin #}
-          {% with is_pro=request.session.plan_slug %}
-
           <!-- Study -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Study</span>
           </li>
 
-          {# Lecture Notes — Premium only #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'lecture_notes' %}active{% endif %}">
             <a href="/dashboard/lecture-notes/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-book-open"></i>
               <div>Lecture Notes</div>
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=lecture_notes" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-book-open" style="opacity:.5;"></i>
-              <div style="opacity:.55;">Lecture Notes</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
           <li class="menu-item {% if active_page == 'nmc_mastery' %}active{% endif %}">
             <a href="/dashboard/nmc-mastery/" class="menu-link">
@@ -555,41 +541,19 @@
             </a>
           </li>
 
-          {# Competitive Quizzes — Premium only #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'quizzes' %}active{% endif %}">
             <a href="/dashboard/quizzes/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-list-check"></i>
               <div>Quizzes</div>
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=quizzes" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-list-check" style="opacity:.5;"></i>
-              <div style="opacity:.55;">Quizzes</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
-          {# Flashcards — Premium only #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'flashcards' %}active{% endif %}">
             <a href="/dashboard/flashcards/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-brain"></i>
               <div>Flashcards</div>
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=flashcards" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-brain" style="opacity:.5;"></i>
-              <div style="opacity:.55;">Flashcards</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
           <li class="menu-item {% if active_page == 'mock_exams' %}active open{% endif %}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -603,31 +567,18 @@
             </ul>
           </li>
 
-          {# Performance Analytics — Premium only #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'performance' %}active{% endif %}">
             <a href="/dashboard/performance/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
               <div>Performance</div>
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=performance" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2" style="opacity:.5;"></i>
-              <div style="opacity:.55;">Performance</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
           <!-- Tools -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Tools</span>
           </li>
 
-          {# AI Assistant — Premium only (coming soon) #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item">
             <a href="#" class="menu-link">
               <i class="menu-icon tf-icons bx bx-bot"></i>
@@ -635,15 +586,6 @@
               <span class="badge ms-2" style="font-size:0.58rem;background:#ecfdf5;color:#065f46;border-radius:4px;padding:1px 6px;font-weight:700;">Soon</span>
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=ai_assistant" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-bot" style="opacity:.5;"></i>
-              <div style="opacity:.55;">AI Assistant</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
           <li class="menu-item {% if active_page == 'bookmarks' %}active{% endif %}">
             <a href="/dashboard/bookmarks/" class="menu-link">
@@ -652,8 +594,6 @@
             </a>
           </li>
 
-          {# Community Forums — Premium only #}
-          {% if is_pro == "premium" or request.session.is_free_access %}
           <li class="menu-item {% if active_page == 'community' %}active{% endif %}">
             <a href="/dashboard/community/" class="menu-link d-flex align-items-center justify-content-between">
               <span class="d-flex align-items-center">
@@ -665,15 +605,6 @@
               {% endif %}
             </a>
           </li>
-          {% else %}
-          <li class="menu-item">
-            <a href="/dashboard/upgrade/?feature=community" class="menu-link" title="Premium feature">
-              <i class="menu-icon tf-icons bx bx-group" style="opacity:.5;"></i>
-              <div style="opacity:.55;">Community</div>
-              <span class="badge ms-auto" style="font-size:0.58rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-            </a>
-          </li>
-          {% endif %}
 
           <li class="menu-item {% if active_page == 'student_messages' %}active{% endif %}">
             <a href="/dashboard/messages/" class="menu-link d-flex align-items-center justify-content-between">
@@ -686,8 +617,6 @@
               {% endif %}
             </a>
           </li>
-
-          {% endwith %}
 
           <!-- Account -->
           <li class="menu-header small text-uppercase">

@@ -13,8 +13,7 @@
   .pay-stat__label { font-size:0.76rem; color:#9098b0; font-weight:600; margin-top:2px; }
 
   /* ── Plan cards ── */
-  .plan-cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:28px; }
-  @media(max-width:640px){ .plan-cards-grid { grid-template-columns:1fr; } }
+  .plan-cards-grid { display:grid; grid-template-columns:1fr; gap:18px; margin-bottom:28px; }
 
   .admin-plan-card {
     background:#fff; border:1px solid #e8eaf0; border-radius:12px; padding:24px;
@@ -22,8 +21,7 @@
   }
   .apc-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
   .plan-badge { font-size:0.72rem; font-weight:700; border-radius:999px; padding:3px 11px; }
-  .plan-badge-basic   { background:#f0f2ff; color:#5a5ce8; }
-  .plan-badge-premium { background:#1a1a2e; color:#fff; }
+  .plan-badge-standard { background:#1a1a2e; color:#fff; }
 
   .apc-name  { font-size:1.05rem; font-weight:800; color:#1f2d40; margin:0 0 4px; }
   .apc-tagline { font-size:0.8rem; color:#7b8599; margin:0 0 14px; }
@@ -59,8 +57,7 @@
   .s-badge-pending   { background:#fff8e6; color:#cc8800; }
   .s-badge-cancelled { background:#fff0ef; color:#d93025; }
   .s-badge-expired   { background:#f5f5f5; color:#9098b0; }
-  .s-plan-basic   { background:#f0f2ff; color:#5a5ce8; }
-  .s-plan-premium { background:#1a1a2e; color:#fff; }
+  .s-plan-standard { background:#1a1a2e; color:#fff; }
 
   .act-btn { font-size:0.73rem; font-weight:700; border-radius:7px; padding:4px 11px; cursor:pointer; border:1px solid transparent; transition:all 0.15s; }
   .act-btn-activate { background:#eafff2; color:#3ea76a; border-color:#b0f0ca; }
@@ -142,69 +139,38 @@
     <span class="pay-stat__label">Pending Payment</span>
   </div>
   <div class="pay-stat">
-    <span class="pay-stat__num" style="color:#5a5ce8;">{{ counts.basic }}</span>
-    <span class="pay-stat__label">Basic Plans</span>
-  </div>
-  <div class="pay-stat">
-    <span class="pay-stat__num" style="color:#1a1a2e;">{{ counts.premium }}</span>
-    <span class="pay-stat__label">Premium Plans</span>
+    <span class="pay-stat__num" style="color:#1a1a2e;">{{ counts.standard }}</span>
+    <span class="pay-stat__label">Annual Plans</span>
   </div>
 </div>
 
 <!-- Plan Cards -->
 <h6 class="mb-3" style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#8892a4;">
-  Subscription Plans — click Edit to change price, features, or instructions
+  Annual Subscription — click Edit to change amount, features, or instructions
 </h6>
 <div class="plan-cards-grid">
-
-  <!-- Basic card -->
   <div class="admin-plan-card">
     <div class="apc-top">
-      <span class="plan-badge plan-badge-basic">Basic</span>
+      <span class="plan-badge plan-badge-standard">Annual Access</span>
       <button class="btn-edit-plan" data-bs-toggle="modal" data-bs-target="#editPlanModal"
-              data-slug="basic"
-              data-name="{{ basic.name|default:'Basic'|escapejs }}"
-              data-tagline="{{ basic.tagline|default:''|escapejs }}"
-              data-price="{{ basic.price|default:'0' }}"
-              data-duration="{{ basic.duration_days|default:365 }}"
-              data-instructions="{{ basic.payment_instructions|default:''|escapejs }}"
-              data-features="{% for f in basic.features %}{{ f }}{% if not forloop.last %}||{% endif %}{% endfor %}">
+              data-slug="standard"
+              data-name="{{ standard.name|default:'Annual Access'|escapejs }}"
+              data-tagline="{{ standard.tagline|default:''|escapejs }}"
+              data-price="{{ standard.price|default:'50' }}"
+              data-duration="{{ standard.duration_days|default:365 }}"
+              data-instructions="{{ standard.payment_instructions|default:''|escapejs }}"
+              data-features="{% for f in standard.features %}{{ f }}{% if not forloop.last %}||{% endif %}{% endfor %}">
         <i class="bx bx-edit"></i> Edit
       </button>
     </div>
-    <p class="apc-name">{{ basic.name|default:"Basic" }}</p>
-    <p class="apc-tagline">{{ basic.tagline|default:"Essential study tools" }}</p>
-    <div class="apc-price">GHS {{ basic.price|default:"0.00" }}<small> / {{ basic.duration_days|default:365 }} days</small></div>
+    <p class="apc-name">{{ standard.name|default:"Annual Access" }}</p>
+    <p class="apc-tagline">{{ standard.tagline|default:"Full unlimited access" }}</p>
+    <div class="apc-price">GHS {{ standard.price|default:"50.00" }}<small> / {{ standard.duration_days|default:365 }} days</small></div>
     <ul class="apc-features">
-      {% for f in basic.features %}<li>{{ f }}</li>
+      {% for f in standard.features %}<li>{{ f }}</li>
       {% empty %}<li>No features set yet</li>{% endfor %}
     </ul>
-    <p class="apc-updated">Last updated: {{ basic.updated_at|slice:":16"|cut:"T"|default:"—" }}</p>
-  </div>
-
-  <!-- Premium card -->
-  <div class="admin-plan-card">
-    <div class="apc-top">
-      <span class="plan-badge plan-badge-premium">Premium</span>
-      <button class="btn-edit-plan" data-bs-toggle="modal" data-bs-target="#editPlanModal"
-              data-slug="premium"
-              data-name="{{ premium.name|default:'Premium'|escapejs }}"
-              data-tagline="{{ premium.tagline|default:''|escapejs }}"
-              data-price="{{ premium.price|default:'0' }}"
-              data-duration="{{ premium.duration_days|default:365 }}"
-              data-instructions="{{ premium.payment_instructions|default:''|escapejs }}"
-              data-features="{% for f in premium.features %}{{ f }}{% if not forloop.last %}||{% endif %}{% endfor %}">
-        <i class="bx bx-edit"></i> Edit
-      </button>
-    </div>
-    <p class="apc-name">{{ premium.name|default:"Premium" }}</p>
-    <p class="apc-tagline">{{ premium.tagline|default:"Full unlimited access" }}</p>
-    <div class="apc-price">GHS {{ premium.price|default:"0.00" }}<small> / {{ premium.duration_days|default:365 }} days</small></div>
-    <ul class="apc-features">
-      {% for f in premium.features %}<li>{{ f }}</li>
-      {% empty %}<li>No features set yet</li>{% endfor %}
-    </ul>
-    <p class="apc-updated">Last updated: {{ premium.updated_at|slice:":16"|cut:"T"|default:"—" }}</p>
+    <p class="apc-updated">Last updated: {{ standard.updated_at|slice:":16"|cut:"T"|default:"—" }}</p>
   </div>
 
 </div>
@@ -249,8 +215,8 @@
           <td style="font-weight:600;color:#1f2d40;">{{ s.user_name|default:"—" }}</td>
           <td style="font-size:0.78rem;color:#5a6070;">{{ s.user_email|default:"—" }}</td>
           <td>
-            <span class="s-badge {% if s.plan_slug == 'premium' %}s-plan-premium{% else %}s-plan-basic{% endif %}">
-              {{ s.plan_slug|title|default:"—" }}
+            <span class="s-badge s-plan-standard">
+              Annual
             </span>
           </td>
           <td style="font-weight:700;">GHS {{ s.amount_due|default:"—" }}</td>

@@ -353,12 +353,15 @@ _FEATURE_LABELS = {
 
 
 def _is_premium(request):
-    """Return True if the current session is Premium, free-access, or admin."""
+    """
+    Legacy name kept for compatibility.
+    Product policy: any subscribed student has full feature access.
+    """
     if request.session.get("role") == "admin":
         return True
-    if request.session.get("is_free_access"):
+    if request.session.get("user_id"):
         return True
-    return request.session.get("plan_slug", "basic") == "premium"
+    return False
 
 
 def _plan_gate(request, feature):
@@ -952,15 +955,16 @@ def login_page(request):
 
             # Store plan info for feature-gating in templates and view guards.
             # profile was fetched with select("*") so all columns are available.
-            request.session["plan_slug"]     = (profile.get("plan_slug") or "basic")
+            request.session["plan_slug"]     = (profile.get("plan_slug") or "standard")
             request.session["is_free_access"] = bool(profile.get("is_free_access"))
 
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
                 _reconcile_pending_subscription_from_paystack(user_id, force=True)
-            if not subscription_allows_dashboard(user_id):
-                return redirect("/subscribe/")
+            allowed, reason = _subscription_access_state(user_id)
+            if not allowed:
+                return redirect(f"/subscribe/?reason={reason}")
             return redirect("/dashboard/")
 
         except Exception as exc:
@@ -1002,10 +1006,7 @@ def signup_page(request):
         programme        = request.POST.get("programme", "").strip()
         password         = request.POST.get("password", "")
         confirm_password = request.POST.get("confirmPassword", "")
-        plan_slug        = request.POST.get("plan_slug", "basic").strip()
-
-        if plan_slug not in ("basic", "premium"):
-            plan_slug = "basic"
+        plan_slug        = "standard"
 
         form_data = {
             "fullName": full_name,
@@ -1037,6 +1038,7 @@ def signup_page(request):
                 "plans": plans,
                 "basic": plans.get("basic", {}),
                 "premium": plans.get("premium", {}),
+                "standard": plans.get("standard", {}),
             })
 
         paystack_reference = request.POST.get("paystack_reference", "").strip()
@@ -1049,6 +1051,7 @@ def signup_page(request):
                 "plans": plans,
                 "basic": plans.get("basic", {}),
                 "premium": plans.get("premium", {}),
+                "standard": plans.get("standard", {}),
                 "paystack_pub_key": paystack_pub,
             })
 
@@ -1160,6 +1163,7 @@ def signup_page(request):
     paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
     return render(request, "signup.html", {
         "plans": plans,
+        "standard": plans.get("standard", {}),
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
         "paystack_pub_key": paystack_pub,
@@ -1381,8 +1385,10 @@ def user_dashboard(request):
 
     # Mid-session expiry check — catches subscriptions that expired while the
     # user was already logged in (login only checks at login time).
-    if request.session.get("role") == "student" and not subscription_allows_dashboard(user_id):
-        return redirect("/subscribe/?reason=payment_required")
+    if request.session.get("role") == "student":
+        allowed, reason = _subscription_access_state(user_id)
+        if not allowed:
+            return redirect(f"/subscribe/?reason={reason}")
     unread_count = _student_unread_count(user_id)
     mock_exam_count = 0
     best_mock_percentage = 0
@@ -1455,17 +1461,21 @@ def user_dashboard(request):
 
     # Subscription info for dashboard cards
     subscription = _get_active_subscription(user_id)
-    plan_name = "Basic"
-    plan_slug = "basic"
+    plan_name = "NurseEdge Access"
+    plan_slug = "standard"
     sub_status = "pending_payment"
     sub_expires = None
     try:
         if subscription:
-            plan_slug  = subscription.get("plan_slug", "basic")
+            plan_slug  = subscription.get("plan_slug", "standard")
             sub_status = subscription.get("status", "pending_payment")
             sub_expires= subscription.get("expires_at", None)
-        plans = _get_plans()
-        plan_name = plans.get(plan_slug, {}).get("name", plan_slug.title())
+        if sub_status == "active":
+            plan_name = "Subscribed"
+        elif sub_status == "pending_payment":
+            plan_name = "Pending Activation"
+        else:
+            plan_name = "Inactive"
     except Exception:
         pass
 
@@ -6790,10 +6800,8 @@ _PLAN_DEFAULTS_SEEDED = False
 
 def _ensure_plan_defaults():
     """
-    Seed / migrate subscription_plans table on first call per process:
-      • Insert the plan row if it doesn't exist yet.
-      • Migrate Basic price from legacy GHS 50 → GHS 70 (unchanged admin prices
-        that differ from 0 or 50 are left alone).
+    Seed subscription_plans table on first call per process.
+    Product policy: one annual plan ("standard").
     Guarded by a module-level flag so it only hits Supabase once per worker.
     """
     global _PLAN_DEFAULTS_SEEDED
@@ -6805,33 +6813,16 @@ def _ensure_plan_defaults():
         existing = db.table("subscription_plans").select("slug, price").execute().data or []
         em = {r["slug"]: float(r.get("price") or 0) for r in existing}
 
-        # ── Basic plan ──────────────────────────────────────────────────────
-        if "basic" not in em:
+        # Canonical single plan.
+        if "standard" not in em:
             db.table("subscription_plans").insert({
-                "slug": "basic", "name": "Basic",
-                "tagline": "Essential study tools to get you started",
-                "price": 70.0, "currency": "GHS", "duration_days": 365,
+                "slug": "standard", "name": "Annual Access",
+                "tagline": "Full access to all NurseEdge features",
+                "price": 50.0, "currency": "GHS", "duration_days": 365,
                 "is_active": True, "features": [], "payment_instructions": "",
                 "updated_at": now,
             }).execute()
-        elif em["basic"] in (0.0, 50.0):          # migrate legacy price
-            db.table("subscription_plans").update({
-                "price": 70.0, "updated_at": now,
-            }).eq("slug", "basic").execute()
-
-        # ── Premium plan ─────────────────────────────────────────────────────
-        if "premium" not in em:
-            db.table("subscription_plans").insert({
-                "slug": "premium", "name": "Premium",
-                "tagline": "Full unlimited access to every NurseEdge feature",
-                "price": 150.0, "currency": "GHS", "duration_days": 365,
-                "is_active": True, "features": [], "payment_instructions": "",
-                "updated_at": now,
-            }).execute()
-        elif em["premium"] in (0.0, 200.0):          # migrate legacy price
-            db.table("subscription_plans").update({
-                "price": 150.0, "updated_at": now,
-            }).eq("slug", "premium").execute()
+        # Do not overwrite existing "standard" pricing — admin controls this from dashboard.
 
         _PLAN_DEFAULTS_SEEDED = True
     except Exception:
@@ -6839,28 +6830,40 @@ def _ensure_plan_defaults():
 
 
 def _get_plans():
-    """Fetch both plans from Supabase. Returns dict keyed by slug."""
+    """Fetch plans and expose one standardized annual plan (with legacy aliases)."""
     _ensure_plan_defaults()
     try:
         rows = _supabase_admin().table("subscription_plans").select("*").eq("is_active", True).execute().data or []
         plans = {r["slug"]: r for r in rows}
-        premium = plans.get("premium")
-        if premium is not None:
-            feats = premium.get("features")
-            if not isinstance(feats, list):
-                feats = []
-            # Ensure landing page always advertises this premium feature.
-            if not any(str(f).strip().lower() in ("competitive quiz", "competitive quizzes") for f in feats):
-                feats.append("Competitive Quizzes")
-            premium["features"] = feats
-        return plans
-    except Exception:
-        return {
-            "basic": {"slug": "basic", "name": "Basic", "price": 70, "currency": "GHS",
-                      "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
-            "premium": {"slug": "premium", "name": "Premium", "price": 150, "currency": "GHS",
-                        "tagline": "", "features": [], "payment_instructions": "", "duration_days": 365},
+        base = plans.get("standard") or plans.get("basic") or plans.get("premium") or {}
+        standard = {
+            **base,
+            "slug": "standard",
+            "name": base.get("name") or "Annual Access",
+            "tagline": base.get("tagline") or "Full access to all NurseEdge features",
+            "price": float(base.get("price") or 50.0),
+            "currency": base.get("currency") or "GHS",
+            "duration_days": int(base.get("duration_days") or 365),
+            "is_active": True,
         }
+        feats = standard.get("features")
+        if not isinstance(feats, list):
+            feats = []
+        if not any(str(f).strip().lower() in ("competitive quiz", "competitive quizzes") for f in feats):
+            feats.append("Competitive Quizzes")
+        standard["features"] = feats
+        return {
+            "standard": standard,
+            "basic": standard,   # legacy key alias
+            "premium": standard, # legacy key alias
+        }
+    except Exception:
+        standard = {
+            "slug": "standard", "name": "Annual Access", "price": 50, "currency": "GHS",
+            "tagline": "Full access to all NurseEdge features",
+            "features": ["Competitive Quizzes"], "payment_instructions": "", "duration_days": 365,
+        }
+        return {"standard": standard, "basic": standard, "premium": standard}
 
 
 # Legacy MTN boilerplate saved in Supabase (any amount) — strip from student /payment/ only.
@@ -6946,6 +6949,35 @@ def subscription_allows_dashboard(user_id):
     return _expires_at_still_valid(sub.get("expires_at"))
 
 
+def _subscription_access_state(user_id):
+    """
+    Returns (allowed: bool, reason: str).
+    reason is one of: ok, payment_required, renewal_required.
+    """
+    try:
+        profile_rows = (
+            _supabase_admin()
+            .table("profiles")
+            .select("is_free_access")
+            .eq("id", str(user_id))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if profile_rows and profile_rows[0].get("is_free_access"):
+            return True, "ok"
+    except Exception:
+        pass
+
+    sub = _get_active_subscription(user_id)
+    if not sub or sub.get("status") != "active":
+        return False, "payment_required"
+    if not _expires_at_still_valid(sub.get("expires_at")):
+        return False, "renewal_required"
+    return True, "ok"
+
+
 _PAYSTACK_RECONCILE_THROTTLE_SEC = 45.0
 _PAYSTACK_RECONCILE_LAST_TS = {}
 
@@ -6983,7 +7015,7 @@ def _reconcile_pending_subscription_from_paystack(user_id, *, force=False):
     data = vresp.get("data") or {}
     if data.get("status") != "success":
         return
-    plan_slug = (sub.get("plan_slug") or "basic").strip()
+    plan_slug = (sub.get("plan_slug") or "standard").strip()
     sub_id = sub.get("id")
     if not sub_id:
         return
@@ -7088,10 +7120,10 @@ def _paystack_request(method, path, body_dict=None):
 
 def _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, payment_reference):
     user_id = str(user_id)
-    if plan_slug not in ("basic", "premium"):
-        plan_slug = "basic"
+    if plan_slug not in ("standard", "basic", "premium"):
+        plan_slug = "standard"
     plans = _get_plans()
-    plan = plans.get(plan_slug, plans.get("basic", {}))
+    plan = plans.get(plan_slug, plans.get("standard", {}))
     dur = int(plan.get("duration_days") or 365)
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=dur)
@@ -7144,12 +7176,9 @@ def _ensure_pending_checkout_row(request, plans, selected_plan_slug=None):
         .data
         or []
     )
-    profile_plan = profile_rows[0].get("plan_slug") if profile_rows else "basic"
-
-    if selected_plan_slug in ("basic", "premium"):
-        plan_slug = selected_plan_slug
-    else:
-        plan_slug = profile_plan if profile_plan in ("basic", "premium") else "basic"
+    profile_plan = profile_rows[0].get("plan_slug") if profile_rows else "standard"
+    _ = profile_plan, selected_plan_slug  # single-plan product policy
+    plan_slug = "standard"
 
     sub = _get_active_subscription(user_id)
     if sub and sub.get("status") == "pending_payment":
@@ -7195,6 +7224,7 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "student_unread_notifications": _student_unread_count(user_id),
         "community_unread": _community_unread_count(user_id),
         "plans": plans,
+        "standard": _plan_row_for_payment_page(plans.get("standard")),
         "basic": _plan_row_for_payment_page(plans.get("basic")),
         "premium": _plan_row_for_payment_page(plans.get("premium")),
         "checkout_row": checkout_row,
@@ -7228,7 +7258,7 @@ def plan_upgrade_required(request):
         "email":       request.session.get("email", ""),
         "role":        request.session.get("role", "student"),
         "active_page": "",
-        "plan_slug":   request.session.get("plan_slug", "basic"),
+        "plan_slug":   request.session.get("plan_slug", "standard"),
         "student_unread_notifications": _student_unread_count(user_id),
         "has_unread_notifications":     _student_unread_count(user_id) > 0,
         "community_unread": 0,
@@ -7257,8 +7287,9 @@ def student_subscribe(request):
     selected = None
     if request.method == "POST":
         selected = request.POST.get("plan_slug", "").strip()
-        if selected not in ("basic", "premium"):
-            selected = "basic"
+        if selected not in ("standard", "basic", "premium"):
+            selected = "standard"
+        selected = "standard"
 
     checkout_row = _ensure_pending_checkout_row(request, plans, selected)
     if checkout_row is None:
@@ -7279,8 +7310,8 @@ def student_subscribe(request):
                     ), error=error),
             )
 
-        plan_slug = checkout_row.get("plan_slug", "basic")
-        plan = plans.get(plan_slug, plans.get("basic", {}))
+        plan_slug = checkout_row.get("plan_slug", "standard")
+        plan = plans.get(plan_slug, plans.get("standard", {}))
         price = float(plan.get("price") or 0)
         if price <= 0:
             return render(request, "subscribe.html",
@@ -7382,7 +7413,7 @@ def student_subscribe_success(request):
         meta = data.get("metadata") or {}
         if str(meta.get("user_id") or "") != user_id:
             return redirect("/subscribe/?error=forbidden")
-        plan_slug = (meta.get("plan_slug") or "basic").strip()
+        plan_slug = (meta.get("plan_slug") or "standard").strip()
         sub_id = meta.get("subscription_id")
         if not sub_id:
             return redirect("/subscribe/?error=missing_subscription")
@@ -7410,7 +7441,7 @@ def student_subscribe_success(request):
         if session.payment_status != "paid":
             return redirect("/subscribe/?error=unpaid")
 
-        plan_slug = (session.metadata.get("plan_slug") or "basic").strip()
+        plan_slug = (session.metadata.get("plan_slug") or "standard").strip()
         sub_id = session.metadata.get("subscription_id")
         if not sub_id:
             return redirect("/subscribe/?error=missing_subscription")
@@ -7462,6 +7493,7 @@ def payment_page(request):
         "latest_subscription": latest,
         "subscription_access_ok": paid_ok,
         "plans": plans,
+        "standard": plans.get("standard", {}),
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
     }
@@ -7486,7 +7518,7 @@ def admin_payments(request):
         action   = request.POST.get("action", "")
         plan_slug = request.POST.get("plan_slug", "").strip()
 
-        if action == "update_plan" and plan_slug in ("basic", "premium"):
+        if action == "update_plan" and plan_slug in ("standard", "basic", "premium"):
             try:
                 name         = request.POST.get("name", "").strip()[:80]
                 tagline      = request.POST.get("tagline", "").strip()[:200]
@@ -7507,10 +7539,10 @@ def admin_payments(request):
                     "payment_instructions": instructions,
                     "features": features,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).eq("slug", plan_slug).execute()
+                }).eq("slug", "standard").execute()
 
                 plans = _get_plans()
-                success = f"{name} plan updated successfully."
+                success = "Subscription amount and plan details updated successfully."
             except Exception as exc:
                 error = f"Update failed: {exc}"
 
@@ -7543,7 +7575,7 @@ def admin_payments(request):
 
     subscribers = []
     selected_filter = (request.GET.get("filter", "") or "").strip().lower()
-    counts = {"total": 0, "active": 0, "pending": 0, "basic": 0, "premium": 0}
+    counts = {"total": 0, "active": 0, "pending": 0, "standard": 0}
     try:
         subscribers = (
             db.table("subscriptions")
@@ -7559,10 +7591,8 @@ def admin_payments(request):
                 counts["active"] += 1
             if s.get("status") == "pending_payment":
                 counts["pending"] += 1
-            if s.get("plan_slug") == "basic":
-                counts["basic"] += 1
-            if s.get("plan_slug") == "premium":
-                counts["premium"] += 1
+            if (s.get("plan_slug") or "").strip() in ("standard", "basic", "premium"):
+                counts["standard"] += 1
     except Exception:
         pass
 
@@ -7617,6 +7647,7 @@ def admin_payments(request):
         "student_unread_notifications": 0,
         "community_unread": 0,
         "plans": plans,
+        "standard": plans.get("standard", {}),
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
         "subscribers": filtered_subscribers,

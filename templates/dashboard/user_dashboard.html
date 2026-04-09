@@ -2,9 +2,62 @@
 {% block title %}My Dashboard - NurseEdge{% endblock %}
 
 {% block content %}
-{% if show_nmc_disclaimer %}
-{% csrf_token %}
 <style>
+  .wrapper { text-align: center; }
+  .offer-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #e60023;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  #clockdiv {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    font-family: Arial, sans-serif;
+    flex-wrap: wrap;
+  }
+  #clockdiv > div {
+    background: #fff;
+    border: 1px solid #ffd6d6;
+    border-radius: 12px;
+    padding: 12px 14px;
+    min-width: 76px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #clockdiv > div:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  }
+  #clockdiv span {
+    display: block;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #e60023;
+    line-height: 1.1;
+  }
+  .smalltext {
+    font-size: 0.62rem;
+    color: #555;
+    margin-top: 5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+  @media (max-width: 576px) {
+    #clockdiv { gap: 8px; }
+    #clockdiv > div { min-width: 62px; padding: 10px 10px; }
+    #clockdiv span { font-size: 1.2rem; }
+    .smalltext { font-size: 0.56rem; }
+    .offer-label { font-size: 0.95rem; }
+  }
+{% if show_nmc_disclaimer %}
   #nmcDisclaimerModal .modal-content {
     background: #f4f6fa;
     border: 1px solid #d8dee6;
@@ -40,7 +93,10 @@
     color: #566a7f;
     font-size: 1.35rem;
   }
+{% endif %}
 </style>
+{% if show_nmc_disclaimer %}
+{% csrf_token %}
 <div class="modal fade" id="nmcDisclaimerModal" tabindex="-1" aria-labelledby="nmcDisclaimerModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -74,28 +130,100 @@
 {% endif %}
 <div class="row">
 
-  <!-- Welcome card -->
-  <div class="col-lg-8 mb-4">
-    <div class="card">
-      <div class="d-flex align-items-end row">
-        <div class="col-sm-7">
-          <div class="card-body">
-            <h5 class="card-title text-primary">Welcome back, {{ full_name }}! 🎉</h5>
-            <p class="mb-4">
-              Ready to conquer your <span class="fw-bold">NMC Licensure Exam</span>?
-              Pick up where you left off and keep your streak going!
-            </p>
-            <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-primary">Start Mock Exams</a>
+  <div class="col-lg-8">
+    <!-- Welcome card -->
+    <div class="mb-4">
+      <div class="card">
+        <div class="d-flex align-items-end row">
+          <div class="col-sm-7">
+            <div class="card-body">
+              <h5 class="card-title text-primary">Welcome back, {{ full_name }}! 🎉</h5>
+              <p class="mb-4">
+                Ready to conquer your <span class="fw-bold">NMC Licensure Exam</span>?
+                Pick up where you left off and keep your streak going!
+              </p>
+              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-primary">Start Mock Exams</a>
+            </div>
+          </div>
+          <div class="col-sm-5 text-center text-sm-left">
+            <div class="card-body pb-0 px-0 px-md-4">
+              <img src="/sneat-assets/img/illustrations/man-with-laptop-light.png"
+                   height="140"
+                   alt="Study illustration"
+                   data-app-dark-img="illustrations/man-with-laptop-dark.png"
+                   data-app-light-img="illustrations/man-with-laptop-light.png" />
+            </div>
           </div>
         </div>
-        <div class="col-sm-5 text-center text-sm-left">
-          <div class="card-body pb-0 px-0 px-md-4">
-            <img src="/sneat-assets/img/illustrations/man-with-laptop-light.png"
-                 height="140"
-                 alt="Study illustration"
-                 data-app-dark-img="illustrations/man-with-laptop-dark.png"
-                 data-app-light-img="illustrations/man-with-laptop-light.png" />
+      </div>
+    </div>
+
+    <!-- Countdown card (same width as Welcome) -->
+    <div class="mb-4">
+      <div class="card" style="border-radius:12px;border:1px solid #e5e7eb;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);box-shadow:0 4px 14px rgba(15,23,42,.06);">
+        <div class="card-body" style="padding:18px 20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;color:#4b5563;display:flex;align-items:center;justify-content:center;font-size:18px;">
+                <i class="bx bx-time-five"></i>
+              </span>
+              <div>
+                <p style="margin:0;font-size:0.74rem;letter-spacing:.5px;text-transform:uppercase;font-weight:700;color:#7b8ba5;">Subscription countdown</p>
+                <p style="margin:0;font-size:0.88rem;color:#4e5f7d;">
+                  {% if sub_status == 'active' and days_remaining is not None and days_remaining > 0 %}
+                    Your access is active. Time remaining below.
+                  {% elif sub_status == 'active' and days_remaining is None %}
+                    Your account has lifetime access.
+                  {% elif sub_status == 'pending_payment' %}
+                    Complete payment to activate your annual access.
+                  {% else %}
+                    No active subscription at the moment.
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+            {% if sub_expires_display and sub_status == 'active' %}
+            <span style="font-size:.75rem;font-weight:700;color:#374151;background:#f3f4f6;border-radius:999px;padding:4px 10px;">
+              Expires {{ sub_expires_display }}
+            </span>
+            {% endif %}
           </div>
+
+          {% if sub_status == 'active' and days_remaining is not None and days_remaining > 0 and sub_expires_display %}
+          <div class="wrapper mt-3" id="planCountdownShell" data-expires-at="{{ sub_expires|default:''|escape }}">
+            <div class="offer-label">Offer ends in:</div>
+            <div id="clockdiv">
+              <div>
+                <span class="days">00</span>
+                <div class="smalltext">Days</div>
+              </div>
+              <div>
+                <span class="hours">00</span>
+                <div class="smalltext">Hours</div>
+              </div>
+              <div>
+                <span class="minutes">00</span>
+                <div class="smalltext">Minutes</div>
+              </div>
+              <div>
+                <span class="seconds">00</span>
+                <div class="smalltext">Seconds</div>
+              </div>
+            </div>
+          </div>
+          {% elif sub_status == 'active' and days_remaining is None %}
+          <div class="mt-3" style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;color:#166534;font-size:.84rem;font-weight:700;">
+            <i class="bx bx-check-shield me-1"></i> Lifetime access (no expiration).
+          </div>
+          {% elif sub_status == 'pending_payment' %}
+          <div class="mt-3" style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;color:#92400e;font-size:.84rem;font-weight:700;">
+            <i class="bx bx-error me-1"></i> Payment pending.
+          </div>
+          {% else %}
+          <div class="mt-3" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;color:#475569;font-size:.84rem;font-weight:700;">
+            <i class="bx bx-info-circle me-1"></i> Renew to continue using all dashboard features.
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -370,15 +498,70 @@
     color: #a8b0c0;
     font-size: 0.85rem;
   }
+
+  /* ── Best Score refresh ── */
+  .best-score-card {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    border: 1px solid #e3ebfb;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(30, 64, 175, 0.08);
+  }
+  .best-score-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    background: #ecf2ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    color: #3758f9;
+  }
+  .best-score-label {
+    font-size: 0.82rem;
+    color: #7f8aa3;
+    margin: 0 0 6px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.55px;
+  }
+  .best-score-value {
+    font-size: 2.2rem;
+    line-height: 1;
+    font-weight: 800;
+    color: #1f2d40;
+    margin: 0 0 8px;
+  }
+  .best-score-value .unit {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #7f8aa3;
+    margin-left: 2px;
+  }
+  .best-score-meta {
+    font-size: 0.92rem;
+    color: #5f6b83;
+    margin: 0;
+  }
+  .best-score-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #3758f9;
+    text-decoration: none;
+  }
+  .best-score-cta:hover { color: #2747e0; }
 </style>
 
 <div class="row g-4 mb-4">
   <!-- Best Score -->
   <div class="col-12 col-lg-4">
-    <div class="card h-100" style="background:#fff;border:1px solid #e8eaf0;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.04);">
+    <div class="card h-100 best-score-card">
       <div class="card-body d-flex flex-column" style="padding:22px;min-height:200px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div style="width:38px;height:38px;border-radius:9px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a5ce8;">
+          <div class="best-score-icon">
             <i class="bx bx-bar-chart-alt-2"></i>
           </div>
           <span style="font-size:0.7rem;font-weight:700;color:#3ea76a;background:#eafff2;border-radius:999px;padding:3px 10px;">
@@ -386,20 +569,14 @@
           </span>
         </div>
         <div class="flex-grow-1">
-          <p style="font-size:0.75rem;color:#9098b0;margin:0 0 3px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Best Score</p>
-          <p style="font-size:1.4rem;font-weight:800;color:#1f2d40;margin:0 0 4px;">{{ best_mock_percentage }}<span style="font-size:0.9rem;font-weight:400;color:#9098b0;">%</span></p>
-          <p style="font-size:0.76rem;color:#9098b0;margin:0;">{{ total_questions_available }} questions &bull; {{ mock_exam_count }} mock exams</p>
+          <p class="best-score-label">Best Score</p>
+          <p class="best-score-value">{{ best_mock_percentage }}<span class="unit">%</span></p>
+          <p class="best-score-meta">{{ total_questions_available }} questions &bull; {{ mock_exam_count }} mock exams</p>
         </div>
         <div style="margin-top:14px;">
-          {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
-          <a href="/dashboard/performance/" style="font-size:0.78rem;font-weight:700;color:#5a5ce8;text-decoration:none;">
-            View performance →
+          <a href="/dashboard/performance/" class="best-score-cta">
+            View performance <i class="bx bx-chevron-right" aria-hidden="true"></i>
           </a>
-          {% else %}
-          <a href="/dashboard/upgrade/?feature=performance" style="font-size:0.78rem;font-weight:700;color:#9098b0;text-decoration:none;">
-            <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 5px;font-weight:700;margin-right:4px;">PRO</span>Unlock analytics →
-          </a>
-          {% endif %}
         </div>
       </div>
     </div>
@@ -418,51 +595,34 @@
             <div>
               <p class="dash-section-label" style="margin-bottom:0;">My Communities</p>
               <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">
-                {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
-                  {% if joined_communities %}{{ joined_communities|length }} joined{% else %}None joined yet{% endif %}
-                  {% if community_unread %}&nbsp;<span style="background:#1a1a2e;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.67rem;font-weight:700;">{{ community_unread }} new</span>{% endif %}
-                {% else %}
-                  Premium feature
-                {% endif %}
+                {% if joined_communities %}{{ joined_communities|length }} joined{% else %}None joined yet{% endif %}
+                {% if community_unread %}&nbsp;<span style="background:#1a1a2e;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.67rem;font-weight:700;">{{ community_unread }} new</span>{% endif %}
               </p>
             </div>
           </div>
-          {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
           <a href="/dashboard/community/" class="dash-section-link">
             Browse all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
           </a>
-          {% endif %}
         </div>
 
-        {% if request.session.plan_slug == "premium" or request.session.is_free_access %}
-          {% if joined_communities %}
-          <div class="comm-chips">
-            {% for c in joined_communities %}
-            <a href="/dashboard/community/{{ c.slug }}/" class="comm-chip">
-              <div class="comm-chip__icon"><i class="bx {{ c.icon }}"></i></div>
-              <div style="min-width:0;">
-                <div class="comm-chip__name">{{ c.name }}</div>
-                <div class="comm-chip__meta">{{ c.member_count }} member{{ c.member_count|pluralize }}</div>
-              </div>
-            </a>
-            {% endfor %}
-          </div>
-          {% else %}
+        {% if joined_communities %}
+        <div class="comm-chips">
+          {% for c in joined_communities %}
+          <a href="/dashboard/community/{{ c.slug }}/" class="comm-chip">
+            <div class="comm-chip__icon"><i class="bx {{ c.icon }}"></i></div>
+            <div style="min-width:0;">
+              <div class="comm-chip__name">{{ c.name }}</div>
+              <div class="comm-chip__meta">{{ c.member_count }} member{{ c.member_count|pluralize }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
           <div class="comm-empty">
             <i class="bx bx-group" style="font-size:2rem;color:#c8cdd8;"></i>
             <p>You haven't joined any communities yet.</p>
             <a href="/dashboard/community/" class="btn btn-sm btn-dark" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#1a1a2e;border:none;">
               Explore Communities
-            </a>
-          </div>
-          {% endif %}
-        {% else %}
-          {# Basic plan — show upgrade prompt #}
-          <div class="comm-empty">
-            <i class="bx bx-lock-alt" style="font-size:2rem;color:#c8cdd8;"></i>
-            <p>Join study groups and discuss with peers. Available on the <strong>Premium</strong> plan.</p>
-            <a href="/dashboard/upgrade/?feature=community" class="btn btn-sm" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#5a5ce8;color:#fff;border:none;text-decoration:none;">
-              Upgrade to Premium
             </a>
           </div>
         {% endif %}
@@ -535,7 +695,6 @@
         </div>
       </div>
       <div class="card-body">
-        {% with is_pro=request.session.plan_slug %}
         <ul class="p-0 m-0">
 
           {# ── Messages (all plans) ─────────────────────────────────────── #}
@@ -554,26 +713,17 @@
             </div>
           </li>
 
-          {# ── Lecture Notes (Premium) ───────────────────────────────────── #}
+          {# ── Lecture Notes ─────────────────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded {% if is_pro == 'premium' or request.session.is_free_access %}bg-label-primary{% else %}bg-label-secondary{% endif %}"><i class="bx bx-book-open"></i></span>
+              <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0 d-flex align-items-center gap-2">
-                  Lecture Notes
-                  {% if not is_pro == 'premium' and not request.session.is_free_access %}
-                  <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-                  {% endif %}
-                </h6>
+                <h6 class="mb-0">Lecture Notes</h6>
                 <small class="text-muted">Notes organised by year &amp; topic</small>
               </div>
-              {% if is_pro == "premium" or request.session.is_free_access %}
               <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary">Browse</a>
-              {% else %}
-              <a href="/dashboard/upgrade/?feature=lecture_notes" class="btn btn-sm btn-outline-secondary">Upgrade</a>
-              {% endif %}
             </div>
           </li>
 
@@ -591,26 +741,17 @@
             </div>
           </li>
 
-          {# ── Flashcards (Premium) ──────────────────────────────────────── #}
+          {# ── Flashcards ────────────────────────────────────────────────── #}
           <li class="d-flex mb-4 pb-1">
             <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded {% if is_pro == 'premium' or request.session.is_free_access %}bg-label-warning{% else %}bg-label-secondary{% endif %}"><i class="bx bx-brain"></i></span>
+              <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0 d-flex align-items-center gap-2">
-                  Flashcards
-                  {% if not is_pro == 'premium' and not request.session.is_free_access %}
-                  <span style="font-size:0.6rem;background:#f0f2ff;color:#5a5ce8;border-radius:4px;padding:1px 6px;font-weight:700;">PRO</span>
-                  {% endif %}
-                </h6>
+                <h6 class="mb-0">Flashcards</h6>
                 <small class="text-muted">Spaced repetition review</small>
               </div>
-              {% if is_pro == "premium" or request.session.is_free_access %}
               <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning">Review</a>
-              {% else %}
-              <a href="/dashboard/upgrade/?feature=flashcards" class="btn btn-sm btn-outline-secondary">Upgrade</a>
-              {% endif %}
             </div>
           </li>
 
@@ -643,7 +784,6 @@
           </li>
 
         </ul>
-        {% endwith %}
       </div>
     </div>
   </div>
@@ -675,4 +815,57 @@
 })();
 </script>
 {% endif %}
+<script>
+(function () {
+  var shell = document.getElementById("planCountdownShell");
+  if (!shell) return;
+
+  var expiresRaw = (shell.getAttribute("data-expires-at") || "").trim();
+  if (!expiresRaw) return;
+
+  function getTimeRemaining(endtime) {
+    var t = Date.parse(endtime) - Date.parse(new Date());
+    var seconds = Math.floor((t / 1000) % 60);
+    var minutes = Math.floor((t / 1000 / 60) % 60);
+    var hours = Math.floor((t / (1000 * 60 * 60)) % 24);
+    var days = Math.floor(t / (1000 * 60 * 60 * 24));
+    return { total: t, days: days, hours: hours, minutes: minutes, seconds: seconds };
+  }
+
+  function initializeClock(id, endtime) {
+    var clock = document.getElementById(id);
+    if (!clock) return;
+    var daysSpan = clock.querySelector(".days");
+    var hoursSpan = clock.querySelector(".hours");
+    var minutesSpan = clock.querySelector(".minutes");
+    var secondsSpan = clock.querySelector(".seconds");
+    if (!daysSpan || !hoursSpan || !minutesSpan || !secondsSpan) return;
+
+    function updateClock() {
+      var t = getTimeRemaining(endtime);
+      if (t.total <= 0) {
+        daysSpan.innerHTML = "00";
+        hoursSpan.innerHTML = "00";
+        minutesSpan.innerHTML = "00";
+        secondsSpan.innerHTML = "00";
+        clearInterval(timeinterval);
+        return;
+      }
+
+      daysSpan.innerHTML = t.days;
+      hoursSpan.innerHTML = ("0" + t.hours).slice(-2);
+      minutesSpan.innerHTML = ("0" + t.minutes).slice(-2);
+      secondsSpan.innerHTML = ("0" + t.seconds).slice(-2);
+    }
+
+    updateClock();
+    var timeinterval = setInterval(updateClock, 1000);
+  }
+
+  var deadline = new Date(expiresRaw.replace(" ", "T"));
+  if (!Number.isNaN(deadline.getTime())) {
+    initializeClock("clockdiv", deadline);
+  }
+})();
+</script>
 {% endblock %}

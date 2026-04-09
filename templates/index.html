@@ -606,56 +606,25 @@
 
                 <div class="col-1" style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;">
                 <!--Pricing Block-->
-                <div class="pricing-block wow fadeInUp" data-wow-delay="0.4s" style="flex:1 1 300px;max-width:340px;">
+                <div class="pricing-block featured wow fadeInUp" data-wow-delay="0.5s" style="flex:1 1 360px;max-width:420px;">
                     <div class="pricing-block-content">
-                        <h3>{{ basic.name|default:"Basic" }}</h3>
-                        <p class="pricing-sub">{{ basic.tagline|default:"Essential study tools to get you started" }}</p>
+                        <h3>{{ basic.name|default:"Annual Access" }}</h3>
+                        <p class="pricing-sub">{{ basic.tagline|default:"Full access to all NurseEdge features" }}</p>
                         <div class="pricing">
-                            <div class="price">GHS {{ basic.price|default:"70" }}</div>
+                            <div class="price">GHS {{ basic.price|default:"50" }}</div>
                             <p>/ {{ basic.duration_days|default:365 }} days</p>
                         </div>
                         <ul>
-                            {% if basic.features %}
-                                {% for f in basic.features %}
-                                <li>{{ f }}</li>
-                                {% endfor %}
-                            {% else %}
-                                <li>Access to all Practice Questions</li>
-                                <li>Mock Exams &amp; Leaderboard</li>
-                                <li>Drug Cards Reference</li>
-                                <li>Admin Announcements</li>
-                            {% endif %}
-                        </ul>
-                        <a href="/login/" class="button">GET STARTED</a>
-                    </div>
-                </div>
-                <!--End Pricing Block-->
-
-                <!--Pricing Block-->
-                <div class="pricing-block featured wow fadeInUp" data-wow-delay="0.6s" style="flex:1 1 300px;max-width:340px;">
-                    <div class="pricing-block-content">
-                        <h3>{{ premium.name|default:"Premium" }}</h3>
-                        <p class="pricing-sub">{{ premium.tagline|default:"Full unlimited access to every NurseEdge feature" }}</p>
-                        <div class="pricing">
-                            <div class="price">GHS {{ premium.price|default:"150" }}</div>
-                            <p>/ {{ premium.duration_days|default:365 }} days</p>
-                        </div>
-                        <ul>
-                            {% if premium.features %}
-                                {% for f in premium.features %}
-                                <li>{{ f }}</li>
-                                {% endfor %}
-                            {% else %}
-                            <li>Advanced Standardized Test Preparation</li>
-                                <li>Everything in Basic</li>
-                                <li>Lecture Notes (all years)</li>
-                                <li>Flashcards &amp; Spaced Repetition</li>
-                                <li>AI Study Assistant</li>
-                                <li>Community Forums</li>
-                                <li>Dosage Calculator</li>
-                            <li>Competitive Quiz</li>
-                                <li>Detailed Performance Analytics</li>
-                            {% endif %}
+                            <li>All Practice Questions</li>
+                            <li>General Tests and Mock Exams</li>
+                            <li>Lecture Notes</li>
+                            <li>Flashcards</li>
+                            <li>Drug Cards</li>
+                            <li>AI Study Assistant</li>
+                            <li>Community Forums and Messages</li>
+                            <li>Dosage Calculator</li>
+                            <li>Competitive Quizzes</li>
+                            <li>Detailed Performance Analytics</li>
                         </ul>
                         <a href="/login/" class="button">GET STARTED</a>
                     </div>

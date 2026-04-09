@@ -66,7 +66,7 @@
   .s-expired   { background: #f5f5f5; color: #9098b0; }
 
   .plan-chip { font-size: 0.69rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
-  .plan-basic   { background: #f0f2ff; color: #5a5ce8; }
+  .plan-basic   { background: #1a1a2e; color: #fff; }
   .plan-premium { background: #1a1a2e; color: #fff; }
 
   .empty-state { text-align: center; padding: 48px 24px; color: #9098b0; }
@@ -87,7 +87,7 @@
     <div class="apb-left">
       <div class="apb-icon"><i class="bx bx-shield-quarter"></i></div>
       <div>
-        <p class="apb-plan">{{ latest_subscription.plan_slug|title }} Plan</p>
+        <p class="apb-plan">Annual Access</p>
         <p class="apb-sub">
           {% if latest_subscription.status == 'active' %}
             Active until {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
@@ -106,7 +106,7 @@
       {% if latest_subscription.status != 'active' %}
       <a href="/subscribe/" class="btn-subscribe">Complete Payment →</a>
       {% else %}
-      <a href="/subscribe/" class="btn-subscribe">Upgrade / Renew</a>
+      <a href="/subscribe/" class="btn-subscribe">Renew Subscription</a>
       {% endif %}
     </div>
   </div>
@@ -116,10 +116,10 @@
       <div class="apb-icon"><i class="bx bx-credit-card"></i></div>
       <div>
         <p class="apb-plan">No active subscription</p>
-        <p class="apb-sub">Choose a plan to unlock your full dashboard.</p>
+        <p class="apb-sub">Pay GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days to unlock your full dashboard.</p>
       </div>
     </div>
-    <a href="/subscribe/" class="btn-subscribe">Choose a Plan →</a>
+    <a href="/subscribe/" class="btn-subscribe">Subscribe Now →</a>
   </div>
   {% endif %}
 
@@ -154,7 +154,7 @@
           <tr>
             <td>
               <span class="plan-chip {% if row.plan_slug == 'premium' %}plan-premium{% else %}plan-basic{% endif %}">
-                {{ row.plan_slug|title|default:"—" }}
+                Annual
               </span>
             </td>
             <td style="font-weight:700;">{{ row.currency|default:"GHS" }} {{ row.amount_due|default:"—" }}</td>

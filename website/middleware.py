@@ -88,16 +88,17 @@ class StudentSubscriptionGateMiddleware:
         try:
             from website.views import (
                 _reconcile_pending_subscription_from_paystack,
-                subscription_allows_dashboard,
+                _subscription_access_state,
             )
 
             uid = request.session.get("user_id")
             _reconcile_pending_subscription_from_paystack(uid)
-            if subscription_allows_dashboard(uid):
+            allowed, reason = _subscription_access_state(uid)
+            if allowed:
                 return self.get_response(request)
         except Exception:
             return self.get_response(request)
-        return redirect("/subscribe/?reason=payment_required")
+        return redirect(f"/subscribe/?reason={reason}")
 
 
 class VisitTrackerMiddleware:
