@@ -7193,9 +7193,6 @@ def _ensure_pending_checkout_row(request, plans, selected_plan_slug=None):
             sub = _get_active_subscription(user_id)
         return sub
 
-    if subscription_allows_dashboard(user_id):
-        return None
-
     pl = plans.get(plan_slug, {})
     ins = (
         db.table("subscriptions")

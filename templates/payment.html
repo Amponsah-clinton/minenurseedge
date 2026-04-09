@@ -72,6 +72,25 @@
   .empty-state { text-align: center; padding: 48px 24px; color: #9098b0; }
   .empty-state i { font-size: 2.4rem; display: block; margin-bottom: 10px; color: #c8cdd8; }
   .empty-state p { font-size: 0.87rem; margin: 0 0 16px; }
+  .btn-detail {
+    border: 1px solid #d9deea;
+    background: #fff;
+    color: #4a5268;
+    border-radius: 7px;
+    padding: 4px 9px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .btn-detail:hover { background: #f8f9fc; }
+  .pay-detail-modal .modal-content {
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+  }
+  .pay-detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+  .pay-detail-row:last-child { border-bottom: 0; }
+  .pay-detail-key { color: #7b8599; font-size: 0.82rem; font-weight: 700; }
+  .pay-detail-value { color: #1f2d40; font-size: 0.84rem; font-weight: 600; text-align: right; word-break: break-word; }
 </style>
 
 <div class="pay-wrap">
@@ -147,6 +166,7 @@
             <th>Started</th>
             <th>Expires</th>
             <th>Date</th>
+            <th>Details</th>
           </tr>
         </thead>
         <tbody>
@@ -174,6 +194,23 @@
             <td style="font-size:0.78rem;white-space:nowrap;">{{ row.started_at|slice:":10"|default:"—" }}</td>
             <td style="font-size:0.78rem;white-space:nowrap;">{{ row.expires_at|slice:":10"|default:"—" }}</td>
             <td style="font-size:0.78rem;white-space:nowrap;color:#9098b0;">{{ row.created_at|slice:":10"|default:"—" }}</td>
+            <td>
+              <button
+                type="button"
+                class="btn-detail"
+                data-bs-toggle="modal"
+                data-bs-target="#paymentDetailModal"
+                data-plan="Annual Access"
+                data-amount-due="{{ row.currency|default:'GHS' }} {{ row.amount_due|default:'—' }}"
+                data-amount-paid="{% if row.amount_paid %}{{ row.currency|default:'GHS' }} {{ row.amount_paid }}{% else %}—{% endif %}"
+                data-reference="{{ row.payment_reference|default:'—' }}"
+                data-status="{% if row.status == 'pending_payment' %}Pending{% else %}{{ row.status|title }}{% endif %}"
+                data-started="{{ row.started_at|slice:':19'|default:'—' }}"
+                data-expires="{{ row.expires_at|slice:':19'|default:'—' }}"
+                data-created="{{ row.created_at|slice:':19'|default:'—' }}">
+                View
+              </button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -191,4 +228,55 @@
   </div>
 
 </div>
+
+<div class="modal fade pay-detail-modal" id="paymentDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Payment Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="pay-detail-row"><span class="pay-detail-key">Plan</span><span class="pay-detail-value" id="pdPlan">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Amount Due</span><span class="pay-detail-value" id="pdAmountDue">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Amount Paid</span><span class="pay-detail-value" id="pdAmountPaid">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Reference</span><span class="pay-detail-value" id="pdReference">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Status</span><span class="pay-detail-value" id="pdStatus">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Started</span><span class="pay-detail-value" id="pdStarted">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Expires</span><span class="pay-detail-value" id="pdExpires">—</span></div>
+        <div class="pay-detail-row"><span class="pay-detail-key">Created</span><span class="pay-detail-value" id="pdCreated">—</span></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var modal = document.getElementById("paymentDetailModal");
+  if (!modal) return;
+
+  modal.addEventListener("show.bs.modal", function (event) {
+    var trigger = event.relatedTarget;
+    if (!trigger) return;
+
+    function set(id, key) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = trigger.getAttribute(key) || "—";
+    }
+    set("pdPlan", "data-plan");
+    set("pdAmountDue", "data-amount-due");
+    set("pdAmountPaid", "data-amount-paid");
+    set("pdReference", "data-reference");
+    set("pdStatus", "data-status");
+    set("pdStarted", "data-started");
+    set("pdExpires", "data-expires");
+    set("pdCreated", "data-created");
+  });
+});
+</script>
 {% endblock %}

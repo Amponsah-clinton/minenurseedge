@@ -137,8 +137,8 @@
         <div class="d-flex align-items-end row">
           <div class="col-sm-7">
             <div class="card-body">
-              <h5 class="card-title text-primary">Welcome back, {{ full_name }}! 🎉</h5>
-              <p class="mb-4">
+            <h5 class="card-title text-primary" style="font-size:1.45rem;font-weight:800;">Welcome back, {{ full_name }}! 🎉</h5>
+            <p class="mb-4" style="font-size:1.03rem;line-height:1.7;">
                 Ready to conquer your <span class="fw-bold">NMC Licensure Exam</span>?
                 Pick up where you left off and keep your streak going!
               </p>
@@ -147,9 +147,10 @@
           </div>
           <div class="col-sm-5 text-center text-sm-left">
             <div class="card-body pb-0 px-0 px-md-4">
-              <img src="/sneat-assets/img/illustrations/man-with-laptop-light.png"
-                   height="140"
-                   alt="Study illustration"
+              <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775750474/new1-removebg-preview_hld7oo.png"
+                   height="170"
+                   style="border-radius:12px;object-fit:cover;max-width:100%;"
+                   alt="Health icon illustration"
                    data-app-dark-img="illustrations/man-with-laptop-dark.png"
                    data-app-light-img="illustrations/man-with-laptop-light.png" />
             </div>
@@ -231,11 +232,11 @@
 
   <!-- My Plan -->
   <div class="col-lg-4 col-md-12 mb-4">
-    <div class="card h-100" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 6px rgba(0,0,0,.04);">
-      <div class="card-body" style="padding:22px;display:flex;flex-direction:column;">
+    <div class="card" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 6px rgba(0,0,0,.04);">
+      <div class="card-body" style="padding:18px;display:flex;flex-direction:column;">
 
         {# ── Header row: icon + status badge ──────────────────────────────── #}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="width:38px;height:38px;border-radius:9px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a5ce8;">
             <i class="bx bx-shield-quarter"></i>
           </div>
@@ -252,10 +253,10 @@
 
         {# ── Plan name ─────────────────────────────────────────────────────── #}
         <p style="font-size:0.72rem;color:#9098b0;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">My Plan</p>
-        <p style="font-size:1.35rem;font-weight:800;margin:0 0 16px;color:#1f2d40;">{{ plan_name }}</p>
+        <p style="font-size:1.2rem;font-weight:800;margin:0 0 10px;color:#1f2d40;">{{ plan_name }}</p>
 
         {# ── Countdown / status body ───────────────────────────────────────── #}
-        <div class="flex-grow-1">
+        <div>
           {% if sub_status == 'active' %}
 
             {% if days_remaining is None %}
@@ -329,7 +330,7 @@
         </div>
 
         {# ── CTA ──────────────────────────────────────────────────────────── #}
-        <div style="margin-top:18px;">
+        <div style="margin-top:12px;">
           {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
             <a href="/subscribe/"
                style="font-size:0.8rem;font-weight:700;color:#fff;background:#1f2d40;border-radius:8px;padding:9px 18px;text-decoration:none;display:inline-block;border:1px solid #1f2d40;">
@@ -346,6 +347,56 @@
             </a>
           {% endif %}
         </div>
+
+      </div>
+    </div>
+
+    <!-- Recent Messages -->
+    <div class="card mt-3" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 8px rgba(0,0,0,.04);">
+      <div class="card-body" style="padding:20px 22px;">
+
+        <div class="dash-section-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
+              <i class="bx bx-bell"></i>
+            </span>
+            <div>
+              <p class="dash-section-label" style="margin-bottom:0;">Recent Messages</p>
+              <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">From the admin team</p>
+            </div>
+          </div>
+          <a href="/dashboard/messages/" class="dash-section-link">
+            View all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
+          </a>
+        </div>
+
+        {% if recent_messages %}
+        <div class="msg-list">
+          {% for m in recent_messages %}
+          <div class="msg-item">
+            <div class="msg-dot {% if m.is_read %}read{% else %}unread{% endif %}"></div>
+            <div class="msg-body">
+              <p class="msg-title">{{ m.title }}</p>
+              <p class="msg-excerpt">{{ m.message_body }}</p>
+              <div class="msg-meta">
+                <span class="msg-date">{{ m.created_at|slice:":16"|cut:"T" }}</span>
+                <span class="msg-badge {% if m.is_read %}read{% else %}unread{% endif %}">
+                  {% if m.is_read %}Read{% else %}Unread{% endif %}
+                </span>
+              </div>
+            </div>
+            <a href="/dashboard/messages/" style="flex-shrink:0;color:#c0c8d8;font-size:18px;margin-top:2px;" title="Open messages">
+              <i class="bx bx-chevron-right"></i>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="msg-empty">
+          <i class="bx bx-bell-off" style="font-size:2rem;color:#c8cdd8;display:block;margin-bottom:8px;"></i>
+          No messages yet. Check back later.
+        </div>
+        {% endif %}
 
       </div>
     </div>
@@ -553,6 +604,59 @@
     text-decoration: none;
   }
   .best-score-cta:hover { color: #2747e0; }
+
+  /* ── Start Studying section ── */
+  .study-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+    background: #fff;
+  }
+  .study-list { display: grid; gap: 12px; }
+  .study-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid #eceff3;
+    border-radius: 12px;
+    padding: 13px 14px;
+    background: #fff;
+    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  }
+  .study-item:hover {
+    border-color: #d8dee8;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+    transform: translateY(-1px);
+  }
+  .study-item .avatar-initial {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .study-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1f2d40;
+    line-height: 1.2;
+  }
+  .study-sub {
+    margin: 3px 0 0;
+    font-size: 0.82rem;
+    color: #7b8599;
+    line-height: 1.35;
+  }
+  .study-btn {
+    min-width: 90px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 0.77rem;
+  }
 </style>
 
 <div class="row g-4 mb-4">
@@ -631,63 +735,12 @@
     </div>
   </div>
 
-  <!-- Recent Messages -->
-  <div class="col-12 col-lg-4">
-    <div class="card h-100" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 8px rgba(0,0,0,.04);">
-      <div class="card-body" style="padding:20px 22px;">
-
-        <div class="dash-section-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
-              <i class="bx bx-bell"></i>
-            </span>
-            <div>
-              <p class="dash-section-label" style="margin-bottom:0;">Recent Messages</p>
-              <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">From the admin team</p>
-            </div>
-          </div>
-          <a href="/dashboard/messages/" class="dash-section-link">
-            View all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
-          </a>
-        </div>
-
-        {% if recent_messages %}
-        <div class="msg-list">
-          {% for m in recent_messages %}
-          <div class="msg-item">
-            <div class="msg-dot {% if m.is_read %}read{% else %}unread{% endif %}"></div>
-            <div class="msg-body">
-              <p class="msg-title">{{ m.title }}</p>
-              <p class="msg-excerpt">{{ m.message_body }}</p>
-              <div class="msg-meta">
-                <span class="msg-date">{{ m.created_at|slice:":16"|cut:"T" }}</span>
-                <span class="msg-badge {% if m.is_read %}read{% else %}unread{% endif %}">
-                  {% if m.is_read %}Read{% else %}Unread{% endif %}
-                </span>
-              </div>
-            </div>
-            <a href="/dashboard/messages/" style="flex-shrink:0;color:#c0c8d8;font-size:18px;margin-top:2px;" title="Open messages">
-              <i class="bx bx-chevron-right"></i>
-            </a>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="msg-empty">
-          <i class="bx bx-bell-off" style="font-size:2rem;color:#c8cdd8;display:block;margin-bottom:8px;"></i>
-          No messages yet. Check back later.
-        </div>
-        {% endif %}
-
-      </div>
-    </div>
-  </div>
 </div>
 
 <div class="row">
   <!-- Study actions -->
   <div class="col-12 mb-4">
-    <div class="card">
+    <div class="card study-card">
       <div class="card-header d-flex align-items-center justify-content-between pb-0">
         <div class="card-title mb-0">
           <h5 class="m-0 me-2">Start Studying</h5>
@@ -695,91 +748,91 @@
         </div>
       </div>
       <div class="card-body">
-        <ul class="p-0 m-0">
+        <ul class="p-0 m-0 study-list">
 
           {# ── Messages (all plans) ─────────────────────────────────────── #}
-          <li class="d-flex mb-4 pb-1">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-bell"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Messages</h6>
-                <small class="text-muted">
+                <p class="study-title">Messages</p>
+                <p class="study-sub">
                   {% if student_unread_notifications and student_unread_notifications > 0 %}{{ student_unread_notifications }} unread{% else %}No unread messages{% endif %}
-                </small>
+                </p>
               </div>
-              <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary">Open</a>
+              <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary study-btn">Open</a>
             </div>
           </li>
 
           {# ── Lecture Notes ─────────────────────────────────────────────── #}
-          <li class="d-flex mb-4 pb-1">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Lecture Notes</h6>
-                <small class="text-muted">Notes organised by year &amp; topic</small>
+                <p class="study-title">Lecture Notes</p>
+                <p class="study-sub">Notes organised by year &amp; topic</p>
               </div>
-              <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary">Browse</a>
+              <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary study-btn">Browse</a>
             </div>
           </li>
 
           {# ── Mock Exams (all plans) ────────────────────────────────────── #}
-          <li class="d-flex mb-4 pb-1">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-success"><i class="bx bx-target-lock"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Mock Exams</h6>
-                <small class="text-muted">Simulate the real NMC licensure exam</small>
+                <p class="study-title">Mock Exams</p>
+                <p class="study-sub">Simulate the real NMC licensure exam</p>
               </div>
-              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success">Start</a>
+              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success study-btn">Start</a>
             </div>
           </li>
 
           {# ── Flashcards ────────────────────────────────────────────────── #}
-          <li class="d-flex mb-4 pb-1">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Flashcards</h6>
-                <small class="text-muted">Spaced repetition review</small>
+                <p class="study-title">Flashcards</p>
+                <p class="study-sub">Spaced repetition review</p>
               </div>
-              <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning">Review</a>
+              <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning study-btn">Review</a>
             </div>
           </li>
 
           {# ── General Tests (all plans) ─────────────────────────────────── #}
-          <li class="d-flex mb-4 pb-1">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-info"><i class="bx bx-question-mark"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">General Tests</h6>
-                <small class="text-muted">Standardized test preparation</small>
+                <p class="study-title">General Tests</p>
+                <p class="study-sub">Standardized test preparation</p>
               </div>
-              <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info">Practice</a>
+              <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
             </div>
           </li>
 
           {# ── Dosage Calculator (all plans) ─────────────────────────────── #}
-          <li class="d-flex">
+          <li class="study-item">
             <div class="avatar flex-shrink-0 me-3">
               <span class="avatar-initial rounded bg-label-info"><i class="bx bx-calculator"></i></span>
             </div>
             <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
               <div class="me-2">
-                <h6 class="mb-0">Dosage Calculations</h6>
-                <small class="text-muted">Tablet, injection, IV &amp; drip rate drills</small>
+                <p class="study-title">Dosage Calculations</p>
+                <p class="study-sub">Tablet, injection, IV &amp; drip rate drills</p>
               </div>
-              <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info">Practice</a>
+              <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
             </div>
           </li>
 
