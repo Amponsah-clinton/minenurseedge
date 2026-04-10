@@ -4224,6 +4224,9 @@ def student_general_test_attempt(request, attempt_id):
 
     current_question = questions[current_index - 1]
     current_answer = answer_map.get(current_question["id"], {})
+    for q in questions:
+        _ans = answer_map.get(q["id"], {})
+        q["nav_flagged"] = bool(_ans.get("is_flagged"))
     answered_count = sum(1 for q in questions if q["id"] in answer_map and (answer_map[q["id"]].get("selected_option") or ""))
     bookmarked_count = sum(1 for a in answer_map.values() if a.get("is_bookmarked"))
     flagged_count = sum(1 for a in answer_map.values() if a.get("is_flagged"))

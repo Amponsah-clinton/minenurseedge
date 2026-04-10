@@ -1,13 +1,13 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}General Test - {{ attempt.paper_title }}{% endblock %}
+{% block title %}NMC Countdown — {{ attempt.paper_title }}{% endblock %}
 
 {% block content %}
 
 {# ── Security layer (screenshot prevention, text-selection block, etc.) ── #}
 {% include "dashboard/_test_security.html" %}
 
-{# ── Pre-test security notice modal (must dismiss before starting) ───────── #}
-<div id="ne-pretest-modal" class="ne-overlay" style="display:flex;" role="dialog" aria-modal="true">
+{# ── Pre-test security notice modal (once per attempt; see script below) ──── #}
+<div id="ne-pretest-modal" class="ne-overlay" style="display:none;" role="dialog" aria-modal="true">
   <div class="ne-pretest-box">
     <div class="ne-pretest-header">
       <span class="ne-pretest-icon"><i class="bx bx-shield-quarter"></i></span>
@@ -27,21 +27,65 @@
         a second offence <strong>permanently disables</strong> your account.
       </span>
     </div>
-    <button class="ne-pretest-start" onclick="NeSec.startExam()">
+    <button type="button" class="ne-pretest-start" id="nePretestStartBtn">
       <i class="bx bx-check-circle"></i> I Understand — Start Test
     </button>
   </div>
 </div>
+<script>
+(function () {
+  var storageKey = 'ne_pretest_ack_general_{{ attempt.id|escapejs }}';
+  var modal = document.getElementById('ne-pretest-modal');
+  var btn = document.getElementById('nePretestStartBtn');
+  if (!modal) return;
+
+  var acked = false;
+  try { acked = sessionStorage.getItem(storageKey) === '1'; } catch (e) {}
+
+  modal.style.display = acked ? 'none' : 'flex';
+
+  if (window.NeSec && typeof NeSec.startExam === 'function') {
+    var _origStart = NeSec.startExam;
+    NeSec.startExam = function () {
+      try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
+      _origStart();
+    };
+  }
+
+  if (btn) {
+    btn.addEventListener('click', function () {
+      if (window.NeSec && typeof NeSec.startExam === 'function') {
+        NeSec.startExam();
+      }
+    });
+  }
+})();
+</script>
 
 <style>
 @keyframes gtClockPulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: .55; }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+  50%       { opacity: .88; box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+.gt-clock--stress {
+  background: #fef2f2;
+  border-color: #dc2626 !important;
+  color: #b91c1c !important;
 }
 .gt-header-card {
   position: sticky;
   top: 0;
   z-index: 100;
+}
+/* Navigator: flagged questions read as “skipped / revisit” */
+.gt-nav-flagged {
+  background: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #f87171;
+  font-weight: 700;
+}
+.gt-nav-flagged--active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #dc2626;
 }
 </style>
 
@@ -52,19 +96,30 @@
       <div class="card-body py-2 px-3">
 
         {# Row 1: title (left) + clock (right) #}
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div style="min-width:0;">
-            <h6 class="mb-0 fw-semibold text-truncate">{{ attempt.paper_title }}</h6>
-            <small class="text-muted">Question {{ current_index }} of {{ questions|length }}</small>
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <h6 class="mb-0 fw-semibold text-truncate">{{ attempt.paper_title }}</h6>
+              <span class="badge rounded-pill" style="font-size:0.65rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#1f2d40;color:#fff;border:1px solid #1f2d40;">
+                NMC Countdown
+              </span>
+            </div>
+            <small class="text-muted d-block">Question {{ current_index }} of {{ questions|length }}</small>
+            <small class="text-muted d-block mt-1" style="font-size:0.72rem;line-height:1.4;">
+              Stress-test mode: the timer turns <strong class="text-danger">red</strong> in the final <strong>15 minutes</strong>, like the pressure at NMC examination centres.
+            </small>
           </div>
 
           <div id="clockBox"
-               class="d-flex align-items-center gap-2 border border-2 border-success text-success rounded px-3 py-1 ms-3 flex-shrink-0"
-               style="transition: border-color .4s, color .4s;">
-            <i class="bx bx-time-five fs-5" id="clockIcon"></i>
-            <span id="timerBadge"
-                  class="fw-bold font-monospace"
-                  style="font-size: 1.25rem; letter-spacing: .05em;">--:--</span>
+               class="d-flex align-items-center gap-2 border border-2 border-success text-success rounded px-3 py-1 ms-md-3 flex-shrink-0"
+               style="transition: border-color .35s ease, color .35s ease, background-color .35s ease, box-shadow .35s ease;">
+            <i class="bx bx-time-five fs-5" id="clockIcon" aria-hidden="true"></i>
+            <div class="d-flex flex-column align-items-end lh-sm">
+              <span id="timerBadge"
+                    class="fw-bold font-monospace"
+                    style="font-size: 1.25rem; letter-spacing: .05em;">--:--</span>
+              <span id="timerPhaseLabel" class="small text-muted" style="font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;">Calm phase</span>
+            </div>
           </div>
         </div>
 
@@ -108,7 +163,10 @@
 
           <div class="d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-outline-warning" onclick="toggleBookmark()">Toggle Bookmark</button>
-            <button type="submit" class="btn btn-outline-danger" onclick="toggleFlag()">Toggle Flag</button>
+            <button type="submit" name="action" value="next" class="btn btn-outline-danger" onclick="toggleFlag();"
+                    title="Flag (or unflag) this question and go to the next one">
+              Toggle Flag
+            </button>
             <button type="button" class="btn btn-outline-secondary"
                     onclick="openReportModal('{{ current_question.id }}')"
                     title="Report an error in this question">
@@ -134,9 +192,23 @@
       <div class="card-body">
         <div class="d-flex flex-wrap gap-2">
           {% for q in questions %}
-            <span class="badge {% if q.order == current_question.order %}bg-primary{% else %}bg-label-secondary{% endif %}">{{ q.order }}</span>
+            <span class="badge rounded-pill px-2 py-1
+              {% if q.nav_flagged and q.order == current_question.order %}
+                bg-primary gt-nav-flagged--active
+              {% elif q.order == current_question.order %}
+                bg-primary
+              {% elif q.nav_flagged %}
+                gt-nav-flagged
+              {% else %}
+                bg-label-secondary
+              {% endif %}"
+              title="{% if q.nav_flagged %}Flagged — revisit{% else %}Question {{ q.order }}{% endif %}">{{ q.order }}</span>
           {% endfor %}
         </div>
+        <p class="text-muted small mt-2 mb-0">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#fee2e2;border:1px solid #f87171;vertical-align:middle;margin-right:6px;"></span>
+          Red = flagged (revisit later)
+        </p>
       </div>
     </div>
   </div>
@@ -197,27 +269,38 @@
     var remaining = {{ remaining_seconds|default:0 }};
     var clockBox  = document.getElementById('clockBox');
     var timer     = document.getElementById('timerBadge');
+    var phaseLbl  = document.getElementById('timerPhaseLabel');
+    /* Final 15 minutes — red “examination hall” pressure (NMC Countdown) */
+    var NMC_STRESS_LAST_SEC = 15 * 60;
 
     function render() {
       var mins = Math.floor(remaining / 60);
       var secs = remaining % 60;
       timer.textContent = mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
 
-      /* Colour transitions matching mock exam behaviour */
       clockBox.classList.remove(
         'border-success', 'text-success',
         'border-warning', 'text-warning',
-        'border-danger',  'text-danger'
+        'border-danger',  'text-danger',
+        'gt-clock--stress'
       );
-      if (remaining <= 120) {          /* ≤ 2 min — red + pulse */
-        clockBox.classList.add('border-danger', 'text-danger');
-        clockBox.style.animation = 'gtClockPulse .8s ease-in-out infinite';
-      } else if (remaining <= 300) {   /* ≤ 5 min — amber */
-        clockBox.classList.add('border-warning', 'text-warning');
-        clockBox.style.animation = '';
-      } else {                         /* > 5 min — green */
+      if (phaseLbl) {
+        phaseLbl.classList.remove('text-danger', 'text-success', 'text-muted');
+      }
+      if (remaining <= NMC_STRESS_LAST_SEC) {
+        clockBox.classList.add('border-danger', 'text-danger', 'gt-clock--stress');
+        clockBox.style.animation = 'gtClockPulse .85s ease-in-out infinite';
+        if (phaseLbl) {
+          phaseLbl.textContent = 'NMC countdown — final 15 min';
+          phaseLbl.classList.add('text-danger');
+        }
+      } else {
         clockBox.classList.add('border-success', 'text-success');
         clockBox.style.animation = '';
+        if (phaseLbl) {
+          phaseLbl.textContent = 'Calm phase';
+          phaseLbl.classList.add('text-success');
+        }
       }
 
       if (remaining <= 0) {

@@ -10,8 +10,8 @@
 {# ── Security layer (screenshot prevention, text-selection block, etc.) ── #}
 {% include "dashboard/_test_security.html" %}
 
-{# ── Pre-test security notice modal (must dismiss before starting) ───────── #}
-<div id="ne-pretest-modal" class="ne-overlay" style="display:flex;" role="dialog" aria-modal="true">
+{# ── Pre-test security notice modal (once per quiz session; see script below) #}
+<div id="ne-pretest-modal" class="ne-overlay" style="display:none;" role="dialog" aria-modal="true">
   <div class="ne-pretest-box">
     <div class="ne-pretest-header">
       <span class="ne-pretest-icon"><i class="bx bx-shield-quarter"></i></span>
@@ -31,11 +31,40 @@
         a second offence <strong>permanently disables</strong> your account.
       </span>
     </div>
-    <button class="ne-pretest-start" onclick="NeSec.startExam()">
+    <button type="button" class="ne-pretest-start" id="nePretestStartBtnQuiz">
       <i class="bx bx-check-circle"></i> I Understand — Start Quiz
     </button>
   </div>
 </div>
+<script>
+(function () {
+  var storageKey = 'ne_pretest_ack_quiz_{{ quiz.id|escapejs }}';
+  var modal = document.getElementById('ne-pretest-modal');
+  var btn = document.getElementById('nePretestStartBtnQuiz');
+  if (!modal) return;
+
+  var acked = false;
+  try { acked = sessionStorage.getItem(storageKey) === '1'; } catch (e) {}
+
+  modal.style.display = acked ? 'none' : 'flex';
+
+  if (window.NeSec && typeof NeSec.startExam === 'function') {
+    var _origStart = NeSec.startExam;
+    NeSec.startExam = function () {
+      try { sessionStorage.setItem(storageKey, '1'); } catch (e) {}
+      _origStart();
+    };
+  }
+
+  if (btn) {
+    btn.addEventListener('click', function () {
+      if (window.NeSec && typeof NeSec.startExam === 'function') {
+        NeSec.startExam();
+      }
+    });
+  }
+})();
+</script>
 
 <div class="row mb-3">
   <div class="col-12">
