@@ -32,6 +32,46 @@ def bytez_key(request):
     return {"bytez_api_key": getattr(settings, "BYTEZ_API_KEY", "")}
 
 
+def academic_profile_gate(request):
+    """
+    Students who have not set programme / year / school (e.g. after Google sign-up)
+    see a blocking modal only after their annual fee is paid (same rule as email signup:
+    pay on /subscribe/, then dashboard). Programme drives question_bank filters in views.
+    """
+    from website.views import (
+        ACADEMIC_YEAR_CHOICES,
+        PROGRAMME_CHOICES,
+        subscription_allows_dashboard,
+    )
+
+    base = {
+        "academic_programme_choices": PROGRAMME_CHOICES,
+        "academic_year_choices": ACADEMIC_YEAR_CHOICES,
+    }
+
+    if request.session.get("role") != "student":
+        return {
+            "pending_academic_profile": False,
+            "show_academic_profile_modal": False,
+            **base,
+        }
+
+    uid = request.session.get("user_id")
+    pending = bool(request.session.get("pending_academic_profile"))
+    paid = False
+    if pending and uid:
+        paid = subscription_allows_dashboard(uid)
+    # Do not block /subscribe/ or payment: modal only when they can use the dashboard
+    # but academic fields are still empty.
+    show_modal = pending and paid
+
+    return {
+        "pending_academic_profile": pending,
+        "show_academic_profile_modal": show_modal,
+        **base,
+    }
+
+
 def reported_questions_badge(request):
     """Provides pending report count for the admin sidebar badge.
     Only queries Supabase when the session role is 'admin'."""

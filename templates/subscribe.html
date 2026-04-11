@@ -38,7 +38,7 @@
 <div class="sub-wrap">
   <div class="sub-head">
     <h4>Complete your annual subscription</h4>
-    <p>One account type for all users. Current amount: GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days.</p>
+    <p>One account type for all users (including Google sign-in). Current amount: GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days. You must complete this payment before the dashboard unlocks.</p>
   </div>
 
   {% if request.GET.reason == 'payment_required' %}

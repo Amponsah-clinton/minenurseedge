@@ -299,6 +299,47 @@
         font-size: 1rem;
       }
     }
+    /* Blocking overlay until programme / year / school are set (matches signup; programme filters questions). */
+    body.academic-profile-pending { overflow: hidden !important; }
+    .layout-wrapper.academic-lock-interaction {
+      pointer-events: none;
+      user-select: none;
+      filter: grayscale(0.25);
+      opacity: 0.92;
+    }
+    #academic-profile-gate-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10050;
+      background: rgba(15, 23, 42, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      pointer-events: auto;
+    }
+    #academic-profile-gate-overlay .academic-gate-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 1.5rem 1.75rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+      pointer-events: auto;
+    }
+    #academic-profile-gate-overlay .academic-gate-card h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+      color: #233446;
+    }
+    #academic-profile-gate-overlay .academic-gate-card .sub {
+      font-size: 0.875rem;
+      color: #697a8d;
+      margin-bottom: 1.25rem;
+    }
   </style>
 
   <!-- Helpers -->
@@ -307,9 +348,9 @@
   {% block dashboard_head %}{% endblock %}
 </head>
 
-<body>
+<body{% if show_academic_profile_modal %} class="academic-profile-pending"{% endif %}>
   <!-- Layout wrapper -->
-  <div class="layout-wrapper layout-content-navbar">
+  <div class="layout-wrapper layout-content-navbar{% if show_academic_profile_modal %} academic-lock-interaction{% endif %}">
     <div class="layout-container">
 
       <!-- ===================== SIDEBAR ===================== -->
@@ -712,7 +753,7 @@
         <div class="content-wrapper">
           <!-- Content -->
           <div class="container-xxl flex-grow-1 container-p-y">
-            {% if messages %}
+            {% if messages and not show_academic_profile_modal %}
               {% for message in messages %}
                 <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible mb-3" role="alert">
                   {{ message }}
@@ -813,6 +854,49 @@
       <span class="assistant-bot__mini-tooltip">I am here to assist you</span>
     </button>
   </aside>
+  {% endif %}
+
+  {% if show_academic_profile_modal %}
+  <div id="academic-profile-gate-overlay" role="dialog" aria-modal="true" aria-labelledby="academic-gate-title">
+    <div class="academic-gate-card">
+      <h2 id="academic-gate-title">Complete your nursing profile</h2>
+      <p class="sub">Your <strong>programme</strong> determines which exam questions and papers appear on your dashboard. This matches the signup form and cannot be skipped.</p>
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible mb-2 py-2" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+      <form method="post" action="{% url 'complete_academic_profile' %}" id="academic-profile-gate-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.path|default:'/dashboard/' }}" />
+        <div class="mb-3">
+          <label class="form-label" for="gate-programme">Nursing programme <span class="text-danger">*</span></label>
+          <select class="form-select" id="gate-programme" name="programme" required autocomplete="off">
+            <option value="" disabled selected hidden>Select your programme</option>
+            {% for p in academic_programme_choices %}
+              <option value="{{ p }}">{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="gate-year">Year of study <span class="text-danger">*</span></label>
+          <select class="form-select" id="gate-year" name="yearOfStudy" required autocomplete="off">
+            <option value="" disabled selected hidden>Select year</option>
+            {% for val, label in academic_year_choices %}
+              <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="gate-school">School / institution <span class="text-danger">*</span></label>
+          <input class="form-control" type="text" id="gate-school" name="institution" required maxlength="200" placeholder="e.g. UHAS" autocomplete="organization" />
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Save and continue</button>
+      </form>
+    </div>
+  </div>
   {% endif %}
 
   <div class="modal fade" id="appMessageModal" tabindex="-1" aria-hidden="true">

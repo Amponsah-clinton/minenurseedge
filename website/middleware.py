@@ -68,6 +68,49 @@ class SingleSessionMiddleware:
         return self.get_response(request)
 
 
+class StudentAcademicProfileSyncMiddleware:
+    """
+    Keeps session['pending_academic_profile'] aligned with Supabase profiles so the
+    blocking modal appears for OAuth (or incomplete) students even after deploys or
+    stale cookie sessions. Programme/year/school drive question_bank filters in views.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path or ""
+        # Avoid overwriting session with stale DB rows on the POST that saves the profile.
+        if path.rstrip("/") == "/dashboard/complete-academic-profile" and request.method == "POST":
+            return self.get_response(request)
+        if (
+            path.startswith("/dashboard/")
+            and request.session.get("role") == "student"
+            and request.session.get("user_id")
+        ):
+            try:
+                from supabase import create_client
+                from django.conf import settings
+
+                from website.views import _sync_pending_academic_profile
+
+                admin = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+                uid = str(request.session.get("user_id"))
+                rows = (
+                    admin.table("profiles")
+                    .select("programme, year_of_study, school")
+                    .eq("id", uid)
+                    .limit(1)
+                    .execute()
+                    .data
+                    or []
+                )
+                _sync_pending_academic_profile(request, rows[0] if rows else {})
+            except Exception:
+                pass
+        return self.get_response(request)
+
+
 class StudentSubscriptionGateMiddleware:
     """
     Students must have an active, non-expired subscription to use /dashboard/.

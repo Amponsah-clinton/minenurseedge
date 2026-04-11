@@ -10,11 +10,16 @@ from io import StringIO
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.contrib import messages
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.html import escape
+from django.views.decorators.http import require_POST
 
 from supabase import create_client
+from supabase.lib.client_options import SyncClientOptions
+from supabase_auth import SyncSupportedStorage
+
 EMPTY_QUESTION_FORM = {
     "programme": "",
     "paper_title": "",
@@ -41,6 +46,59 @@ def _supabase():
 def _supabase_admin():
     """Service-role key – bypasses RLS, used for all DB writes."""
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+
+class _DjangoOAuthStorage(SyncSupportedStorage):
+    """
+    Persists Supabase GoTrue PKCE state in the Django session so OAuth works
+    across the redirect to Google and back (in-memory Supabase clients cannot).
+    """
+
+    SESSION_BUCKET = "go_oauth_storage"
+
+    def __init__(self, django_session):
+        self._session = django_session
+
+    def _bucket(self):
+        return self._session.setdefault(self.SESSION_BUCKET, {})
+
+    def get_item(self, key: str):
+        return self._bucket().get(key)
+
+    def set_item(self, key: str, value: str) -> None:
+        b = self._bucket()
+        b[key] = value
+        self._session[self.SESSION_BUCKET] = b
+        self._session.modified = True
+
+    def remove_item(self, key: str) -> None:
+        b = self._bucket()
+        b.pop(key, None)
+        self._session[self.SESSION_BUCKET] = b
+        self._session.modified = True
+
+
+def _supabase_oauth_client(request):
+    """Anon Supabase client with PKCE verifier stored in the Django session."""
+    storage = _DjangoOAuthStorage(request.session)
+    opts = SyncClientOptions(
+        storage=storage,
+        flow_type="pkce",
+        persist_session=False,
+        auto_refresh_token=False,
+    )
+    return create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY, options=opts)
+
+
+def _public_site_origin(request):
+    base = (getattr(settings, "PUBLIC_SITE_URL", "") or "").strip().rstrip("/")
+    if base:
+        return base
+    return request.build_absolute_uri("/").rstrip("/")
+
+
+def _google_oauth_callback_url(request):
+    return f"{_public_site_origin(request)}/auth/google/callback/"
 
 
 def _filter_duplicate_questions(supabase_client, rows):
@@ -960,10 +1018,16 @@ def login_page(request):
             request.session["plan_slug"]     = (profile.get("plan_slug") or "standard")
             request.session["is_free_access"] = bool(profile.get("is_free_access"))
 
+            _sync_pending_academic_profile(request, profile)
+
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
                 _reconcile_pending_subscription_from_paystack(user_id, force=True)
+                # Ensure a pending Paystack checkout row exists and matches current plan price (same as email signup).
+                if not subscription_allows_dashboard(user_id):
+                    plans = _get_plans()
+                    _ensure_pending_checkout_row(request, plans, None)
             allowed, reason = _subscription_access_state(user_id)
             if not allowed:
                 return redirect(f"/subscribe/?reason={reason}")
@@ -994,6 +1058,264 @@ PROGRAMME_INITIALS = {
     "Registered Mental Health Nursing (RMHN)": "RMHN",
     "Registered Public Health Nursing (RPHN)": "RPHN",
 }
+
+# Must match signup.html year-of-study options (drives cohort features and profile validation).
+YEAR_OF_STUDY_CODES = frozenset({"year1", "year2", "year3", "year4", "finalyear"})
+ACADEMIC_YEAR_CHOICES = (
+    ("year1", "Year 1"),
+    ("year2", "Year 2"),
+    ("year3", "Year 3"),
+    ("year4", "Year 4"),
+    ("finalyear", "Final Year"),
+)
+
+
+def _academic_profile_is_complete(profile):
+    """
+    Programme matches question_bank.programme filters across quizzes, general tests, mock counts, etc.
+    """
+    if not profile:
+        return False
+    prog = (profile.get("programme") or "").strip()
+    year = (profile.get("year_of_study") or "").strip()
+    school = (profile.get("school") or "").strip()
+    if prog not in PROGRAMME_CHOICES:
+        return False
+    if year not in YEAR_OF_STUDY_CODES:
+        return False
+    if not school:
+        return False
+    return True
+
+
+def _sync_pending_academic_profile(request, profile):
+    """Set session flag so dashboard can show the blocking academic-profile modal."""
+    if request.session.get("role") != "student":
+        request.session["pending_academic_profile"] = False
+        return
+    request.session["pending_academic_profile"] = not _academic_profile_is_complete(profile)
+
+
+def _provision_oauth_student_profile(admin, user_id, email, full_name):
+    """
+    Create profiles + pending subscription for a new Google OAuth user.
+    Same billing rules as email signup: Paystack (or Stripe) annual checkout on /subscribe/
+    must succeed before dashboard access (see login + google_oauth_callback gating).
+    """
+    plans = _get_plans()
+    plan_slug = "standard"
+    plan = plans.get(plan_slug, {})
+    # Leave programme/year/school empty so the dashboard modal must collect them; programme
+    # is then used everywhere we filter question_bank (e.g. user_dashboard, general tests).
+    admin.table("profiles").upsert({
+        "id": user_id,
+        "email": email,
+        "full_name": full_name,
+        "phone_number": "",
+        "year_of_study": "",
+        "school": "",
+        "programme": "",
+        "role": "student",
+        "plan_slug": plan_slug,
+        "subscription_status": "pending_payment",
+    }).execute()
+    admin.table("subscriptions").insert({
+        "user_id": user_id,
+        "user_email": email,
+        "user_name": full_name,
+        "plan_slug": plan_slug,
+        "amount_due": plan.get("price", 0),
+        "currency": plan.get("currency", "GHS"),
+        "status": "pending_payment",
+    }).execute()
+
+
+def google_oauth_start(request):
+    """
+    Redirect to Supabase → Google. Configure the same Google OAuth client in the
+    Supabase Dashboard (Authentication → Providers → Google): Client ID + secret,
+    and add this callback URL to Redirect URLs: {origin}/auth/google/callback/
+    """
+    if not getattr(settings, "SUPABASE_URL", None) or not getattr(settings, "SUPABASE_KEY", None):
+        return render(request, "login.html", {"error": "Google sign-in is not configured."})
+    try:
+        callback = _google_oauth_callback_url(request)
+        client = _supabase_oauth_client(request)
+        oauth = client.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": {"redirect_to": callback},
+        })
+        return HttpResponseRedirect(oauth.url)
+    except Exception:
+        logging.getLogger(__name__).exception("Google OAuth start failed")
+        return render(request, "login.html", {"error": "Could not start Google sign-in. Please try again."})
+
+
+def google_oauth_callback(request):
+    err = request.GET.get("error")
+    if err:
+        desc = request.GET.get("error_description") or err
+        return render(request, "login.html", {"error": f"Google sign-in was cancelled or failed ({desc})."})
+
+    code = request.GET.get("code")
+    if not code:
+        return render(request, "login.html", {"error": "Missing authorization code. Please try Google sign-in again."})
+
+    callback = _google_oauth_callback_url(request)
+    try:
+        client = _supabase_oauth_client(request)
+        auth_resp = client.auth.exchange_code_for_session({
+            "auth_code": code,
+            "redirect_to": callback,
+        })
+    except Exception:
+        logging.getLogger(__name__).exception("Google OAuth callback exchange failed")
+        return render(request, "login.html", {"error": "Google sign-in failed. Please try again."})
+    finally:
+        request.session.pop(_DjangoOAuthStorage.SESSION_BUCKET, None)
+
+    user = auth_resp.user
+    if not user:
+        return render(request, "login.html", {"error": "Google sign-in did not return a user."})
+
+    user_id = str(user.id)
+    email = (user.email or "").strip().lower()
+    meta = user.user_metadata or {}
+    full_name = (meta.get("full_name") or meta.get("name") or "").strip()
+    if not full_name and email:
+        full_name = email.split("@")[0]
+    if not email:
+        return render(request, "login.html", {"error": "Google did not provide an email address."})
+
+    admin = _supabase_admin()
+    profile_resp = admin.table("profiles").select("*").eq("id", user_id).limit(1).execute()
+    profile = profile_resp.data[0] if profile_resp.data else None
+
+    if not profile:
+        existing_email = admin.table("profiles").select("id").eq("email", email).limit(1).execute()
+        if existing_email.data:
+            return render(request, "login.html", {
+                "error": "An account with this email already exists. Please sign in with your email and password.",
+            })
+        try:
+            _provision_oauth_student_profile(admin, user_id, email, full_name)
+        except Exception:
+            logging.getLogger(__name__).exception("OAuth profile provisioning failed")
+            return render(request, "login.html", {
+                "error": "Could not finish registration. Please try again or contact support.",
+            })
+
+        profile_resp = admin.table("profiles").select("*").eq("id", user_id).limit(1).execute()
+        profile = profile_resp.data[0] if profile_resp.data else None
+
+    if not profile:
+        return render(request, "login.html", {"error": "Account profile not found. Contact support."})
+
+    if profile.get("is_active") is False:
+        return render(request, "login.html", {
+            "error": "Your account has been disabled. Please contact support to restore access.",
+        })
+
+    role = profile.get("role", "student")
+    profile_email = profile.get("email") or email
+    display_name = profile.get("full_name") or full_name
+
+    if role == "student":
+        existing = (
+            admin.table("active_sessions")
+            .select("ip_address, user_agent")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            current_ip = request.META.get("REMOTE_ADDR", "")[:45]
+            current_ua = request.META.get("HTTP_USER_AGENT", "")[:500]
+            stored_ip = existing.data[0].get("ip_address", "")
+            stored_ua = existing.data[0].get("user_agent", "")
+            same_device = (current_ip == stored_ip and current_ua == stored_ua)
+            if not same_device:
+                admin.table("active_sessions").delete().eq("user_id", user_id).execute()
+
+    _create_session(request, user_id, profile_email, display_name, role)
+    request.session["plan_slug"] = (profile.get("plan_slug") or "standard")
+    request.session["is_free_access"] = bool(profile.get("is_free_access"))
+
+    _sync_pending_academic_profile(request, profile)
+
+    if role == "admin":
+        return redirect("/admin-panel/dashboard/")
+    if role == "student":
+        _reconcile_pending_subscription_from_paystack(user_id, force=True)
+        if not subscription_allows_dashboard(user_id):
+            plans = _get_plans()
+            _ensure_pending_checkout_row(request, plans, None)
+    allowed, reason = _subscription_access_state(user_id)
+    if not allowed:
+        return redirect(f"/subscribe/?reason={reason}")
+    return redirect("/dashboard/")
+
+
+@require_POST
+def complete_academic_profile(request):
+    """
+    Required for students who signed in with Google (or any profile missing
+    programme / year / school). Updates Supabase profiles so question filters match their programme.
+    """
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") != "student":
+        return redirect("/dashboard/")
+
+    programme = request.POST.get("programme", "").strip()
+    year_of_study = request.POST.get("yearOfStudy", "").strip()
+    institution = request.POST.get("institution", "").strip()
+
+    errors = []
+    if programme not in PROGRAMME_CHOICES:
+        errors.append("Please select a valid nursing programme.")
+    if year_of_study not in YEAR_OF_STUDY_CODES:
+        errors.append("Please select your year of study.")
+    if not institution:
+        errors.append("School / Institution is required.")
+
+    next_url = (request.POST.get("next") or "").strip() or "/dashboard/"
+    if not next_url.startswith("/") or next_url.startswith("//"):
+        next_url = "/dashboard/"
+
+    if errors:
+        for msg in errors:
+            messages.error(request, msg)
+        return redirect(next_url)
+
+    user_id = str(request.session.get("user_id") or "").strip()
+    if not user_id:
+        messages.error(request, "Your session is invalid. Please log in again.")
+        return redirect("/login/")
+
+    admin = _supabase_admin()
+    try:
+        admin.table("profiles").update({
+            "programme": programme,
+            "year_of_study": year_of_study,
+            "school": institution,
+        }).eq("id", user_id).execute()
+    except Exception:
+        logging.getLogger(__name__).exception("complete_academic_profile update failed")
+        messages.error(request, "Could not save your profile. Please try again.")
+        return redirect(next_url)
+
+    # Sync session from submitted values immediately. Relying on a follow-up SELECT can
+    # race PostgREST/read replicas and leave pending_academic_profile stuck True.
+    _sync_pending_academic_profile(request, {
+        "programme": programme,
+        "year_of_study": year_of_study,
+        "school": institution,
+    })
+    request.session.modified = True
+    messages.success(request, "Your programme details have been saved.")
+    return redirect(next_url)
 
 
 def signup_page(request):
@@ -1136,6 +1458,11 @@ def signup_page(request):
                 _apply_successful_subscription_payment(user_id, sub_id, plan_slug, 0, "complimentary")
                 _create_session(request, user_id, email, full_name, "student")
                 request.session["pending_dashboard_disclaimer"] = True
+                _sync_pending_academic_profile(request, {
+                    "programme": programme,
+                    "year_of_study": year_of_study,
+                    "school": institution,
+                })
                 return redirect("/dashboard/")
 
             # If Paystack reference provided, verify and activate immediately
@@ -1153,10 +1480,20 @@ def signup_page(request):
                     )
                     _create_session(request, user_id, email, full_name, "student")
                     request.session["pending_dashboard_disclaimer"] = True
+                    _sync_pending_academic_profile(request, {
+                        "programme": programme,
+                        "year_of_study": year_of_study,
+                        "school": institution,
+                    })
                     return redirect("/dashboard/")
 
             _create_session(request, user_id, email, full_name, "student")
             request.session["pending_dashboard_disclaimer"] = True
+            _sync_pending_academic_profile(request, {
+                "programme": programme,
+                "year_of_study": year_of_study,
+                "school": institution,
+            })
             return redirect("/subscribe/")
 
         except Exception as exc:

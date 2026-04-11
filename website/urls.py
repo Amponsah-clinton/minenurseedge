@@ -12,6 +12,8 @@ urlpatterns = [
 
     # Auth
     path("login/", views.login_page, name="login"),
+    path("auth/google/", views.google_oauth_start, name="google_oauth_start"),
+    path("auth/google/callback/", views.google_oauth_callback, name="google_oauth_callback"),
     path("signup/", views.signup_page, name="signup"),
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password_page, name="forgot_password"),
@@ -19,6 +21,11 @@ urlpatterns = [
 
     # Student dashboard
     path("dashboard/", views.user_dashboard, name="user_dashboard"),
+    path(
+        "dashboard/complete-academic-profile/",
+        views.complete_academic_profile,
+        name="complete_academic_profile",
+    ),
     path("dashboard/ack-disclaimer/", views.dashboard_ack_nmc_disclaimer, name="dashboard_ack_nmc_disclaimer"),
     path("dashboard/nmc-mastery/", views.student_nmc_mastery, name="student_nmc_mastery"),
     path(
