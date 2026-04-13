@@ -51,11 +51,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "website",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "website.middleware.VisitTrackerMiddleware",
     "website.middleware.MaintenanceModeMiddleware",
@@ -187,3 +189,12 @@ EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "25"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 IDENTIFIER_RESOLVER_DOMAIN = os.getenv("IDENTIFIER_RESOLVER_DOMAIN", "scholarindexing.academicdigital.space")
+
+# React Native / Expo — allow calling the Django mobile JSON API (Bearer Supabase JWT).
+_cors_origins = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOWED_ORIGINS = _cors_origins or []
+CORS_ALLOW_CREDENTIALS = True
+if not CORS_ALLOWED_ORIGINS and DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False

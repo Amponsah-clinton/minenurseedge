@@ -139,12 +139,12 @@ def _filter_duplicate_questions(supabase_client, rows):
             .execute()
         )
         existing_texts = {
-            r["question_text"].strip().lower()
+            " ".join((r.get("question_text") or "").split()).casefold()
             for r in (result.data or [])
         }
 
         for row in group_rows:
-            key_text = row["question_text"].strip().lower()
+            key_text = " ".join((row.get("question_text") or "").split()).casefold()
             snippet = row["question_text"][:80]
 
             if key_text in existing_texts:
@@ -611,20 +611,64 @@ MANAGE_QUESTIONS_PER_PAGE = 25
 MANAGE_QUESTIONS_MAX_FETCH = 8000
 
 
+def _normalized_question_text(value):
+    return " ".join((value or "").split()).casefold()
+
+
+def _has_duplicate_question(admin_client, programme, paper_title, question_text, exclude_ids=None):
+    """
+    True when a logically-identical question already exists in the target programme+paper.
+    Logical identity is case-insensitive and whitespace-normalized question text.
+    """
+    norm_text = _normalized_question_text(question_text)
+    if not norm_text:
+        return False
+    excluded = {str(i) for i in (exclude_ids or []) if i}
+    rows = (
+        admin_client.table("question_bank")
+        .select("id, question_text")
+        .eq("programme", programme)
+        .eq("paper_title", paper_title)
+        .execute()
+        .data
+        or []
+    )
+    for row in rows:
+        rid = str(row.get("id") or "")
+        if rid and rid in excluded:
+            continue
+        if _normalized_question_text(row.get("question_text")) == norm_text:
+            return True
+    return False
+
+
 def _dedupe_general_paper_rows_for_admin_list(rows):
-    """Show one row per General Paper question; label programme as shared."""
-    seen_text = set()
+    """Collapse duplicates in admin list; keep one row per logical question."""
+    seen_exact = set()
+    seen_general = set()
     out = []
     for r in rows:
         r = dict(r)
         r["general_paper_grouped"] = False
+        paper_key = (r.get("paper_title") or "").strip().casefold()
+        prog_key = (r.get("programme") or "").strip().casefold()
+        text_key = _normalized_question_text(r.get("question_text"))
+        if not text_key:
+            continue
         if _is_general_paper(r.get("paper_title")):
-            key = (r.get("question_text") or "").strip()
-            if key in seen_text:
+            # General Paper is shared; display only one row across all programmes.
+            key = (paper_key, text_key)
+            if key in seen_general:
                 continue
-            seen_text.add(key)
+            seen_general.add(key)
             r["programme"] = "All programmes"
             r["general_paper_grouped"] = True
+            seen_exact.add(("all programmes", paper_key, text_key))
+        else:
+            key = (prog_key, paper_key, text_key)
+            if key in seen_exact:
+                continue
+            seen_exact.add(key)
         out.append(r)
     return out
 
@@ -2880,9 +2924,17 @@ def admin_manage_questions(request):
                         "uploaded_by": request.session.get("user_id"),
                         "source_type": "manual",
                     })
-
-                admin.table("question_bank").insert(rows_to_insert).execute()
-                context["success"] = f"Created {len(rows_to_insert)} question record(s)."
+                unique_rows, skipped_texts = _filter_duplicate_questions(admin, rows_to_insert)
+                if not unique_rows:
+                    raise ValueError(
+                        "No new question to create — this question already exists for the selected paper/programme."
+                    )
+                admin.table("question_bank").insert(unique_rows).execute()
+                context["success"] = f"Created {len(unique_rows)} question record(s)."
+                if skipped_texts:
+                    context["warning"] = (
+                        f"Skipped {len(skipped_texts)} duplicate row(s) while creating this question."
+                    )
 
             elif action == "update":
                 question_id = request.POST.get("question_id", "").strip()
@@ -2937,6 +2989,17 @@ def admin_manage_questions(request):
                         sibling_ids = [question_id]
                     elif question_id not in sibling_ids:
                         sibling_ids = sibling_ids + [question_id]
+                    for target_programme in PROGRAMME_NAMES:
+                        if _has_duplicate_question(
+                            admin,
+                            target_programme,
+                            payload["paper_title"],
+                            payload["question_text"],
+                            exclude_ids=sibling_ids,
+                        ):
+                            raise ValueError(
+                                "Update would create a duplicate General Paper question for one or more programmes."
+                            )
                     admin.table("question_bank").update(update_body).in_("id", sibling_ids).execute()
                     n = len(sibling_ids)
                     context["success"] = (
@@ -2946,6 +3009,16 @@ def admin_manage_questions(request):
                     )
                 else:
                     target_programme = payload["programme"] or existing_row.get("programme", "")
+                    if _has_duplicate_question(
+                        admin,
+                        target_programme,
+                        payload["paper_title"],
+                        payload["question_text"],
+                        exclude_ids=[question_id],
+                    ):
+                        raise ValueError(
+                            "Update would create a duplicate question for this programme and paper."
+                        )
                     admin.table("question_bank").update({
                         **update_body,
                         "programme": target_programme,
