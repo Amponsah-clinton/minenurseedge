@@ -205,6 +205,7 @@ def mobile_me(request):
     profile = _profile_row(user_id)
     if not profile:
         return JsonResponse({"ok": False, "error": "profile_not_found"}, status=404)
+    admin = V._supabase_admin()
     sub = V._get_active_subscription(user_id)
     pending_academic = False
     if profile.get("role") == "student":
@@ -220,7 +221,7 @@ def mobile_me(request):
             "year_of_study": profile.get("year_of_study"),
             "school": profile.get("school"),
             "is_active": profile.get("is_active"),
-            "is_free_access": bool(profile.get("is_free_access")),
+            "is_free_access": V._user_has_free_access(admin, user_id),
             "pending_academic_profile": pending_academic,
             "subscription": sub,
         }

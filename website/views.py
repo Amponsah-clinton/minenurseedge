@@ -733,6 +733,8 @@ def _normalize_question_payload(item):
 MOCK_QUESTION_BATCH_SIZE = 60
 MOCK_DURATION_MINUTES = 30
 GLOBAL_MOCK_PROGRAMME = "All Programmes"
+# Admin-created free accounts: subscriptions row uses this reference; also used when profiles.is_free_access is missing.
+FREE_ACCESS_PAYMENT_REFERENCE = "free_access"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
 # PostgREST / Supabase often caps each response (~1000 rows). Use range() chunks.
@@ -1060,7 +1062,7 @@ def login_page(request):
             # Store plan info for feature-gating in templates and view guards.
             # profile was fetched with select("*") so all columns are available.
             request.session["plan_slug"]     = (profile.get("plan_slug") or "standard")
-            request.session["is_free_access"] = bool(profile.get("is_free_access"))
+            request.session["is_free_access"] = _user_has_free_access(admin, user_id)
 
             _sync_pending_academic_profile(request, profile)
 
@@ -1283,7 +1285,7 @@ def google_oauth_callback(request):
 
     _create_session(request, user_id, profile_email, display_name, role)
     request.session["plan_slug"] = (profile.get("plan_slug") or "standard")
-    request.session["is_free_access"] = bool(profile.get("is_free_access"))
+    request.session["is_free_access"] = _user_has_free_access(admin, user_id)
 
     _sync_pending_academic_profile(request, profile)
 
@@ -2512,6 +2514,53 @@ def admin_locked_accounts(request):
 # Admin: Free-access user management
 # ---------------------------------------------------------------------------
 
+def _admin_fetch_free_users_list(admin):
+    """List free-access student profiles; works with or without profiles.is_free_access."""
+    try:
+        return (
+            admin.table("profiles")
+            .select("id, full_name, email, programme, is_free_access, is_active, created_at")
+            .eq("is_free_access", True)
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        pass
+    try:
+        subs = (
+            admin.table("subscriptions")
+            .select("user_id")
+            .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
+            .eq("status", "active")
+            .execute()
+            .data
+            or []
+        )
+        uids = list({str(s["user_id"]) for s in subs if s.get("user_id")})
+        if not uids:
+            return []
+        out = []
+        for i in range(0, len(uids), 100):
+            batch = uids[i : i + 100]
+            rows = (
+                admin.table("profiles")
+                .select("id, full_name, email, programme, is_active, created_at")
+                .in_("id", batch)
+                .execute()
+                .data
+                or []
+            )
+            out.extend(rows)
+        for r in out:
+            r["is_free_access"] = True
+        out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+        return out
+    except Exception:
+        return []
+
+
 def admin_free_users(request):
     """Create and manage accounts that are permanently exempt from payment."""
     guard = _require_admin(request)
@@ -2552,8 +2601,7 @@ def admin_free_users(request):
                     })
                     user_id = str(auth_resp.user.id)
 
-                    # Upsert profile with free-access flag
-                    admin.table("profiles").upsert({
+                    profile_row = {
                         "id": user_id,
                         "email": email,
                         "full_name": full_name,
@@ -2563,7 +2611,16 @@ def admin_free_users(request):
                         "subscription_status": "active",
                         "is_active": True,
                         "is_free_access": True,
-                    }).execute()
+                    }
+                    try:
+                        admin.table("profiles").upsert(profile_row).execute()
+                    except Exception as exc:
+                        err = str(exc).lower()
+                        if "is_free_access" in err or "pgrst204" in err:
+                            profile_row.pop("is_free_access", None)
+                            admin.table("profiles").upsert(profile_row).execute()
+                        else:
+                            raise
 
                     # Create a permanent active subscription (no expiry)
                     admin.table("subscriptions").insert({
@@ -2575,7 +2632,7 @@ def admin_free_users(request):
                         "amount_paid": 0,
                         "currency": "GHS",
                         "status": "active",
-                        "payment_reference": "free_access",
+                        "payment_reference": FREE_ACCESS_PAYMENT_REFERENCE,
                         "started_at": datetime.now(timezone.utc).isoformat(),
                         "expires_at": None,  # never expires
                     }).execute()
@@ -2592,7 +2649,23 @@ def admin_free_users(request):
             user_id = request.POST.get("user_id", "").strip()
             if user_id:
                 try:
-                    admin.table("profiles").update({"is_free_access": False}).eq("id", user_id).execute()
+                    try:
+                        admin.table("profiles").update({"is_free_access": False}).eq("id", user_id).execute()
+                    except Exception:
+                        pass
+                    subs = (
+                        admin.table("subscriptions")
+                        .select("id")
+                        .eq("user_id", user_id)
+                        .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    for s in subs:
+                        sid = s.get("id")
+                        if sid:
+                            admin.table("subscriptions").update({"status": "cancelled"}).eq("id", sid).execute()
                     success = "Free access revoked. The user will need a subscription to log in."
                 except Exception as exc:
                     error = str(exc)
@@ -2601,7 +2674,28 @@ def admin_free_users(request):
             user_id = request.POST.get("user_id", "").strip()
             if user_id:
                 try:
-                    admin.table("profiles").update({"is_free_access": True}).eq("id", user_id).execute()
+                    try:
+                        admin.table("profiles").update({"is_free_access": True}).eq("id", user_id).execute()
+                    except Exception:
+                        pass
+                    subs = (
+                        admin.table("subscriptions")
+                        .select("id")
+                        .eq("user_id", user_id)
+                        .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    if not subs:
+                        raise ValueError(
+                            "No free-access subscription row found for this user. "
+                            "Recreate the account or add the is_free_access column in Supabase."
+                        )
+                    for s in subs:
+                        sid = s.get("id")
+                        if sid:
+                            admin.table("subscriptions").update({"status": "active"}).eq("id", sid).execute()
                     success = "Free access restored."
                 except Exception as exc:
                     error = str(exc)
@@ -2630,19 +2724,7 @@ def admin_free_users(request):
                 except Exception as exc:
                     error = str(exc)
 
-    # List all free-access users
-    try:
-        free_users = (
-            admin.table("profiles")
-            .select("id, full_name, email, programme, is_free_access, is_active, created_at")
-            .eq("is_free_access", True)
-            .order("created_at", desc=True)
-            .execute()
-            .data
-            or []
-        )
-    except Exception:
-        free_users = []
+    free_users = _admin_fetch_free_users_list(admin)
 
     context = {
         "full_name":          request.session.get("full_name", "Admin"),
@@ -7566,24 +7648,51 @@ def _expires_at_still_valid(expires_at):
         return True
 
 
-def subscription_allows_dashboard(user_id):
-    """Active subscription required for /dashboard/ (student).
-    Free-access accounts (is_free_access=True) are always allowed in."""
+def _user_has_free_access(admin, user_id):
+    """
+    Permanent free access: profiles.is_free_access, or an active subscription row with
+    payment_reference = free_access (used when the profiles column is not migrated yet).
+    """
+    uid = str(user_id)
     try:
-        profile_rows = (
-            _supabase_admin()
-            .table("profiles")
+        prof = (
+            admin.table("profiles")
             .select("is_free_access")
-            .eq("id", str(user_id))
+            .eq("id", uid)
             .limit(1)
             .execute()
             .data
             or []
         )
-        if profile_rows and profile_rows[0].get("is_free_access"):
+        if prof and prof[0].get("is_free_access"):
             return True
     except Exception:
         pass
+    try:
+        rows = (
+            admin.table("subscriptions")
+            .select("status, payment_reference, expires_at")
+            .eq("user_id", uid)
+            .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if rows and rows[0].get("status") == "active":
+            return _expires_at_still_valid(rows[0].get("expires_at"))
+    except Exception:
+        pass
+    return False
+
+
+def subscription_allows_dashboard(user_id):
+    """Active subscription required for /dashboard/ (student).
+    Free-access accounts (profile flag or free_access subscription row) are always allowed in."""
+    admin = _supabase_admin()
+    if _user_has_free_access(admin, user_id):
+        return True
     sub = _get_active_subscription(user_id)
     if not sub or sub.get("status") != "active":
         return False
@@ -7595,21 +7704,9 @@ def _subscription_access_state(user_id):
     Returns (allowed: bool, reason: str).
     reason is one of: ok, payment_required, renewal_required.
     """
-    try:
-        profile_rows = (
-            _supabase_admin()
-            .table("profiles")
-            .select("is_free_access")
-            .eq("id", str(user_id))
-            .limit(1)
-            .execute()
-            .data
-            or []
-        )
-        if profile_rows and profile_rows[0].get("is_free_access"):
-            return True, "ok"
-    except Exception:
-        pass
+    admin = _supabase_admin()
+    if _user_has_free_access(admin, user_id):
+        return True, "ok"
 
     sub = _get_active_subscription(user_id)
     if not sub or sub.get("status") != "active":
