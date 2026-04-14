@@ -3250,6 +3250,8 @@ def admin_nclex_questions(request):
                 context["success"] = f"Uploaded {len(unique_rows)} NCLEX question(s)."
                 if skipped:
                     context["warning"] = f"Skipped {len(skipped)} duplicate question(s)."
+                # Clear JSON upload field after successful upload.
+                context["form_data"]["json_payload"] = ""
 
             elif action == "create_one":
                 options_raw = (request.POST.get("options_raw") or "").strip()
@@ -3411,6 +3413,9 @@ def admin_nclex_questions(request):
                 **context["form_data"],
                 **request.POST.dict(),
             }
+            # Keep JSON field cleared after successful JSON upload.
+            if action == "upload_json" and context.get("success"):
+                context["form_data"]["json_payload"] = ""
             context["book_form"] = {
                 "book_id": request.POST.get("book_id", "").strip(),
                 "category": request.POST.get("book_category", "nclex").strip().lower() or "nclex",
