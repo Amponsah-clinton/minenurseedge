@@ -1221,6 +1221,21 @@ def _normalize_nclex_question_payload(raw):
     }
 
 
+def _book_download_url(external_url):
+    url = str(external_url or "").strip()
+    if not url:
+        return ""
+    m = re.search(r"drive\.google\.com/file/d/([a-zA-Z0-9_-]+)", url)
+    if m:
+        file_id = m.group(1)
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+    m2 = re.search(r"[?&]id=([a-zA-Z0-9_-]+)", url)
+    if "drive.google.com" in url and m2:
+        file_id = m2.group(1)
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+    return url
+
+
 # ---------------------------------------------------------------------------
 # Auth views
 # ---------------------------------------------------------------------------
@@ -3198,6 +3213,14 @@ def admin_nclex_questions(request):
             "display_order": "0",
             "json_payload": "",
         },
+        "book_form": {
+            "book_id": "",
+            "category": "nclex",
+            "title": "",
+            "description": "",
+            "external_url": "",
+        },
+        "book_links": [],
     }
 
     try:
@@ -3290,14 +3313,121 @@ def admin_nclex_questions(request):
                 next_state = (request.POST.get("next_state") or "false").strip().lower() == "true"
                 admin.table("nclex_questions").update({"is_active": next_state}).eq("id", question_id).execute()
                 context["success"] = "NCLEX question status updated."
+            elif action == "create_book":
+                category = (request.POST.get("book_category") or "nclex").strip().lower()
+                if category not in {"nclex", "ielts"}:
+                    raise ValueError("Book category must be NCLEX or IELTS.")
+                title = (request.POST.get("book_title") or "").strip()
+                external_url = (request.POST.get("book_url") or "").strip()
+                description = (request.POST.get("book_description") or "").strip()
+                if not title:
+                    raise ValueError("Book title is required.")
+                if not external_url:
+                    raise ValueError("Book URL is required.")
+
+                # Duplicate guard: same category + normalized title OR exact URL
+                existing = (
+                    admin.table("resource_books")
+                    .select("id, category, title, external_url")
+                    .limit(1000)
+                    .execute()
+                    .data
+                    or []
+                )
+                new_title_key = _normalize_nclex_text(title)
+                new_url_key = external_url.strip().casefold()
+                for row in existing:
+                    if (
+                        (str(row.get("category") or "").strip().lower() == category and _normalize_nclex_text(row.get("title")) == new_title_key)
+                        or str(row.get("external_url") or "").strip().casefold() == new_url_key
+                    ):
+                        raise ValueError("Duplicate book link detected (same title/category or URL).")
+
+                admin.table("resource_books").insert(
+                    {
+                        "category": category,
+                        "title": title,
+                        "description": description,
+                        "external_url": external_url,
+                        "created_by": request.session.get("user_id"),
+                        "is_active": True,
+                    }
+                ).execute()
+                context["success"] = "Book link added."
+
+            elif action == "update_book":
+                book_id = (request.POST.get("book_id") or "").strip()
+                if not book_id:
+                    raise ValueError("book_id is required.")
+                category = (request.POST.get("book_category") or "nclex").strip().lower()
+                if category not in {"nclex", "ielts"}:
+                    raise ValueError("Book category must be NCLEX or IELTS.")
+                title = (request.POST.get("book_title") or "").strip()
+                external_url = (request.POST.get("book_url") or "").strip()
+                description = (request.POST.get("book_description") or "").strip()
+                if not title:
+                    raise ValueError("Book title is required.")
+                if not external_url:
+                    raise ValueError("Book URL is required.")
+
+                existing = (
+                    admin.table("resource_books")
+                    .select("id, category, title, external_url")
+                    .limit(1000)
+                    .execute()
+                    .data
+                    or []
+                )
+                new_title_key = _normalize_nclex_text(title)
+                new_url_key = external_url.strip().casefold()
+                for row in existing:
+                    rid = str(row.get("id") or "")
+                    if rid == book_id:
+                        continue
+                    if (
+                        (str(row.get("category") or "").strip().lower() == category and _normalize_nclex_text(row.get("title")) == new_title_key)
+                        or str(row.get("external_url") or "").strip().casefold() == new_url_key
+                    ):
+                        raise ValueError("Update blocked: duplicate book link detected.")
+
+                admin.table("resource_books").update(
+                    {
+                        "category": category,
+                        "title": title,
+                        "description": description,
+                        "external_url": external_url,
+                    }
+                ).eq("id", book_id).execute()
+                context["success"] = "Book link updated."
+
+            elif action == "delete_book":
+                book_id = (request.POST.get("book_id") or "").strip()
+                if not book_id:
+                    raise ValueError("book_id is required.")
+                admin.table("resource_books").delete().eq("id", book_id).execute()
+                context["success"] = "Book link deleted."
 
             context["form_data"] = {
                 **context["form_data"],
                 **request.POST.dict(),
             }
+            context["book_form"] = {
+                "book_id": request.POST.get("book_id", "").strip(),
+                "category": request.POST.get("book_category", "nclex").strip().lower() or "nclex",
+                "title": request.POST.get("book_title", "").strip(),
+                "description": request.POST.get("book_description", "").strip(),
+                "external_url": request.POST.get("book_url", "").strip(),
+            }
     except Exception as exc:
         context["error"] = str(exc)
         context["form_data"] = {**context["form_data"], **request.POST.dict()}
+        context["book_form"] = {
+            "book_id": request.POST.get("book_id", "").strip(),
+            "category": request.POST.get("book_category", "nclex").strip().lower() or "nclex",
+            "title": request.POST.get("book_title", "").strip(),
+            "description": request.POST.get("book_description", "").strip(),
+            "external_url": request.POST.get("book_url", "").strip(),
+        }
 
     try:
         rows = (
@@ -3320,6 +3450,21 @@ def admin_nclex_questions(request):
         row["options_text"] = "\n".join(row.get("options") or [])
         row["correct_answers_text"] = "\n".join(row.get("correct_answers") or [])
     context["questions"] = rows
+    try:
+        book_rows = (
+            admin.table("resource_books")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        book_rows = []
+    for row in book_rows:
+        row["category"] = (row.get("category") or "").strip().lower()
+    context["book_links"] = book_rows
     return render(request, "dashboard/admin_nclex_questions.html", context)
 
 
@@ -4792,6 +4937,61 @@ def student_nclex_questions(request):
         "questions": questions,
     }
     return render(request, "dashboard/student_nclex_questions.html", context)
+
+
+def student_books_library(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/nclex/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    try:
+        rows = (
+            admin.table("resource_books")
+            .select("*")
+            .eq("is_active", True)
+            .order("created_at", desc=True)
+            .limit(1000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        rows = []
+
+    nclex_books = []
+    ielts_books = []
+    for row in rows:
+        item = {
+            "id": row.get("id"),
+            "title": (row.get("title") or "").strip() or "Untitled Book",
+            "description": (row.get("description") or "").strip(),
+            "external_url": (row.get("external_url") or "").strip(),
+            "download_url": _book_download_url(row.get("external_url")),
+            "category": (row.get("category") or "").strip().lower(),
+        }
+        if item["category"] == "ielts":
+            ielts_books.append(item)
+        else:
+            nclex_books.append(item)
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "student_books",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "nclex_books": nclex_books,
+        "ielts_books": ielts_books,
+    }
+    return render(request, "dashboard/student_books_library.html", context)
 
 
 def student_general_tests(request):

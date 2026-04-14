@@ -16,6 +16,20 @@
   {% if warning %}<div class="col-12"><div class="alert alert-warning mb-0">{{ warning }}</div></div>{% endif %}
   {% if error %}<div class="col-12"><div class="alert alert-danger mb-0">{{ error }}</div></div>{% endif %}
 
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h5 class="mb-1">IELTS & NCLEX Book Links</h5>
+          <p class="text-muted mb-0">Manage Google Drive or external book links from one modal. Students see these in a bookstore-style page.</p>
+        </div>
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#bookLinksModal">
+          Open Book Links Manager
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header"><h5 class="mb-0">Sample Format Text (Copy)</h5></div>
@@ -186,4 +200,160 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="bookLinksModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Book Links Manager (NCLEX / IELTS)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-lg-5">
+            <div class="border rounded p-3">
+              <h6 class="mb-3" id="bookFormTitle">Add Book Link</h6>
+              <form method="post" id="bookForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" id="bookAction" value="{% if book_form.book_id %}update_book{% else %}create_book{% endif %}" />
+                <input type="hidden" name="book_id" id="bookId" value="{{ book_form.book_id }}" />
+                <div class="mb-2">
+                  <label class="form-label">Category</label>
+                  <select class="form-select" name="book_category" id="bookCategory" required>
+                    <option value="nclex" {% if book_form.category == "nclex" %}selected{% endif %}>NCLEX</option>
+                    <option value="ielts" {% if book_form.category == "ielts" %}selected{% endif %}>IELTS</option>
+                  </select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Title</label>
+                  <input class="form-control" type="text" name="book_title" id="bookTitle" value="{{ book_form.title }}" required />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Description (optional)</label>
+                  <textarea class="form-control" rows="3" name="book_description" id="bookDescription">{{ book_form.description }}</textarea>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Google Drive / External Link</label>
+                  <input class="form-control" type="url" name="book_url" id="bookUrl" value="{{ book_form.external_url }}" required />
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" type="submit" id="bookSaveBtn">{% if book_form.book_id %}Update Link{% else %}Add Link{% endif %}</button>
+                  <button class="btn btn-outline-secondary" type="button" id="bookResetBtn">Reset</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="col-lg-7">
+            <div class="border rounded p-3">
+              <h6 class="mb-3">Existing Links (CRUD in this modal)</h6>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                      <th>Title</th>
+                      <th>URL</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for book in book_links %}
+                    <tr>
+                      <td><span class="badge bg-label-{% if book.category == 'ielts' %}warning{% else %}primary{% endif %}">{{ book.category|upper }}</span></td>
+                      <td>{{ book.title }}</td>
+                      <td><a href="{{ book.external_url }}" target="_blank" rel="noopener noreferrer">Open</a></td>
+                      <td class="d-flex gap-1">
+                        <button
+                          type="button"
+                          class="btn btn-xs btn-outline-primary book-edit-btn"
+                          data-book-id="{{ book.id }}"
+                          data-book-category="{{ book.category }}"
+                          data-book-title="{{ book.title }}"
+                          data-book-description="{{ book.description|default:'' }}"
+                          data-book-url="{{ book.external_url }}"
+                        >
+                          Edit
+                        </button>
+                        <form method="post" onsubmit="return confirm('Delete this book link?');">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="delete_book" />
+                          <input type="hidden" name="book_id" value="{{ book.id }}" />
+                          <button class="btn btn-xs btn-outline-danger" type="submit">Delete</button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">No book links yet.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const modalEl = document.getElementById("bookLinksModal");
+    if (!modalEl) return;
+    const idEl = document.getElementById("bookId");
+    const actionEl = document.getElementById("bookAction");
+    const categoryEl = document.getElementById("bookCategory");
+    const titleEl = document.getElementById("bookTitle");
+    const descEl = document.getElementById("bookDescription");
+    const urlEl = document.getElementById("bookUrl");
+    const formTitleEl = document.getElementById("bookFormTitle");
+    const saveBtnEl = document.getElementById("bookSaveBtn");
+    const resetBtnEl = document.getElementById("bookResetBtn");
+
+    function setCreateMode() {
+      idEl.value = "";
+      actionEl.value = "create_book";
+      categoryEl.value = "nclex";
+      titleEl.value = "";
+      descEl.value = "";
+      urlEl.value = "";
+      formTitleEl.textContent = "Add Book Link";
+      saveBtnEl.textContent = "Add Link";
+    }
+
+    document.querySelectorAll(".book-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        idEl.value = this.dataset.bookId || "";
+        actionEl.value = "update_book";
+        categoryEl.value = this.dataset.bookCategory || "nclex";
+        titleEl.value = this.dataset.bookTitle || "";
+        descEl.value = this.dataset.bookDescription || "";
+        urlEl.value = this.dataset.bookUrl || "";
+        formTitleEl.textContent = "Edit Book Link";
+        saveBtnEl.textContent = "Update Link";
+      });
+    });
+
+    if (resetBtnEl) {
+      resetBtnEl.addEventListener("click", function () {
+        setCreateMode();
+      });
+    }
+
+    {% if book_form.book_id %}
+    try {
+      if (window.bootstrap && window.bootstrap.Modal) {
+        const m = new window.bootstrap.Modal(modalEl);
+        m.show();
+      }
+    } catch (e) {}
+    {% endif %}
+  })();
+</script>
 {% endblock %}

@@ -1,0 +1,116 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Book Store - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .bookstore-shell { max-width: 1180px; margin: 0 auto; }
+  .bookstore-hero {
+    background: #fff;
+    border: 1px solid #e5e9f2;
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+    padding: 22px 20px;
+  }
+  .bookstore-section-title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #6b7a8d;
+  }
+  .book-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .book-card {
+    background: #fff;
+    border: 1px solid #e2e8f2;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .book-cover {
+    height: 130px;
+    display: flex;
+    align-items: end;
+    padding: 14px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .book-cover--nclex { background: #1f4d9a; }
+  .book-cover--ielts { background: #7a3a00; }
+  .book-body { padding: 14px; display: flex; flex-direction: column; flex: 1; }
+  .book-title { margin: 0 0 7px; font-size: 16px; font-weight: 700; color: #0f172a; }
+  .book-desc { margin: 0 0 12px; color: #546274; font-size: 14px; line-height: 1.6; min-height: 45px; }
+  .book-actions { margin-top: auto; display: flex; gap: 8px; }
+  .book-actions .btn { flex: 1; }
+  .empty-shelf {
+    background: #fff;
+    border: 1px dashed #d7dfea;
+    border-radius: 12px;
+    color: #748295;
+    padding: 28px 16px;
+    text-align: center;
+  }
+  @media (max-width: 1100px) { .book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 680px) { .book-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="bookstore-shell">
+  <div class="bookstore-hero mb-4">
+    <h4 class="mb-1">NurseEdge Book Store</h4>
+    <p class="text-muted mb-0">Download curated NCLEX and IELTS books. Click download to open direct download links when available (Google Drive links are optimized).</p>
+  </div>
+
+  <section class="mb-4">
+    <h5 class="bookstore-section-title">NCLEX Books</h5>
+    {% if nclex_books %}
+    <div class="book-grid">
+      {% for book in nclex_books %}
+      <article class="book-card">
+        <div class="book-cover book-cover--nclex">NCLEX</div>
+        <div class="book-body">
+          <h3 class="book-title">{{ book.title }}</h3>
+          <p class="book-desc">{% if book.description %}{{ book.description }}{% else %}Official/curated NCLEX resource book for your prep.{% endif %}</p>
+          <div class="book-actions">
+            <a class="btn btn-primary" href="{{ book.download_url }}" target="_blank" rel="noopener noreferrer" download>Download</a>
+            <a class="btn btn-outline-secondary" href="{{ book.external_url }}" target="_blank" rel="noopener noreferrer">Open Link</a>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-shelf">No NCLEX books added yet.</div>
+    {% endif %}
+  </section>
+
+  <section>
+    <h5 class="bookstore-section-title">IELTS Books</h5>
+    {% if ielts_books %}
+    <div class="book-grid">
+      {% for book in ielts_books %}
+      <article class="book-card">
+        <div class="book-cover book-cover--ielts">IELTS</div>
+        <div class="book-body">
+          <h3 class="book-title">{{ book.title }}</h3>
+          <p class="book-desc">{% if book.description %}{{ book.description }}{% else %}IELTS prep material for language and test readiness.{% endif %}</p>
+          <div class="book-actions">
+            <a class="btn btn-primary" href="{{ book.download_url }}" target="_blank" rel="noopener noreferrer" download>Download</a>
+            <a class="btn btn-outline-secondary" href="{{ book.external_url }}" target="_blank" rel="noopener noreferrer">Open Link</a>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-shelf">No IELTS books added yet.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
