@@ -225,6 +225,78 @@ def _filter_duplicate_questions(supabase_client, rows):
     return unique_rows, skipped_texts
 
 
+def _normalize_nclex_text(value):
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _filter_duplicate_nclex_questions(supabase_client, rows, exclude_ids=None):
+    """
+    De-duplicate NCLEX rows by (question_type + normalized question_text).
+    Checks both:
+    - Existing rows in Supabase
+    - Duplicate entries inside the incoming batch
+    """
+    if not rows:
+        return [], []
+
+    exclude_ids = {str(v) for v in (exclude_ids or []) if v}
+    unique_rows = []
+    skipped = []
+
+    # Gather existing keys from DB by question_type in chunks to avoid row caps.
+    existing_keys = set()
+    type_groups = {}
+    for row in rows:
+        qtype = str(row.get("question_type") or "").strip().lower()
+        type_groups[qtype] = True
+
+    for qtype in type_groups.keys():
+        offset = 0
+        chunk_size = 1000
+        while True:
+            resp = (
+                supabase_client
+                .table("nclex_questions")
+                .select("id, question_type, question_text")
+                .eq("question_type", qtype)
+                .range(offset, offset + chunk_size - 1)
+                .execute()
+            )
+            data = resp.data or []
+            if not data:
+                break
+            for item in data:
+                row_id = str(item.get("id") or "")
+                if row_id in exclude_ids:
+                    continue
+                key = (
+                    str(item.get("question_type") or "").strip().lower(),
+                    _normalize_nclex_text(item.get("question_text")),
+                )
+                existing_keys.add(key)
+            if len(data) < chunk_size:
+                break
+            offset += chunk_size
+
+    seen_in_batch = set()
+    for row in rows:
+        key = (
+            str(row.get("question_type") or "").strip().lower(),
+            _normalize_nclex_text(row.get("question_text")),
+        )
+        snippet = str(row.get("question_text") or "")[:80]
+        if key in seen_in_batch:
+            skipped.append((snippet, "duplicate in the uploaded batch"))
+            continue
+        if key in existing_keys:
+            skipped.append((snippet, "already exists in NCLEX bank"))
+            continue
+        seen_in_batch.add(key)
+        unique_rows.append(row)
+
+    return unique_rows, skipped
+
+
 def _build_mock_leaderboard(supabase_client, exam_id, current_user_id, top_n=10):
     """
     Build a ranked leaderboard for a mock exam.
@@ -3148,8 +3220,13 @@ def admin_nclex_questions(request):
                         raise ValueError(f"Question #{idx}: {exc}") from exc
                     normalized["created_by"] = request.session.get("user_id")
                     rows.append(normalized)
-                admin.table("nclex_questions").insert(rows).execute()
-                context["success"] = f"Uploaded {len(rows)} NCLEX question(s)."
+                unique_rows, skipped = _filter_duplicate_nclex_questions(admin, rows)
+                if not unique_rows:
+                    raise ValueError("No new NCLEX questions saved: all submitted items are duplicates.")
+                admin.table("nclex_questions").insert(unique_rows).execute()
+                context["success"] = f"Uploaded {len(unique_rows)} NCLEX question(s)."
+                if skipped:
+                    context["warning"] = f"Skipped {len(skipped)} duplicate question(s)."
 
             elif action == "create_one":
                 options_raw = (request.POST.get("options_raw") or "").strip()
@@ -3169,7 +3246,11 @@ def admin_nclex_questions(request):
                     }
                 )
                 normalized["created_by"] = request.session.get("user_id")
-                admin.table("nclex_questions").insert(normalized).execute()
+                unique_rows, skipped = _filter_duplicate_nclex_questions(admin, [normalized])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"This NCLEX question was not created: {reason}.")
+                admin.table("nclex_questions").insert(unique_rows[0]).execute()
                 context["success"] = "NCLEX question created."
 
             elif action == "update_one":
@@ -3190,6 +3271,10 @@ def admin_nclex_questions(request):
                         "is_active": (request.POST.get("is_active") == "true"),
                     }
                 )
+                unique_rows, skipped = _filter_duplicate_nclex_questions(admin, [normalized], exclude_ids=[question_id])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"Update blocked: {reason}.")
                 admin.table("nclex_questions").update(normalized).eq("id", question_id).execute()
                 context["success"] = "NCLEX question updated."
 
