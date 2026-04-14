@@ -2,91 +2,293 @@
 {% block title %}NCLEX - NurseEdge{% endblock %}
 {% block head_extra %}
 <style>
-    body {
-        background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
-    }
     .nclex-wrap {
-        min-height: calc(100vh - 170px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px 16px;
+        background: #f5f7fb;
+        min-height: calc(100vh - 140px);
+        padding: 28px 16px 36px;
     }
-    .nclex-card {
+    .nclex-container {
         width: 100%;
-        max-width: 760px;
+        max-width: 980px;
+        margin: 0 auto;
+    }
+    .nclex-hero {
         background: #ffffff;
-        border: 1px solid #e7eaf1;
+        border: 1px solid #e5e9f2;
         border-radius: 16px;
-        box-shadow: 0 16px 44px rgba(15, 23, 42, 0.08);
-        padding: 44px 28px;
-        text-align: center;
+        padding: 34px 24px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+        margin-bottom: 20px;
     }
     .nclex-badge {
         display: inline-block;
-        font-size: 11px;
-        letter-spacing: 1px;
+        font-size: 12px;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
         font-weight: 700;
-        color: #4f46e5;
-        background: #eef2ff;
-        border: 1px solid #c7d2fe;
+        color: #1f4d9a;
+        background: #ebf2ff;
+        border: 1px solid #cfe0ff;
         border-radius: 999px;
         padding: 6px 12px;
-        margin-bottom: 16px;
+        margin-bottom: 14px;
     }
     .nclex-title {
-        margin: 0 0 10px;
-        font-size: clamp(30px, 5vw, 44px);
+        margin: 0 0 8px;
+        font-size: clamp(30px, 4vw, 42px);
         font-weight: 800;
-        color: #111827;
-        line-height: 1.1;
+        color: #0f172a;
+        line-height: 1.15;
     }
-    .nclex-sub {
-        margin: 0 auto;
-        max-width: 560px;
+    .nclex-intro {
+        margin: 0;
+        max-width: 780px;
         font-size: 16px;
-        line-height: 1.7;
-        color: #4b5563;
+        line-height: 1.75;
+        color: #334155;
     }
-    .nclex-coming {
-        margin: 26px 0 0;
-        font-size: 22px;
-        font-weight: 800;
-        color: #1e293b;
+    .nclex-cta-row {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
     }
-    .nclex-back {
-        margin-top: 24px;
+    .nclex-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        height: 42px;
+        height: 44px;
         padding: 0 16px;
         border-radius: 10px;
-        border: 1px solid #d1d5db;
-        background: #fff;
-        color: #111827;
         font-size: 14px;
         font-weight: 700;
         text-decoration: none;
+        border: 1px solid transparent;
+        transition: 0.2s ease;
     }
-    .nclex-back:hover {
-        background: #f9fafb;
+    .nclex-btn-primary {
+        background: #1f4d9a;
+        color: #ffffff;
+        border-color: #1f4d9a;
+    }
+    .nclex-btn-primary:hover {
+        background: #173e7f;
+        border-color: #173e7f;
+    }
+    .nclex-btn-secondary {
+        background: #ffffff;
+        color: #0f172a;
+        border-color: #d7deea;
+    }
+    .nclex-btn-secondary:hover {
+        background: #f8fafc;
+    }
+    .nclex-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+    .nclex-card {
+        background: #ffffff;
+        border: 1px solid #e5e9f2;
+        border-radius: 14px;
+        padding: 18px 16px;
+    }
+    .nclex-card h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+        color: #0f172a;
+    }
+    .nclex-card p,
+    .nclex-card li {
+        color: #334155;
+        font-size: 15px;
+        line-height: 1.7;
+    }
+    .nclex-card ul,
+    .nclex-card ol {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .nclex-note {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid #dbe7ff;
+        background: #f3f7ff;
+        font-size: 14px;
+        color: #274b86;
+    }
+    .nclex-back {
+        margin-top: 18px;
+    }
+    @media (max-width: 860px) {
+        .nclex-grid {
+            grid-template-columns: 1fr;
+        }
+        .nclex-hero {
+            padding: 24px 18px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <main class="nclex-wrap">
-    <section class="nclex-card" aria-labelledby="nclex-title">
-        <span class="nclex-badge">NurseEdge NCLEX</span>
-        <h1 class="nclex-title" id="nclex-title">NCLEX Prep Hub</h1>
-        <p class="nclex-sub">
-            We are building a dedicated NCLEX experience with focused question sets,
-            smart practice plans, and targeted review workflows.
-        </p>
-        <p class="nclex-coming">Coming Soon</p>
-        <a href="/" class="nclex-back">Back to Home</a>
-    </section>
+    <div class="nclex-container">
+        <section class="nclex-hero" aria-labelledby="nclex-title">
+            <span class="nclex-badge">NurseEdge NCLEX Guide</span>
+            <h1 class="nclex-title" id="nclex-title">What Is the NCLEX?</h1>
+            <p class="nclex-intro">
+                The National Council Licensure Examination (NCLEX) is the official licensing exam
+                for nurses who want to practice in countries such as the United States and Canada.
+                It is designed to test whether a nurse is competent, safe, and ready for real-world
+                clinical practice.
+            </p>
+            <div class="nclex-cta-row">
+                <a
+                    href="https://drive.google.com/file/d/1aY08JIVph99nt620B4rzA9111IABq3PR/preview"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="nclex-btn nclex-btn-primary"
+                >
+                    Download Official NCLEX Book
+                </a>
+                <a href="/" class="nclex-btn nclex-btn-secondary">Back to Home</a>
+            </div>
+            <p class="nclex-note">
+                Note: If the file opens in preview mode, use the download icon in Google Drive to save it.
+            </p>
+        </section>
+
+        <section class="nclex-grid" aria-label="NCLEX Information Sections">
+            <article class="nclex-card">
+                <h2>Types of NCLEX Exams</h2>
+                <ol>
+                    <li><strong>NCLEX-RN:</strong> For Registered Nurses (RN). Most Ghanaian nurses will take this.</li>
+                    <li><strong>NCLEX-PN:</strong> For Practical/Vocational Nurses. Less common for Ghana-trained nurses.</li>
+                </ol>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Exam Format (Very Important)</h2>
+                <p>The NCLEX uses Computer Adaptive Testing (CAT).</p>
+                <ul>
+                    <li>The exam adjusts to your level.</li>
+                    <li>Questions get harder if you answer correctly.</li>
+                    <li>Questions get easier if you answer incorrectly.</li>
+                    <li>The goal is to determine your competency level.</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Key Details</h2>
+                <ul>
+                    <li>Duration: Up to 5 hours</li>
+                    <li>Questions: 75 - 145</li>
+                    <li>Computer-based (CBT)</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Question Types</h2>
+                <ul>
+                    <li>Multiple Choice</li>
+                    <li>Select All That Apply (SATA)</li>
+                    <li>Fill-in-the-blank (calculations)</li>
+                    <li>Drag and Drop</li>
+                    <li>Case-based scenarios</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Areas Tested (Exam Content)</h2>
+                <p>The exam is based on the Client Needs Framework:</p>
+                <ol>
+                    <li><strong>Safe and Effective Care Environment:</strong> Management of care, safety, infection control</li>
+                    <li><strong>Health Promotion and Maintenance:</strong> Growth and development, prevention, screening</li>
+                    <li><strong>Psychosocial Integrity:</strong> Mental health, coping and adaptation</li>
+                    <li><strong>Physiological Integrity:</strong> Basic care, pharmacology, risk reduction, complex care</li>
+                </ol>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Scoring System</h2>
+                <ul>
+                    <li>The NCLEX is Pass or Fail.</li>
+                    <li>You are not graded based on percentage.</li>
+                    <li>You pass when you reach the required competency level.</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Eligibility Requirements</h2>
+                <p>To take the NCLEX, you must:</p>
+                <ul>
+                    <li>Graduate from a recognized nursing school</li>
+                    <li>Apply through a nursing board (e.g., a U.S. state board)</li>
+                    <li>Get Authorization to Test (ATT)</li>
+                    <li>Provide identification documents</li>
+                    <li>Meet English requirements (if required)</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Registration Process</h2>
+                <ol>
+                    <li>Apply to a nursing board (e.g., Texas, New York)</li>
+                    <li>Register with Pearson VUE</li>
+                    <li>Receive ATT (Authorization to Test)</li>
+                    <li>Schedule exam</li>
+                    <li>Take exam</li>
+                </ol>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Exam Fee</h2>
+                <p><strong>$200 USD</strong> (base fee)</p>
+                <p>Additional costs may include application fees, credential evaluation, and travel/testing center fees.</p>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Where You Can Write the NCLEX</h2>
+                <p>
+                    NCLEX is written at Pearson VUE test centers worldwide, including Africa and nearby countries.
+                </p>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Results</h2>
+                <ul>
+                    <li>Quick results available in 48 hours (optional paid service)</li>
+                    <li>Official results are sent by the nursing board</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Why Take the NCLEX?</h2>
+                <ul>
+                    <li>Work abroad</li>
+                    <li>Earn higher salaries</li>
+                    <li>Gain international experience</li>
+                    <li>Access better career opportunities</li>
+                </ul>
+            </article>
+
+            <article class="nclex-card">
+                <h2>Tips to Pass NCLEX</h2>
+                <ul>
+                    <li>Practice NCLEX-style questions daily</li>
+                    <li>Focus on critical thinking, not memorization</li>
+                    <li>Master priority questions (ABC, Maslow)</li>
+                    <li>Understand rationales for each answer</li>
+                    <li>Take timed mock exams</li>
+                </ul>
+            </article>
+        </section>
+        <div class="nclex-back">
+            <a href="/" class="nclex-btn nclex-btn-secondary">Back to Home</a>
+        </div>
+    </div>
 </main>
 {% endblock %}
