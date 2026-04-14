@@ -437,6 +437,9 @@
               <li class="menu-item {% if active_page == 'mock_exams' %}active{% endif %}">
                 <a href="/admin-panel/mock-exams/" class="menu-link"><div data-i18n="Build Mock Exams">Build Mock Exams</div></a>
               </li>
+              <li class="menu-item {% if active_page == 'admin_nclex' %}active{% endif %}">
+                <a href="/admin-panel/nclex/" class="menu-link"><div data-i18n="NCLEX Questions">NCLEX Questions</div></a>
+              </li>
             </ul>
           </li>
 
@@ -579,6 +582,12 @@
             <a href="/dashboard/general-tests/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-question-mark"></i>
               <div>General Tests</div>
+            </a>
+          </li>
+          <li class="menu-item {% if active_page == 'student_nclex' %}active{% endif %}">
+            <a href="/dashboard/nclex/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-brain"></i>
+              <div>NCLEX Practice</div>
             </a>
           </li>
 

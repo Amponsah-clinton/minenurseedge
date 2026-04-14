@@ -32,6 +32,73 @@ EMPTY_QUESTION_FORM = {
     "json_payload": "",
 }
 
+NCLEX_QUESTION_TYPES = {
+    "mcq": "Multiple Choice (Single Best Answer)",
+    "sata": "Select All That Apply (SATA)",
+    "fill_blank": "Fill in the Blank",
+    "ordered_response": "Ordered Response (Drag and Drop)",
+}
+
+NCLEX_JSON_SAMPLE = json.dumps(
+    {
+        "questions": [
+            {
+                "question_type": "mcq",
+                "question_text": "What is the nurse's priority action for a patient with shortness of breath?",
+                "options": [
+                    "Administer oxygen as prescribed",
+                    "Assess airway patency and breathing effort",
+                    "Provide oral fluids",
+                    "Prepare discharge paperwork",
+                ],
+                "correct_answers": ["Assess airway patency and breathing effort"],
+                "rationale": "Apply ABC priority. Airway and breathing assessment comes first.",
+                "difficulty": "medium",
+            },
+            {
+                "question_type": "sata",
+                "question_text": "Which findings indicate hypoglycemia? Select all that apply.",
+                "options": [
+                    "Sweating",
+                    "Tremors",
+                    "Bradycardia",
+                    "Confusion",
+                ],
+                "correct_answers": ["Sweating", "Tremors", "Confusion"],
+                "rationale": "Classic hypoglycemia signs include sweating, tremors, and confusion.",
+                "difficulty": "easy",
+            },
+            {
+                "question_type": "fill_blank",
+                "question_text": "Calculate the IV flow rate: 120 mL over 2 hours = ____ mL/hr.",
+                "correct_answers": ["60"],
+                "rationale": "120 / 2 = 60 mL/hr.",
+                "difficulty": "easy",
+            },
+            {
+                "question_type": "ordered_response",
+                "question_text": "Put the basic CPR actions in order for an unresponsive adult.",
+                "options": [
+                    "Call for help and activate emergency response",
+                    "Check pulse and breathing quickly",
+                    "Start chest compressions",
+                    "Provide rescue breaths when indicated",
+                ],
+                "correct_answers": [
+                    "Call for help and activate emergency response",
+                    "Check pulse and breathing quickly",
+                    "Start chest compressions",
+                    "Provide rescue breaths when indicated",
+                ],
+                "rationale": "Correct sequence supports rapid, structured resuscitation.",
+                "difficulty": "medium",
+            },
+        ]
+    },
+    ensure_ascii=False,
+    indent=2,
+)
+
 
 
 # ---------------------------------------------------------------------------
@@ -988,6 +1055,98 @@ def about(request):
 
 def nclex_page(request):
     return render(request, "nclex.html")
+
+
+def _normalize_nclex_question_payload(raw):
+    if not isinstance(raw, dict):
+        raise ValueError("Each NCLEX item must be an object.")
+
+    raw_type = str(
+        raw.get("question_type")
+        or raw.get("type")
+        or raw.get("format")
+        or "mcq"
+    ).strip().lower()
+    type_map = {
+        "mcq": "mcq",
+        "multiple_choice": "mcq",
+        "multiple-choice": "mcq",
+        "sata": "sata",
+        "select_all": "sata",
+        "select-all-that-apply": "sata",
+        "fill_blank": "fill_blank",
+        "fill-in-the-blank": "fill_blank",
+        "ordered_response": "ordered_response",
+        "drag_and_drop": "ordered_response",
+        "drag-drop": "ordered_response",
+    }
+    question_type = type_map.get(raw_type, raw_type)
+    if question_type not in NCLEX_QUESTION_TYPES:
+        raise ValueError(
+            "question_type must be one of: "
+            + ", ".join(NCLEX_QUESTION_TYPES.keys())
+        )
+
+    question_text = str(raw.get("question_text") or raw.get("question") or "").strip()
+    if not question_text:
+        raise ValueError("question_text is required.")
+
+    options = raw.get("options", [])
+    normalized_options = []
+    if isinstance(options, dict):
+        for key in sorted(options.keys()):
+            value = str(options.get(key) or "").strip()
+            if value:
+                normalized_options.append(value)
+    elif isinstance(options, list):
+        normalized_options = [str(o).strip() for o in options if str(o).strip()]
+
+    if question_type in {"mcq", "sata", "ordered_response"} and len(normalized_options) < 2:
+        raise ValueError(f"{question_type} requires at least 2 options.")
+
+    provided_answers = raw.get("correct_answers")
+    if provided_answers is None:
+        single = raw.get("correct_answer") or raw.get("correct_option") or raw.get("answer")
+        provided_answers = [single] if single not in (None, "") else []
+    if not isinstance(provided_answers, list):
+        provided_answers = [provided_answers]
+
+    normalized_answers = []
+    for ans in provided_answers:
+        val = str(ans).strip()
+        if not val:
+            continue
+        if len(val) == 1 and val.upper() in {"A", "B", "C", "D", "E", "F"} and normalized_options:
+            idx = ord(val.upper()) - ord("A")
+            if 0 <= idx < len(normalized_options):
+                val = normalized_options[idx]
+        normalized_answers.append(val)
+
+    if not normalized_answers:
+        raise ValueError("At least one correct answer is required.")
+    if question_type == "mcq" and len(normalized_answers) != 1:
+        raise ValueError("mcq must have exactly one correct answer.")
+
+    rationale = str(raw.get("rationale") or raw.get("explanation") or "").strip()
+    difficulty = str(raw.get("difficulty") or "medium").strip().lower()
+    if difficulty not in {"easy", "medium", "hard"}:
+        difficulty = "medium"
+
+    try:
+        display_order = int(raw.get("display_order", 0) or 0)
+    except Exception:
+        display_order = 0
+
+    return {
+        "question_type": question_type,
+        "question_text": question_text,
+        "options": normalized_options,
+        "correct_answers": normalized_answers,
+        "rationale": rationale,
+        "difficulty": difficulty,
+        "display_order": display_order,
+        "is_active": bool(raw.get("is_active", True)),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2937,6 +3096,148 @@ def admin_upload_questions(request):
     return render(request, "dashboard/admin_upload_questions.html", context)
 
 
+def admin_nclex_questions(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin = _supabase_admin()
+    context = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "admin_nclex",
+        "question_types": NCLEX_QUESTION_TYPES,
+        "nclex_json_sample": NCLEX_JSON_SAMPLE,
+        "sample_formats_text": (
+            "1) Multiple-Choice Questions (MCQs): one correct answer.\n"
+            "2) Select-All-That-Apply (SATA): more than one correct answer.\n"
+            "3) Fill-in-the-Blank (Calculation): numeric/text response.\n"
+            "4) Drag-and-Drop / Ordered Response: place steps in sequence."
+        ),
+        "questions": [],
+        "form_data": {
+            "question_type": "mcq",
+            "question_text": "",
+            "options_raw": "",
+            "correct_answers_raw": "",
+            "rationale": "",
+            "difficulty": "medium",
+            "display_order": "0",
+            "json_payload": "",
+        },
+    }
+
+    try:
+        if request.method == "POST":
+            action = (request.POST.get("action") or "").strip()
+            if action == "upload_json":
+                payload = (request.POST.get("json_payload") or "").strip()
+                if not payload:
+                    raise ValueError("JSON payload is required.")
+                parsed = json.loads(payload)
+                items = parsed.get("questions") if isinstance(parsed, dict) else parsed
+                if not isinstance(items, list) or not items:
+                    raise ValueError("JSON must be an array or an object with a 'questions' array.")
+
+                rows = []
+                for idx, item in enumerate(items, start=1):
+                    try:
+                        normalized = _normalize_nclex_question_payload(item)
+                    except ValueError as exc:
+                        raise ValueError(f"Question #{idx}: {exc}") from exc
+                    normalized["created_by"] = request.session.get("user_id")
+                    rows.append(normalized)
+                admin.table("nclex_questions").insert(rows).execute()
+                context["success"] = f"Uploaded {len(rows)} NCLEX question(s)."
+
+            elif action == "create_one":
+                options_raw = (request.POST.get("options_raw") or "").strip()
+                answers_raw = (request.POST.get("correct_answers_raw") or "").strip()
+                options_list = [line.strip() for line in options_raw.splitlines() if line.strip()]
+                answers_list = [line.strip() for line in answers_raw.splitlines() if line.strip()]
+                normalized = _normalize_nclex_question_payload(
+                    {
+                        "question_type": request.POST.get("question_type"),
+                        "question_text": request.POST.get("question_text"),
+                        "options": options_list,
+                        "correct_answers": answers_list,
+                        "rationale": request.POST.get("rationale"),
+                        "difficulty": request.POST.get("difficulty"),
+                        "display_order": request.POST.get("display_order"),
+                        "is_active": True,
+                    }
+                )
+                normalized["created_by"] = request.session.get("user_id")
+                admin.table("nclex_questions").insert(normalized).execute()
+                context["success"] = "NCLEX question created."
+
+            elif action == "update_one":
+                question_id = (request.POST.get("question_id") or "").strip()
+                if not question_id:
+                    raise ValueError("question_id is required.")
+                options_list = [line.strip() for line in (request.POST.get("options_raw") or "").splitlines() if line.strip()]
+                answers_list = [line.strip() for line in (request.POST.get("correct_answers_raw") or "").splitlines() if line.strip()]
+                normalized = _normalize_nclex_question_payload(
+                    {
+                        "question_type": request.POST.get("question_type"),
+                        "question_text": request.POST.get("question_text"),
+                        "options": options_list,
+                        "correct_answers": answers_list,
+                        "rationale": request.POST.get("rationale"),
+                        "difficulty": request.POST.get("difficulty"),
+                        "display_order": request.POST.get("display_order"),
+                        "is_active": (request.POST.get("is_active") == "true"),
+                    }
+                )
+                admin.table("nclex_questions").update(normalized).eq("id", question_id).execute()
+                context["success"] = "NCLEX question updated."
+
+            elif action == "delete_one":
+                question_id = (request.POST.get("question_id") or "").strip()
+                if not question_id:
+                    raise ValueError("question_id is required.")
+                admin.table("nclex_questions").delete().eq("id", question_id).execute()
+                context["success"] = "NCLEX question deleted."
+
+            elif action == "toggle_active":
+                question_id = (request.POST.get("question_id") or "").strip()
+                next_state = (request.POST.get("next_state") or "false").strip().lower() == "true"
+                admin.table("nclex_questions").update({"is_active": next_state}).eq("id", question_id).execute()
+                context["success"] = "NCLEX question status updated."
+
+            context["form_data"] = {
+                **context["form_data"],
+                **request.POST.dict(),
+            }
+    except Exception as exc:
+        context["error"] = str(exc)
+        context["form_data"] = {**context["form_data"], **request.POST.dict()}
+
+    try:
+        rows = (
+            admin.table("nclex_questions")
+            .select("*")
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(300)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        rows = []
+        if not context.get("error"):
+            context["error"] = "Could not load NCLEX questions. Ensure table nclex_questions exists in Supabase."
+
+    for row in rows:
+        row["question_type_label"] = NCLEX_QUESTION_TYPES.get(row.get("question_type"), row.get("question_type", "Unknown"))
+        row["options_text"] = "\n".join(row.get("options") or [])
+        row["correct_answers_text"] = "\n".join(row.get("correct_answers") or [])
+    context["questions"] = rows
+    return render(request, "dashboard/admin_nclex_questions.html", context)
+
+
 def admin_manage_questions(request):
     guard = _require_admin(request)
     if guard:
@@ -4332,6 +4633,54 @@ def _quiz_admin_sample_question_items():
 
 _QUIZ_ADMIN_ITEMS = _quiz_admin_sample_question_items()
 QUIZ_ADMIN_JSON_PLACEHOLDER = json.dumps(_QUIZ_ADMIN_ITEMS, ensure_ascii=False, separators=(",", ":"))
+
+
+def student_nclex_questions(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/nclex/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    try:
+        questions = (
+            admin.table("nclex_questions")
+            .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        questions = []
+
+    for idx, q in enumerate(questions, start=1):
+        q["num"] = idx
+        q["question_type_label"] = NCLEX_QUESTION_TYPES.get(q.get("question_type"), "NCLEX Question")
+        q["options"] = q.get("options") or []
+        q["correct_answers"] = q.get("correct_answers") or []
+        q["is_mcq"] = q.get("question_type") == "mcq"
+        q["is_sata"] = q.get("question_type") == "sata"
+        q["is_fill_blank"] = q.get("question_type") == "fill_blank"
+        q["is_ordered_response"] = q.get("question_type") == "ordered_response"
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "student_nclex",
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "questions": questions,
+    }
+    return render(request, "dashboard/student_nclex_questions.html", context)
 
 
 def student_general_tests(request):

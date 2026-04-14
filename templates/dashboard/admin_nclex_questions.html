@@ -1,0 +1,188 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}NCLEX Questions - Admin{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-2">NCLEX Question Manager</h4>
+        <p class="text-muted mb-0">Upload NCLEX questions in JSON, copy sample format text, and CRUD each question for student practice.</p>
+      </div>
+    </div>
+  </div>
+
+  {% if success %}<div class="col-12"><div class="alert alert-success mb-0">{{ success }}</div></div>{% endif %}
+  {% if error %}<div class="col-12"><div class="alert alert-danger mb-0">{{ error }}</div></div>{% endif %}
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">Sample Format Text (Copy)</h5></div>
+      <div class="card-body">
+        <textarea class="form-control" rows="7" readonly>{{ sample_formats_text }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">JSON Upload</h5></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="upload_json" />
+          <div class="mb-3">
+            <label class="form-label">Paste JSON</label>
+            <textarea name="json_payload" class="form-control" rows="11">{{ form_data.json_payload }}</textarea>
+          </div>
+          <button class="btn btn-primary" type="submit">Upload JSON Questions</button>
+        </form>
+        <hr />
+        <label class="form-label">Sample JSON</label>
+        <pre class="mb-0 small" style="white-space:pre-wrap;">{{ nclex_json_sample }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0">Create One Question</h5></div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_one" />
+          <div class="col-md-4">
+            <label class="form-label">Type</label>
+            <select class="form-select" name="question_type">
+              {% for key, label in question_types.items %}
+              <option value="{{ key }}" {% if form_data.question_type == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Difficulty</label>
+            <select class="form-select" name="difficulty">
+              <option value="easy" {% if form_data.difficulty == "easy" %}selected{% endif %}>Easy</option>
+              <option value="medium" {% if form_data.difficulty == "medium" %}selected{% endif %}>Medium</option>
+              <option value="hard" {% if form_data.difficulty == "hard" %}selected{% endif %}>Hard</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Display Order</label>
+            <input class="form-control" name="display_order" value="{{ form_data.display_order|default:'0' }}" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Question Text</label>
+            <textarea class="form-control" name="question_text" rows="2">{{ form_data.question_text }}</textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Options (one per line)</label>
+            <textarea class="form-control" name="options_raw" rows="5">{{ form_data.options_raw }}</textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Correct Answers (one per line)</label>
+            <textarea class="form-control" name="correct_answers_raw" rows="5">{{ form_data.correct_answers_raw }}</textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Rationale</label>
+            <textarea class="form-control" name="rationale" rows="2">{{ form_data.rationale }}</textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-primary" type="submit">Create NCLEX Question</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0">Existing Questions (CRUD)</h5></div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Question</th>
+                <th>Status</th>
+                <th style="min-width: 360px;">Edit / Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in questions %}
+              <tr>
+                <td><span class="badge bg-label-primary">{{ item.question_type_label }}</span></td>
+                <td>{{ item.question_text|truncatechars:150 }}</td>
+                <td>
+                  {% if item.is_active %}
+                  <span class="badge bg-label-success">Active</span>
+                  {% else %}
+                  <span class="badge bg-label-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post" class="row g-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_one" />
+                    <input type="hidden" name="question_id" value="{{ item.id }}" />
+                    <div class="col-12">
+                      <input class="form-control form-control-sm" name="question_text" value="{{ item.question_text }}" />
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" name="question_type">
+                        {% for key, label in question_types.items %}
+                        <option value="{{ key }}" {% if item.question_type == key %}selected{% endif %}>{{ key }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <select class="form-select form-select-sm" name="difficulty">
+                        <option value="easy" {% if item.difficulty == "easy" %}selected{% endif %}>easy</option>
+                        <option value="medium" {% if item.difficulty == "medium" %}selected{% endif %}>medium</option>
+                        <option value="hard" {% if item.difficulty == "hard" %}selected{% endif %}>hard</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <input class="form-control form-control-sm" name="display_order" value="{{ item.display_order|default:'0' }}" />
+                    </div>
+                    <div class="col-md-6">
+                      <textarea class="form-control form-control-sm" name="options_raw" rows="3">{{ item.options_text }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                      <textarea class="form-control form-control-sm" name="correct_answers_raw" rows="3">{{ item.correct_answers_text }}</textarea>
+                    </div>
+                    <div class="col-12">
+                      <textarea class="form-control form-control-sm" name="rationale" rows="2">{{ item.rationale }}</textarea>
+                    </div>
+                    <input type="hidden" name="is_active" value="{% if item.is_active %}true{% else %}false{% endif %}" />
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                      <button class="btn btn-sm btn-primary" type="submit">Update</button>
+                    </div>
+                  </form>
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active" />
+                    <input type="hidden" name="question_id" value="{{ item.id }}" />
+                    <input type="hidden" name="next_state" value="{% if item.is_active %}false{% else %}true{% endif %}" />
+                    <button class="btn btn-sm btn-outline-warning" type="submit">{% if item.is_active %}Disable{% else %}Activate{% endif %}</button>
+                  </form>
+                  <form method="post" class="d-inline" onsubmit="return confirm('Delete this NCLEX question?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_one" />
+                    <input type="hidden" name="question_id" value="{{ item.id }}" />
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-4">No NCLEX questions found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

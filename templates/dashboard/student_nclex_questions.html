@@ -1,0 +1,88 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}NCLEX Practice - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .nclex-student-wrap { background: #fff; }
+  .nclex-student-hero, .nclex-question-card {
+    background: #ffffff;
+    border: 1px solid #e5e9f2;
+    border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+  }
+  .nclex-student-hero { padding: 22px 20px; }
+  .nclex-student-hero h4 { margin-bottom: 6px; }
+  .nclex-question-card { padding: 16px; }
+  .nclex-question-type {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #1f4d9a;
+    border: 1px solid #cfe0ff;
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: #f3f7ff;
+  }
+  .nclex-answer-key {
+    margin-top: 12px;
+    border-top: 1px solid #e7ebf3;
+    padding-top: 10px;
+    font-size: 14px;
+  }
+</style>
+
+<div class="row g-4 nclex-student-wrap">
+  <div class="col-12">
+    <div class="nclex-student-hero">
+      <h4 class="mb-1">NCLEX Practice Questions</h4>
+      <p class="text-muted mb-2">Exam-style practice using the same NCLEX formats: MCQ, SATA, Fill-in-the-Blank, and Ordered Response.</p>
+      <span class="badge bg-label-primary">{{ questions|length }} active question{{ questions|length|pluralize }}</span>
+    </div>
+  </div>
+
+  {% for q in questions %}
+  <div class="col-12">
+    <article class="nclex-question-card">
+      <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+        <span class="nclex-question-type">{{ q.question_type_label }}</span>
+        <small class="text-muted">Question {{ q.num }} {% if q.difficulty %}· {{ q.difficulty|title }}{% endif %}</small>
+      </div>
+
+      <h6 class="mb-3">{{ q.question_text }}</h6>
+
+      {% if q.options %}
+      <ol class="mb-2">
+        {% for opt in q.options %}
+        <li>{{ opt }}</li>
+        {% endfor %}
+      </ol>
+      {% endif %}
+
+      <div class="nclex-answer-key">
+        <strong>Answer Key:</strong>
+        {% if q.correct_answers %}
+          {% if q.is_mcq %}
+            {{ q.correct_answers.0 }}
+          {% else %}
+            {{ q.correct_answers|join:", " }}
+          {% endif %}
+        {% else %}
+          Not provided.
+        {% endif %}
+        {% if q.rationale %}
+        <div class="mt-1 text-muted"><strong>Rationale:</strong> {{ q.rationale }}</div>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+  {% empty %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        No NCLEX questions are available yet. Your admin can add them from the NCLEX section in the admin panel.
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
