@@ -1,0 +1,241 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}NCLEX Test - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .nclex-shell { max-width: 980px; margin: 0 auto; }
+  .nclex-hero, .nclex-panel { background: #fff; border: 1px solid #e5e9f2; border-radius: 14px; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06); }
+  .nclex-hero { padding: 20px; margin-bottom: 14px; }
+  .nclex-progress { height: 8px; background: #eef2fa; border-radius: 999px; overflow: hidden; }
+  .nclex-progress > div { height: 100%; background: #1f4d9a; width: 0%; transition: width .2s ease; }
+  .nclex-panel { padding: 18px; }
+  .timer-pill { font-size: 13px; font-weight: 700; border: 1px solid #d8e6ff; background: #f1f6ff; color: #1f4d9a; border-radius: 999px; padding: 5px 10px; }
+  .timer-pill.is-low { color: #8a1c1c; border-color: #f2c9c9; background: #fff4f4; }
+  .nclex-option { border: 1px solid #d9e2f0; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+  .nclex-option input[type="radio"], .nclex-option input[type="checkbox"] { margin-top: 2px; width: 16px; height: 16px; flex: 0 0 auto; }
+  .nclex-option-text { display: block; line-height: 1.45; }
+  .nclex-order-grid { display: grid; gap: 10px; }
+  .nclex-order-item { border: 1px solid #d9e2f0; border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .nclex-order-pos { min-width: 34px; height: 34px; border: 1px solid #d9e2f0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1f4d9a; background: #f7faff; margin-right: 10px; }
+  .nclex-hidden { display: none !important; }
+</style>
+
+<div class="nclex-shell">
+  <div class="nclex-hero d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <h4 class="mb-1" id="activeTestLabel">NCLEX Test</h4>
+      <p class="text-muted mb-0">1.5 minutes per question. Submit before time runs out.</p>
+    </div>
+    <span class="timer-pill" id="examTimer">00:00</span>
+  </div>
+
+  {% if questions %}
+  <div class="nclex-panel">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-label-secondary" id="qType">NCLEX</span>
+        <small class="text-muted" id="qCounter">Question 1</small>
+      </div>
+    </div>
+    <div class="nclex-progress mb-3"><div id="nclexProgressBar"></div></div>
+    <h5 id="qText" class="mb-3"></h5>
+    <div id="qInputArea"></div>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn btn-outline-secondary" id="btnPrev">Previous</button>
+      <button type="button" class="btn btn-primary" id="btnNext">Next</button>
+      <button type="button" class="btn btn-success nclex-hidden" id="btnSubmit">Submit Test</button>
+      <a href="/dashboard/nclex/" class="btn btn-outline-dark" id="btnExitExam">Back to Tests</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="nclex-panel text-center text-muted py-5">No NCLEX questions are available yet.</div>
+  {% endif %}
+</div>
+
+{% if questions %}
+{{ questions|json_script:"nclexQuestionsData" }}
+<script id="nclexTestMeta" type="application/json">{"test_index":"{{ test_index|default:'1'|escapejs }}"}</script>
+<div class="modal fade" id="nclexScoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="resultModalTitle">NCLEX Test Result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+          <h5 class="mb-0" id="resultScore"></h5>
+          <span class="badge bg-label-primary" id="resultBreakdown"></span>
+        </div>
+        <div id="resultReview"></div>
+      </div>
+      <div class="modal-footer">
+        <a href="/dashboard/nclex/" class="btn btn-outline-secondary">Back to Tests</a>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    const raw = JSON.parse(document.getElementById("nclexQuestionsData").textContent || "[]");
+    const meta = JSON.parse(document.getElementById("nclexTestMeta").textContent || "{}");
+    const allQuestions = [...raw];
+    const QUESTIONS_PER_TEST = 100;
+    const SECONDS_PER_QUESTION = 90;
+    const requestedTest = Math.max(1, parseInt(meta.test_index || "1", 10) || 1);
+
+    function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+    allQuestions.forEach((q) => {
+      if (Array.isArray(q.options) && (q.question_type === "mcq" || q.question_type === "sata" || q.question_type === "ordered_response")) q.options = shuffle([...q.options]);
+      else if (!Array.isArray(q.options)) q.options = [];
+      q.correct_answers = Array.isArray(q.correct_answers) ? q.correct_answers : [];
+    });
+
+    const tests = [];
+    for (let i = 0; i < allQuestions.length; i += QUESTIONS_PER_TEST) tests.push(allQuestions.slice(i, i + QUESTIONS_PER_TEST));
+    const testIndex = Math.min(Math.max(requestedTest - 1, 0), Math.max(tests.length - 1, 0));
+    const questions = tests[testIndex] || [];
+    if (!questions.length) return;
+
+    function testStorageKey(testIdx, items) { return "nclex_test_result_" + testIdx + "_" + items.map((q) => String(q.id || q.question_text || "")).join("|"); }
+
+    const activeTestLabel = document.getElementById("activeTestLabel");
+    const qType = document.getElementById("qType");
+    const qCounter = document.getElementById("qCounter");
+    const qText = document.getElementById("qText");
+    const qInputArea = document.getElementById("qInputArea");
+    const btnPrev = document.getElementById("btnPrev");
+    const btnNext = document.getElementById("btnNext");
+    const btnSubmit = document.getElementById("btnSubmit");
+    const progressBar = document.getElementById("nclexProgressBar");
+    const examTimer = document.getElementById("examTimer");
+    const scoreModalEl = document.getElementById("nclexScoreModal");
+    const scoreModal = (window.bootstrap && scoreModalEl) ? new window.bootstrap.Modal(scoreModalEl) : null;
+    const resultModalTitle = document.getElementById("resultModalTitle");
+    const resultScore = document.getElementById("resultScore");
+    const resultBreakdown = document.getElementById("resultBreakdown");
+    const resultReview = document.getElementById("resultReview");
+
+    const typeLabels = { mcq: "Multiple Choice (MCQ)", sata: "Select All That Apply (SATA)", fill_blank: "Fill in the Blank", ordered_response: "Ordered Response" };
+    let idx = 0;
+    const answers = {};
+    let timerSeconds = questions.length * SECONDS_PER_QUESTION;
+    let timerHandle = null;
+    const solvedKey = testStorageKey(testIndex, questions);
+
+    function fmtTime(seconds) { const s = Math.max(0, Number(seconds || 0)); const m = Math.floor(s / 60); const r = s % 60; return String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0"); }
+    function updateTimerUi() { examTimer.textContent = fmtTime(timerSeconds); examTimer.classList.toggle("is-low", timerSeconds <= 300); }
+    function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+    function startTimer() { stopTimer(); updateTimerUi(); timerHandle = setInterval(() => { timerSeconds -= 1; updateTimerUi(); if (timerSeconds <= 0) { stopTimer(); submitTest(true); } }, 1000); }
+
+    function renderQuestion() {
+      const q = questions[idx];
+      qType.textContent = typeLabels[q.question_type] || "NCLEX";
+      qCounter.textContent = "Question " + (idx + 1) + " of " + questions.length;
+      qText.textContent = q.question_text || "";
+      progressBar.style.width = (((idx + 1) / questions.length) * 100) + "%";
+      qInputArea.innerHTML = "";
+
+      if (q.question_type === "mcq") {
+        q.options.forEach((opt) => {
+          const wrap = document.createElement("label"); wrap.className = "nclex-option d-flex align-items-start gap-2";
+          const input = document.createElement("input"); input.type = "radio"; input.name = "mcq_" + idx; input.value = opt; input.checked = answers[idx] === opt; input.addEventListener("change", () => { answers[idx] = opt; });
+          const span = document.createElement("span"); span.className = "nclex-option-text"; span.textContent = opt;
+          wrap.appendChild(input); wrap.appendChild(span); qInputArea.appendChild(wrap);
+        });
+      } else if (q.question_type === "sata") {
+        const saved = Array.isArray(answers[idx]) ? answers[idx] : [];
+        q.options.forEach((opt) => {
+          const wrap = document.createElement("label"); wrap.className = "nclex-option d-flex align-items-start gap-2";
+          const input = document.createElement("input"); input.type = "checkbox"; input.value = opt; input.checked = saved.includes(opt);
+          input.addEventListener("change", () => { const set = new Set(Array.isArray(answers[idx]) ? answers[idx] : []); if (input.checked) set.add(opt); else set.delete(opt); answers[idx] = Array.from(set); });
+          const span = document.createElement("span"); span.className = "nclex-option-text"; span.textContent = opt;
+          wrap.appendChild(input); wrap.appendChild(span); qInputArea.appendChild(wrap);
+        });
+      } else if (q.question_type === "fill_blank") {
+        const input = document.createElement("input"); input.type = "text"; input.className = "form-control"; input.placeholder = "Type your answer"; input.value = answers[idx] || ""; input.addEventListener("input", () => { answers[idx] = input.value; }); qInputArea.appendChild(input);
+      } else if (q.question_type === "ordered_response") {
+        const saved = Array.isArray(answers[idx]) && answers[idx].length ? [...answers[idx]] : [...q.options];
+        const grid = document.createElement("div"); grid.className = "nclex-order-grid"; answers[idx] = saved;
+        function renderOrderItems() {
+          grid.innerHTML = "";
+          const current = Array.isArray(answers[idx]) ? answers[idx] : [...q.options];
+          current.forEach((opt, pos) => {
+            const row = document.createElement("div"); row.className = "nclex-order-item d-flex align-items-center justify-content-between gap-2";
+            const left = document.createElement("div"); left.className = "d-flex align-items-center";
+            const chip = document.createElement("span"); chip.className = "nclex-order-pos"; chip.textContent = String(pos + 1);
+            const text = document.createElement("span"); text.className = "nclex-option-text"; text.textContent = opt;
+            left.appendChild(chip); left.appendChild(text);
+            const controls = document.createElement("div"); controls.className = "d-flex gap-1";
+            const up = document.createElement("button"); up.type = "button"; up.className = "btn btn-sm btn-outline-secondary"; up.textContent = "Up"; up.disabled = pos === 0;
+            up.addEventListener("click", () => { const arr = [...current]; [arr[pos - 1], arr[pos]] = [arr[pos], arr[pos - 1]]; answers[idx] = arr; renderOrderItems(); });
+            const down = document.createElement("button"); down.type = "button"; down.className = "btn btn-sm btn-outline-secondary"; down.textContent = "Down"; down.disabled = pos === current.length - 1;
+            down.addEventListener("click", () => { const arr = [...current]; [arr[pos], arr[pos + 1]] = [arr[pos + 1], arr[pos]]; answers[idx] = arr; renderOrderItems(); });
+            controls.appendChild(up); controls.appendChild(down); row.appendChild(left); row.appendChild(controls); grid.appendChild(row);
+          });
+        }
+        renderOrderItems(); qInputArea.appendChild(grid);
+      }
+
+      btnPrev.disabled = idx === 0;
+      const isLast = idx === questions.length - 1;
+      btnNext.classList.toggle("nclex-hidden", isLast);
+      btnSubmit.classList.toggle("nclex-hidden", !isLast);
+    }
+
+    function normalizeArray(values) { return (values || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean).sort(); }
+    function scoreQuestion(q, userAnswer) {
+      const correct = q.correct_answers || [];
+      if (q.question_type === "mcq" || q.question_type === "fill_blank") return correct.some((c) => String(c).trim().toLowerCase() === String(userAnswer || "").trim().toLowerCase());
+      if (q.question_type === "sata") return JSON.stringify(normalizeArray(userAnswer || [])) === JSON.stringify(normalizeArray(correct));
+      if (q.question_type === "ordered_response") return JSON.stringify((userAnswer || []).map((x) => String(x).trim().toLowerCase())) === JSON.stringify((correct || []).map((x) => String(x).trim().toLowerCase()));
+      return false;
+    }
+    function buildResultPayload() {
+      let correctCount = 0; const reviewRows = [];
+      questions.forEach((q, i) => {
+        const ok = scoreQuestion(q, answers[i]); if (ok) correctCount += 1;
+        reviewRows.push("<div class='d-flex justify-content-between gap-2'><strong>Q" + (i + 1) + "</strong><span class='badge " + (ok ? "bg-label-success" : "bg-label-danger") + "'>" + (ok ? "Correct" : "Incorrect") + "</span></div><div class='mt-2'>" + (q.question_text || "") + "</div><div class='small text-muted mt-2'><strong>Answer:</strong> " + (q.correct_answers || []).join(", ") + "</div>" + (q.rationale ? "<div class='small text-muted mt-1'><strong>Rationale:</strong> " + q.rationale + "</div>" : ""));
+      });
+      const pct = Math.round((correctCount / questions.length) * 100);
+      return { correctCount, total: questions.length, pct, reviewRows, completed_at: new Date().toISOString() };
+    }
+    function showResult(payload) {
+      resultReview.innerHTML = "";
+      (payload.reviewRows || []).forEach((html) => { const block = document.createElement("div"); block.className = "border rounded p-3 mb-2"; block.innerHTML = html; resultReview.appendChild(block); });
+      resultModalTitle.textContent = "NCLEX Test " + (testIndex + 1) + " Result";
+      resultScore.textContent = "Score: " + payload.correctCount + " / " + payload.total + " (" + payload.pct + "%)";
+      resultBreakdown.textContent = payload.pct >= 75 ? "Great performance" : "Keep practicing";
+      if (scoreModal) scoreModal.show(); else alert(resultScore.textContent);
+    }
+    function submitTest(isAutoTimeout) {
+      stopTimer();
+      const payload = buildResultPayload();
+      try { localStorage.setItem(solvedKey, JSON.stringify(payload)); } catch (e) {}
+      showResult(payload);
+      if (isAutoTimeout && window.showAppMessageModal) window.showAppMessageModal("Time is up. Your test was submitted automatically.", "NCLEX Timer");
+    }
+
+    activeTestLabel.textContent = "NCLEX Test " + (testIndex + 1);
+    btnPrev.addEventListener("click", () => { if (idx > 0) { idx -= 1; renderQuestion(); } });
+    btnNext.addEventListener("click", () => { if (idx < questions.length - 1) { idx += 1; renderQuestion(); } });
+    btnSubmit.addEventListener("click", () => submitTest(false));
+
+    // If solved before, show result immediately as review mode.
+    try {
+      const saved = localStorage.getItem(solvedKey);
+      if (saved) {
+        const payload = JSON.parse(saved);
+        if (payload && typeof payload === "object") {
+          showResult(payload);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    renderQuestion();
+    startTimer();
+  })();
+</script>
+{% endif %}
+{% endblock %}

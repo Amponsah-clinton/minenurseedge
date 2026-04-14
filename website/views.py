@@ -4965,6 +4965,76 @@ def student_nclex_questions(request):
     return render(request, "dashboard/student_nclex_questions.html", context)
 
 
+def student_nclex_test(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/nclex/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    try:
+        questions = (
+            admin.table("nclex_questions")
+            .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        questions = []
+
+    for idx, q in enumerate(questions, start=1):
+        q["num"] = idx
+        raw_options = q.get("options")
+        normalized_options = []
+        if isinstance(raw_options, list):
+            normalized_options = [str(v).strip() for v in raw_options if str(v).strip()]
+        elif isinstance(raw_options, dict):
+            for key in sorted(raw_options.keys()):
+                val = str(raw_options.get(key) or "").strip()
+                if val:
+                    normalized_options.append(val)
+        elif isinstance(raw_options, str):
+            maybe = raw_options.strip()
+            if maybe:
+                try:
+                    parsed = json.loads(maybe)
+                    if isinstance(parsed, list):
+                        normalized_options = [str(v).strip() for v in parsed if str(v).strip()]
+                    elif isinstance(parsed, dict):
+                        for key in sorted(parsed.keys()):
+                            val = str(parsed.get(key) or "").strip()
+                            if val:
+                                normalized_options.append(val)
+                    else:
+                        normalized_options = [maybe]
+                except Exception:
+                    normalized_options = [line.strip() for line in maybe.splitlines() if line.strip()]
+        q["options"] = normalized_options
+        q["correct_answers"] = q.get("correct_answers") or []
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "student_nclex",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "questions": questions,
+        "test_index": request.GET.get("test", "1"),
+    }
+    return render(request, "dashboard/student_nclex_test.html", context)
+
+
 def student_nclex_guide(request):
     guard = _require_login(request)
     if guard:
