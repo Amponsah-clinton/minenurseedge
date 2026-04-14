@@ -4965,6 +4965,27 @@ def student_nclex_questions(request):
     return render(request, "dashboard/student_nclex_questions.html", context)
 
 
+def student_nclex_guide(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/nclex/")
+
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "student_nclex",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+    }
+    return render(request, "dashboard/student_nclex_guide.html", context)
+
+
 def student_books_library(request):
     guard = _require_login(request)
     if guard:

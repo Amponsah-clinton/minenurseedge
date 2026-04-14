@@ -1,0 +1,70 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}NCLEX Guide - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .guide-wrap { max-width: 980px; margin: 0 auto; }
+  .guide-hero, .guide-card {
+    background: #ffffff;
+    border: 1px solid #e5e9f2;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  }
+  .guide-hero { padding: 22px 20px; margin-bottom: 16px; }
+  .guide-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .guide-card { padding: 16px; }
+  .guide-card h6 { margin-bottom: 8px; color: #0f172a; }
+  .guide-card p, .guide-card li { color: #475569; font-size: 14px; line-height: 1.65; }
+  .guide-card ul, .guide-card ol { margin-bottom: 0; padding-left: 18px; }
+  @media (max-width: 860px) { .guide-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="guide-wrap">
+  <section class="guide-hero">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div>
+        <h4 class="mb-1">NCLEX Guide</h4>
+        <p class="text-muted mb-0">Quick exam reference and format overview.</p>
+      </div>
+      <a href="/dashboard/nclex/" class="btn btn-primary">Go to NCLEX Tests</a>
+    </div>
+  </section>
+
+  <section class="guide-grid">
+    <article class="guide-card">
+      <h6>What is NCLEX?</h6>
+      <p>The NCLEX is the official licensing exam for nurses who want to practice in countries such as the US and Canada.</p>
+    </article>
+    <article class="guide-card">
+      <h6>Exam Format</h6>
+      <ul>
+        <li>Computer Adaptive Testing (CAT)</li>
+        <li>Up to 5 hours</li>
+        <li>75-145 questions</li>
+      </ul>
+    </article>
+    <article class="guide-card">
+      <h6>Question Types</h6>
+      <ul>
+        <li>Multiple Choice (MCQ)</li>
+        <li>Select All That Apply (SATA)</li>
+        <li>Fill in the Blank</li>
+        <li>Ordered Response / Drag and Drop</li>
+      </ul>
+    </article>
+    <article class="guide-card">
+      <h6>Pass Strategy</h6>
+      <ol>
+        <li>Practice daily</li>
+        <li>Prioritize ABC and safety</li>
+        <li>Focus on rationales</li>
+        <li>Take timed tests regularly</li>
+      </ol>
+    </article>
+  </section>
+</div>
+{% endblock %}
