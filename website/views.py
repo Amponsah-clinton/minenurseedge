@@ -1236,6 +1236,29 @@ def _book_download_url(external_url):
     return url
 
 
+def _parse_lenient_json_payload(payload_text):
+    """
+    Parse admin JSON with light auto-fixes for common paste issues.
+    Fixes:
+    - trailing commas before ] or }
+    """
+    raw = str(payload_text or "").strip()
+    if not raw:
+        raise ValueError("JSON payload is required.")
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        pass
+
+    # Remove trailing commas before array/object close.
+    cleaned = re.sub(r",\s*(\]|\})", r"\1", raw)
+    try:
+        return json.loads(cleaned)
+    except Exception as exc:
+        raise ValueError(f"Invalid JSON format: {exc}") from exc
+
+
 # ---------------------------------------------------------------------------
 # Auth views
 # ---------------------------------------------------------------------------
@@ -3228,9 +3251,7 @@ def admin_nclex_questions(request):
             action = (request.POST.get("action") or "").strip()
             if action == "upload_json":
                 payload = (request.POST.get("json_payload") or "").strip()
-                if not payload:
-                    raise ValueError("JSON payload is required.")
-                parsed = json.loads(payload)
+                parsed = _parse_lenient_json_payload(payload)
                 items = parsed.get("questions") if isinstance(parsed, dict) else parsed
                 if not isinstance(items, list) or not items:
                     raise ValueError("JSON must be an array or an object with a 'questions' array.")
