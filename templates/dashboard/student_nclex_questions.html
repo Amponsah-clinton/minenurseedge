@@ -43,7 +43,37 @@
     margin-bottom: 10px;
     background: #fff;
   }
+  .nclex-option input[type="radio"],
+  .nclex-option input[type="checkbox"] {
+    margin-top: 2px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+  }
+  .nclex-option-text {
+    display: block;
+    line-height: 1.45;
+  }
   .nclex-order-grid { display: grid; gap: 10px; }
+  .nclex-order-item {
+    border: 1px solid #d9e2f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  .nclex-order-pos {
+    min-width: 34px;
+    height: 34px;
+    border: 1px solid #d9e2f0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #1f4d9a;
+    background: #f7faff;
+    margin-right: 10px;
+  }
   .nclex-hidden { display: none !important; }
 </style>
 
@@ -75,18 +105,11 @@
           <button type="button" class="btn btn-outline-secondary" id="btnPrev">Previous</button>
           <button type="button" class="btn btn-primary" id="btnNext">Next</button>
           <button type="button" class="btn btn-success nclex-hidden" id="btnSubmit">Submit Test</button>
+          <button type="button" class="btn btn-outline-primary nclex-hidden" id="btnReview">Review Answers</button>
         </div>
       </div>
     </div>
 
-    <div class="col-12">
-      <div class="nclex-panel nclex-hidden" id="nclexResultPanel">
-        <h5 class="mb-2">Result</h5>
-        <p class="mb-2">Score: <strong id="resultScore"></strong></p>
-        <p class="text-muted mb-3" id="resultBreakdown"></p>
-        <div id="resultReview"></div>
-      </div>
-    </div>
     {% else %}
     <div class="col-12">
       <div class="nclex-panel text-center text-muted py-5">
@@ -99,6 +122,26 @@
 
 {% if questions %}
 {{ questions|json_script:"nclexQuestionsData" }}
+<div class="modal fade" id="nclexScoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">NCLEX Practice Result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+          <h5 class="mb-0" id="resultScore"></h5>
+          <span class="badge bg-label-primary" id="resultBreakdown"></span>
+        </div>
+        <div id="resultReview"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
   (function () {
     const raw = JSON.parse(document.getElementById("nclexQuestionsData").textContent || "[]");
@@ -129,8 +172,12 @@
     const btnPrev = document.getElementById("btnPrev");
     const btnNext = document.getElementById("btnNext");
     const btnSubmit = document.getElementById("btnSubmit");
+    const btnReview = document.getElementById("btnReview");
     const progressBar = document.getElementById("nclexProgressBar");
-    const resultPanel = document.getElementById("nclexResultPanel");
+    const scoreModalEl = document.getElementById("nclexScoreModal");
+    const scoreModal = (window.bootstrap && scoreModalEl)
+      ? new window.bootstrap.Modal(scoreModalEl)
+      : null;
     const resultScore = document.getElementById("resultScore");
     const resultBreakdown = document.getElementById("resultBreakdown");
     const resultReview = document.getElementById("resultReview");
@@ -144,6 +191,13 @@
 
     let idx = 0;
     const answers = {};
+    let solvedPayload = null;
+    let attemptLocked = false;
+
+    function questionSetKey(items) {
+      return "nclex_solved_" + items.map((q) => String(q.id || q.question_text || "")).join("|");
+    }
+    const solvedStorageKey = questionSetKey(questions);
 
     function renderQuestion() {
       const q = questions[idx];
@@ -165,6 +219,7 @@
           input.checked = answers[idx] === opt;
           input.addEventListener("change", () => { answers[idx] = opt; });
           const span = document.createElement("span");
+          span.className = "nclex-option-text";
           span.textContent = opt;
           wrap.appendChild(input);
           wrap.appendChild(span);
@@ -185,6 +240,7 @@
             answers[idx] = Array.from(set);
           });
           const span = document.createElement("span");
+          span.className = "nclex-option-text";
           span.textContent = opt;
           wrap.appendChild(input);
           wrap.appendChild(span);
@@ -199,40 +255,77 @@
         input.addEventListener("input", () => { answers[idx] = input.value; });
         qInputArea.appendChild(input);
       } else if (q.question_type === "ordered_response") {
-        const saved = Array.isArray(answers[idx]) ? answers[idx] : [];
+        const saved = Array.isArray(answers[idx]) && answers[idx].length
+          ? [...answers[idx]]
+          : [...q.options];
         const grid = document.createElement("div");
         grid.className = "nclex-order-grid";
-        q.options.forEach((opt, optIdx) => {
-          const row = document.createElement("div");
-          row.className = "nclex-option d-flex align-items-center justify-content-between gap-2";
-          const left = document.createElement("span");
-          left.textContent = opt;
-          const sel = document.createElement("select");
-          sel.className = "form-select form-select-sm";
-          for (let n = 1; n <= q.options.length; n++) {
-            const option = document.createElement("option");
-            option.value = String(n);
-            option.textContent = "Position " + n;
-            sel.appendChild(option);
-          }
-          sel.value = String(saved[optIdx] || (optIdx + 1));
-          sel.addEventListener("change", () => {
-            const arr = Array.isArray(answers[idx]) ? [...answers[idx]] : q.options.map((_, i) => i + 1);
-            arr[optIdx] = parseInt(sel.value, 10);
-            answers[idx] = arr;
+        answers[idx] = saved;
+
+        function renderOrderItems() {
+          grid.innerHTML = "";
+          const current = Array.isArray(answers[idx]) ? answers[idx] : [...q.options];
+          current.forEach((opt, pos) => {
+            const row = document.createElement("div");
+            row.className = "nclex-order-item d-flex align-items-center justify-content-between gap-2";
+
+            const left = document.createElement("div");
+            left.className = "d-flex align-items-center";
+            const chip = document.createElement("span");
+            chip.className = "nclex-order-pos";
+            chip.textContent = String(pos + 1);
+            const text = document.createElement("span");
+            text.className = "nclex-option-text";
+            text.textContent = opt;
+            left.appendChild(chip);
+            left.appendChild(text);
+
+            const controls = document.createElement("div");
+            controls.className = "d-flex gap-1";
+            const up = document.createElement("button");
+            up.type = "button";
+            up.className = "btn btn-sm btn-outline-secondary";
+            up.textContent = "Up";
+            up.disabled = pos === 0;
+            up.addEventListener("click", () => {
+              const arr = [...current];
+              [arr[pos - 1], arr[pos]] = [arr[pos], arr[pos - 1]];
+              answers[idx] = arr;
+              renderOrderItems();
+            });
+
+            const down = document.createElement("button");
+            down.type = "button";
+            down.className = "btn btn-sm btn-outline-secondary";
+            down.textContent = "Down";
+            down.disabled = pos === current.length - 1;
+            down.addEventListener("click", () => {
+              const arr = [...current];
+              [arr[pos], arr[pos + 1]] = [arr[pos + 1], arr[pos]];
+              answers[idx] = arr;
+              renderOrderItems();
+            });
+
+            controls.appendChild(up);
+            controls.appendChild(down);
+            row.appendChild(left);
+            row.appendChild(controls);
+            grid.appendChild(row);
           });
-          row.appendChild(left);
-          row.appendChild(sel);
-          grid.appendChild(row);
-        });
-        if (!answers[idx]) answers[idx] = q.options.map((_, i) => i + 1);
+        }
+
+        renderOrderItems();
         qInputArea.appendChild(grid);
       }
 
       btnPrev.disabled = idx === 0;
       const isLast = idx === questions.length - 1;
-      btnNext.classList.toggle("nclex-hidden", isLast);
-      btnSubmit.classList.toggle("nclex-hidden", !isLast);
+      btnNext.classList.toggle("nclex-hidden", isLast || attemptLocked);
+      btnSubmit.classList.toggle("nclex-hidden", !isLast || attemptLocked);
+      btnReview.classList.toggle("nclex-hidden", !attemptLocked);
+      if (attemptLocked) {
+        btnPrev.disabled = true;
+      }
     }
 
     function normalizeArray(values) {
@@ -252,45 +345,83 @@
       }
       if (q.question_type === "ordered_response") {
         if (!Array.isArray(userAnswer)) return false;
-        const orderedByUser = q.options
-          .map((opt, i) => ({ opt, pos: Number(userAnswer[i] || 0) }))
-          .sort((a, b) => a.pos - b.pos)
-          .map((x) => x.opt.trim().toLowerCase());
+        const orderedByUser = userAnswer.map((x) => String(x).trim().toLowerCase());
         const correctOrdered = (correct || []).map((x) => String(x).trim().toLowerCase());
         return JSON.stringify(orderedByUser) === JSON.stringify(correctOrdered);
       }
       return false;
     }
 
-    function submitTest() {
+    function buildResultPayload() {
       let correctCount = 0;
-      resultReview.innerHTML = "";
+      const reviewRows = [];
       questions.forEach((q, i) => {
         const ok = scoreQuestion(q, answers[i]);
         if (ok) correctCount += 1;
-        const block = document.createElement("div");
-        block.className = "border rounded p-3 mb-2";
-        block.innerHTML =
+        reviewRows.push(
           "<div class='d-flex justify-content-between gap-2'>" +
           "<strong>Q" + (i + 1) + "</strong>" +
           "<span class='badge " + (ok ? "bg-label-success" : "bg-label-danger") + "'>" + (ok ? "Correct" : "Incorrect") + "</span>" +
           "</div>" +
           "<div class='mt-2'>" + (q.question_text || "") + "</div>" +
           "<div class='small text-muted mt-2'><strong>Answer:</strong> " + (q.correct_answers || []).join(", ") + "</div>" +
-          (q.rationale ? "<div class='small text-muted mt-1'><strong>Rationale:</strong> " + q.rationale + "</div>" : "");
-        resultReview.appendChild(block);
+          (q.rationale ? "<div class='small text-muted mt-1'><strong>Rationale:</strong> " + q.rationale + "</div>" : "")
+        );
       });
       const pct = Math.round((correctCount / questions.length) * 100);
-      resultScore.textContent = correctCount + " / " + questions.length + " (" + pct + "%)";
-      resultBreakdown.textContent = "Keep practicing mixed NCLEX formats. Re-open the page for a new shuffled session.";
-      resultPanel.classList.remove("nclex-hidden");
-      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      return { correctCount, total: questions.length, pct, reviewRows };
+    }
+
+    function showResult(payload) {
+      resultReview.innerHTML = "";
+      (payload.reviewRows || []).forEach((html) => {
+        const block = document.createElement("div");
+        block.className = "border rounded p-3 mb-2";
+        block.innerHTML = html;
+        resultReview.appendChild(block);
+      });
+      const pct = Number(payload.pct || 0);
+      const correctCount = Number(payload.correctCount || 0);
+      const total = Number(payload.total || questions.length);
+      resultScore.textContent = "Score: " + correctCount + " / " + questions.length + " (" + pct + "%)";
+      resultBreakdown.textContent = pct >= 75 ? "Great performance" : "Keep practicing";
+      if (scoreModal) {
+        scoreModal.show();
+      } else {
+        alert(resultScore.textContent);
+      }
+    }
+
+    function submitTest() {
+      solvedPayload = buildResultPayload();
+      attemptLocked = true;
+      try {
+        localStorage.setItem(solvedStorageKey, JSON.stringify(solvedPayload));
+      } catch (e) {}
+      showResult(solvedPayload);
+      renderQuestion();
+    }
+
+    function restoreSolvedAttempt() {
+      try {
+        const saved = localStorage.getItem(solvedStorageKey);
+        if (!saved) return;
+        const parsed = JSON.parse(saved);
+        if (!parsed || typeof parsed !== "object") return;
+        solvedPayload = parsed;
+        attemptLocked = true;
+        btnReview.classList.remove("nclex-hidden");
+      } catch (e) {}
     }
 
     btnPrev.addEventListener("click", () => { if (idx > 0) { idx -= 1; renderQuestion(); } });
     btnNext.addEventListener("click", () => { if (idx < questions.length - 1) { idx += 1; renderQuestion(); } });
     btnSubmit.addEventListener("click", submitTest);
+    btnReview.addEventListener("click", () => {
+      if (solvedPayload) showResult(solvedPayload);
+    });
 
+    restoreSolvedAttempt();
     renderQuestion();
   })();
 </script>

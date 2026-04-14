@@ -4701,6 +4701,7 @@ def student_nclex_questions(request):
         "email": request.session.get("email", ""),
         "role": "student",
         "active_page": "student_nclex",
+        "hide_assistant_bot": True,
         "student_unread_notifications": unread_count,
         "has_unread_notifications": unread_count > 0,
         "questions": questions,
