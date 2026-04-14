@@ -154,10 +154,81 @@
       q.correct_answers = Array.isArray(q.correct_answers) ? q.correct_answers : [];
     });
 
-    const tests = [];
-    for (let i = 0; i < allQuestions.length; i += QUESTIONS_PER_TEST) {
-      tests.push(allQuestions.slice(i, i + QUESTIONS_PER_TEST));
+    function buildBalancedTests(items, batchSize) {
+      const pool = [...items];
+      shuffle(pool);
+      const testsLocal = [];
+      for (let i = 0; i < pool.length; i += batchSize) {
+        testsLocal.push(pool.slice(i, i + batchSize));
+      }
+
+      // Ensure each full-size batch has at least one SATA and one Fill-in-the-Blank
+      // if those types exist somewhere in the total pool.
+      const hasAnySata = pool.some((q) => q.question_type === "sata");
+      const hasAnyFill = pool.some((q) => q.question_type === "fill_blank");
+      const fullBatchCount = testsLocal.filter((b) => b.length === batchSize).length;
+
+      function findDonorBatch(typeNeeded, skipBatchIdx) {
+        for (let b = 0; b < testsLocal.length; b++) {
+          if (b === skipBatchIdx) continue;
+          const donor = testsLocal[b];
+          const typeCount = donor.filter((q) => q.question_type === typeNeeded).length;
+          // Keep donor valid if it's a full batch and this type is required.
+          const donorIsFull = donor.length === batchSize;
+          if (donorIsFull && ((typeNeeded === "sata" && hasAnySata) || (typeNeeded === "fill_blank" && hasAnyFill))) {
+            if (typeCount <= 1 && fullBatchCount > 1) continue;
+          }
+          const idx = donor.findIndex((q) => q.question_type === typeNeeded);
+          if (idx >= 0) return { batchIdx: b, questionIdx: idx };
+        }
+        return null;
+      }
+
+      function findSwapOutIndex(batch, protectedTypes) {
+        let idx = batch.findIndex((q) => !protectedTypes.includes(q.question_type));
+        if (idx >= 0) return idx;
+        idx = batch.findIndex((q) => q.question_type === "mcq");
+        if (idx >= 0) return idx;
+        return 0;
+      }
+
+      for (let i = 0; i < testsLocal.length; i++) {
+        const batch = testsLocal[i];
+        if (batch.length !== batchSize) continue; // only enforce on complete 100-question tests
+
+        const hasSata = batch.some((q) => q.question_type === "sata");
+        const hasFill = batch.some((q) => q.question_type === "fill_blank");
+
+        if (hasAnySata && !hasSata) {
+          const donor = findDonorBatch("sata", i);
+          if (donor) {
+            const incoming = testsLocal[donor.batchIdx][donor.questionIdx];
+            const outIdx = findSwapOutIndex(batch, ["fill_blank"]);
+            const outgoing = batch[outIdx];
+            batch[outIdx] = incoming;
+            testsLocal[donor.batchIdx][donor.questionIdx] = outgoing;
+          }
+        }
+
+        const nowHasFill = batch.some((q) => q.question_type === "fill_blank");
+        if (hasAnyFill && !nowHasFill) {
+          const donor = findDonorBatch("fill_blank", i);
+          if (donor) {
+            const incoming = testsLocal[donor.batchIdx][donor.questionIdx];
+            const outIdx = findSwapOutIndex(batch, ["sata"]);
+            const outgoing = batch[outIdx];
+            batch[outIdx] = incoming;
+            testsLocal[donor.batchIdx][donor.questionIdx] = outgoing;
+          }
+        }
+
+        shuffle(batch);
+      }
+
+      return testsLocal;
     }
+
+    const tests = buildBalancedTests(allQuestions, QUESTIONS_PER_TEST);
 
     const testCardsPanel = document.getElementById("testCardsPanel");
     const examWrap = document.getElementById("nclexExamWrap");
