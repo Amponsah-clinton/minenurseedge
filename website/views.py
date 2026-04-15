@@ -3481,7 +3481,7 @@ def admin_nclex_questions(request):
             admin.table("resource_books")
             .select("*")
             .order("created_at", desc=True)
-            .limit(500)
+            .limit(2000)
             .execute()
             .data
             or []
@@ -4909,7 +4909,7 @@ def student_nclex_questions(request):
             .eq("is_active", True)
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(500)
+            .limit(2000)
             .execute()
             .data
             or []
@@ -4952,6 +4952,22 @@ def student_nclex_questions(request):
         q["is_fill_blank"] = q.get("question_type") == "fill_blank"
         q["is_ordered_response"] = q.get("question_type") == "ordered_response"
 
+    questions_per_test = 100
+    seconds_per_question = 90
+    question_groups = []
+    for group_index, start in enumerate(range(0, len(questions), questions_per_test), start=1):
+        items = questions[start:start + questions_per_test]
+        if not items:
+            continue
+        question_groups.append(
+            {
+                "index": group_index,
+                "question_count": len(items),
+                "minutes": max(1, round((len(items) * seconds_per_question) / 60)),
+                "start_link": f"/dashboard/nclex/test/?test={group_index}",
+            }
+        )
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -4961,6 +4977,7 @@ def student_nclex_questions(request):
         "student_unread_notifications": unread_count,
         "has_unread_notifications": unread_count > 0,
         "questions": questions,
+        "question_groups": question_groups,
     }
     return render(request, "dashboard/student_nclex_questions.html", context)
 
@@ -4983,7 +5000,7 @@ def student_nclex_test(request):
             .eq("is_active", True)
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(500)
+            .limit(2000)
             .execute()
             .data
             or []

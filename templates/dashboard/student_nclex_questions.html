@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}NCLEX Practice - NurseEdge{% endblock %}
+{% block title %}NCLEX-RN Practice - NurseEdge{% endblock %}
 
 {% block content %}
 <style>
@@ -18,207 +18,101 @@
     <div class="col-12">
       <div class="nclex-hero">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-          <h4 class="mb-0">NCLEX Test Lobby</h4>
+          <h4 class="mb-0">NCLEX-RN Test Lobby</h4>
           <span class="nclex-badge">{{ questions|length }} question{{ questions|length|pluralize }}</span>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-          <p class="text-muted mb-0">Every 100 questions forms one test. Start a test to answer on the dedicated exam page.</p>
-          <a href="/dashboard/nclex-guide/" class="btn btn-sm btn-outline-secondary">View NCLEX Guide</a>
+          <p class="text-muted mb-0">All NCLEX-RN question groups are listed below. Click any group to start answering immediately.</p>
+          <a href="/dashboard/nclex-guide/" class="btn btn-sm btn-outline-secondary">View NCLEX-RN Guide</a>
         </div>
       </div>
     </div>
 
-    {% if questions %}
+    {% if question_groups %}
     <div class="col-12">
-      <div id="testCardsPanel" class="test-grid"></div>
+      <div class="test-grid">
+        {% for group in question_groups %}
+        <article class="test-card">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="mb-0">Question Group {{ group.index }}</h6>
+            <span class="badge bg-label-secondary">{{ group.question_count }} Qs</span>
+          </div>
+          <p class="text-muted small mb-2">Time: {{ group.minutes }} minutes</p>
+          <div class="small text-muted mb-2" id="leaderboard-preview-{{ group.index }}">
+            Leaderboard: No attempts yet.
+          </div>
+          <div class="small mb-2" id="leaderboard-list-{{ group.index }}"></div>
+          <a class="btn btn-sm btn-primary" href="{{ group.start_link }}">Start Answering</a>
+        </article>
+        {% endfor %}
+      </div>
     </div>
     {% else %}
     <div class="col-12">
       <div class="nclex-panel text-center text-muted py-5">
-        No NCLEX questions are available yet. Your admin can add them from the NCLEX section in the admin panel.
+        No NCLEX-RN questions are available yet. Your admin can add them from the NCLEX-RN section in the admin panel.
       </div>
     </div>
     {% endif %}
   </div>
 </div>
-
-{% if questions %}
-{{ questions|json_script:"nclexQuestionsData" }}
-<div class="modal fade" id="nclexScoreModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="resultModalTitle">NCLEX Test Result</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-          <h5 class="mb-0" id="resultScore"></h5>
-          <span class="badge bg-label-primary" id="resultBreakdown"></span>
-        </div>
-        <div id="resultReview"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
-  </div>
-</div>
+{{ question_groups|json_script:"nclexQuestionGroupsData" }}
 <script>
   (function () {
-    const allQuestions = JSON.parse(document.getElementById("nclexQuestionsData").textContent || "[]");
-    const QUESTIONS_PER_TEST = 100;
-    const testCardsPanel = document.getElementById("testCardsPanel");
-    const scoreModalEl = document.getElementById("nclexScoreModal");
-    const scoreModal = (window.bootstrap && scoreModalEl) ? new window.bootstrap.Modal(scoreModalEl) : null;
-    const resultModalTitle = document.getElementById("resultModalTitle");
-    const resultScore = document.getElementById("resultScore");
-    const resultBreakdown = document.getElementById("resultBreakdown");
-    const resultReview = document.getElementById("resultReview");
+    const groups = JSON.parse(document.getElementById("nclexQuestionGroupsData").textContent || "[]");
 
-    function shuffle(arr) {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      return arr;
+    function esc(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
-    function buildBalancedTests(items, batchSize) {
-      const pool = [...items];
-      shuffle(pool);
-      const testsLocal = [];
-      for (let i = 0; i < pool.length; i += batchSize) {
-        testsLocal.push(pool.slice(i, i + batchSize));
+    groups.forEach((group) => {
+      const index = Number(group.index || 0);
+      if (!index) return;
+      const previewEl = document.getElementById("leaderboard-preview-" + index);
+      const listEl = document.getElementById("leaderboard-list-" + index);
+      if (!previewEl || !listEl) return;
+
+      let rows = [];
+      try {
+        const raw = localStorage.getItem("nclex_leaderboard_test_" + index);
+        rows = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        rows = [];
       }
 
-      // Ensure each full-size batch has at least one SATA and one Fill-in-the-Blank
-      // if those types exist somewhere in the total pool.
-      const hasAnySata = pool.some((q) => q.question_type === "sata");
-      const hasAnyFill = pool.some((q) => q.question_type === "fill_blank");
-      const fullBatchCount = testsLocal.filter((b) => b.length === batchSize).length;
-
-      function findDonorBatch(typeNeeded, skipBatchIdx) {
-        for (let b = 0; b < testsLocal.length; b++) {
-          if (b === skipBatchIdx) continue;
-          const donor = testsLocal[b];
-          const typeCount = donor.filter((q) => q.question_type === typeNeeded).length;
-          // Keep donor valid if it's a full batch and this type is required.
-          const donorIsFull = donor.length === batchSize;
-          if (donorIsFull && ((typeNeeded === "sata" && hasAnySata) || (typeNeeded === "fill_blank" && hasAnyFill))) {
-            if (typeCount <= 1 && fullBatchCount > 1) continue;
-          }
-          const idx = donor.findIndex((q) => q.question_type === typeNeeded);
-          if (idx >= 0) return { batchIdx: b, questionIdx: idx };
-        }
-        return null;
+      if (!Array.isArray(rows) || !rows.length) {
+        previewEl.textContent = "Leaderboard: No attempts yet.";
+        listEl.innerHTML = "";
+        return;
       }
 
-      function findSwapOutIndex(batch, protectedTypes) {
-        let idx = batch.findIndex((q) => !protectedTypes.includes(q.question_type));
-        if (idx >= 0) return idx;
-        idx = batch.findIndex((q) => q.question_type === "mcq");
-        if (idx >= 0) return idx;
-        return 0;
-      }
-
-      for (let i = 0; i < testsLocal.length; i++) {
-        const batch = testsLocal[i];
-        if (batch.length !== batchSize) continue; // only enforce on complete 100-question tests
-
-        const hasSata = batch.some((q) => q.question_type === "sata");
-        const hasFill = batch.some((q) => q.question_type === "fill_blank");
-
-        if (hasAnySata && !hasSata) {
-          const donor = findDonorBatch("sata", i);
-          if (donor) {
-            const incoming = testsLocal[donor.batchIdx][donor.questionIdx];
-            const outIdx = findSwapOutIndex(batch, ["fill_blank"]);
-            const outgoing = batch[outIdx];
-            batch[outIdx] = incoming;
-            testsLocal[donor.batchIdx][donor.questionIdx] = outgoing;
-          }
-        }
-
-        const nowHasFill = batch.some((q) => q.question_type === "fill_blank");
-        if (hasAnyFill && !nowHasFill) {
-          const donor = findDonorBatch("fill_blank", i);
-          if (donor) {
-            const incoming = testsLocal[donor.batchIdx][donor.questionIdx];
-            const outIdx = findSwapOutIndex(batch, ["sata"]);
-            const outgoing = batch[outIdx];
-            batch[outIdx] = incoming;
-            testsLocal[donor.batchIdx][donor.questionIdx] = outgoing;
-          }
-        }
-
-        shuffle(batch);
-      }
-
-      return testsLocal;
-    }
-
-    const tests = buildBalancedTests(allQuestions, QUESTIONS_PER_TEST);
-
-    function testStorageKey(testIdx, items) {
-      return "nclex_test_result_" + testIdx + "_" + items.map((q) => String(q.id || q.question_text || "")).join("|");
-    }
-
-    function showResult(payload, testNumber) {
-      resultReview.innerHTML = "";
-      (payload.reviewRows || []).forEach((html) => {
-        const block = document.createElement("div");
-        block.className = "border rounded p-3 mb-2";
-        block.innerHTML = html;
-        resultReview.appendChild(block);
+      rows.sort((a, b) => {
+        const pctDelta = Number(b.pct || 0) - Number(a.pct || 0);
+        if (pctDelta !== 0) return pctDelta;
+        const correctDelta = Number(b.correctCount || 0) - Number(a.correctCount || 0);
+        if (correctDelta !== 0) return correctDelta;
+        const aTime = new Date(a.completed_at || 0).getTime();
+        const bTime = new Date(b.completed_at || 0).getTime();
+        return bTime - aTime;
       });
-      const pct = Number(payload.pct || 0);
-      const correctCount = Number(payload.correctCount || 0);
-      const total = Number(payload.total || activeQuestions.length);
-      resultModalTitle.textContent = "NCLEX Test " + testNumber + " Result";
-      resultScore.textContent = "Score: " + correctCount + " / " + total + " (" + pct + "%)";
-      resultBreakdown.textContent = pct >= 75 ? "Great performance" : "Keep practicing";
-      if (scoreModal) {
-        scoreModal.show();
-      } else {
-        alert(resultScore.textContent);
-      }
-    }
 
-    function renderCards() {
-      testCardsPanel.innerHTML = "";
-      tests.forEach((items, i) => {
-        const key = testStorageKey(i, items);
-        let saved = null;
-        try {
-          const rawSaved = localStorage.getItem(key);
-          saved = rawSaved ? JSON.parse(rawSaved) : null;
-        } catch (e) {}
-        const card = document.createElement("article");
-        card.className = "test-card";
-        const mins = Math.round((items.length * SECONDS_PER_QUESTION) / 60);
-        card.innerHTML =
-          "<div class='d-flex align-items-center justify-content-between mb-2'>" +
-          "<h6 class='mb-0'>NCLEX Test " + (i + 1) + "</h6>" +
-          "<span class='badge bg-label-secondary'>" + items.length + " Qs</span>" +
-          "</div>" +
-          "<p class='text-muted small mb-2'>Time: " + mins + " minutes</p>" +
-          (saved
-            ? "<p class='mb-2'><strong>" + saved.correctCount + "/" + saved.total + " (" + saved.pct + "%)</strong></p>"
-            : "<p class='mb-2 text-muted'>Not taken yet</p>") +
-          "<div class='d-flex gap-2'>" +
-          (saved
-            ? "<button class='btn btn-sm btn-outline-primary test-review-btn'>Review</button>"
-            : "<a class='btn btn-sm btn-primary test-start-link' href='/dashboard/nclex/test/?test=" + (i + 1) + "'>Start Test</a>") +
-          "</div>";
-        const reviewBtn = card.querySelector(".test-review-btn");
-        if (reviewBtn) reviewBtn.addEventListener("click", () => showResult(saved, i + 1));
-        testCardsPanel.appendChild(card);
-      });
-    }
-
-    renderCards();
+      const topRows = rows.slice(0, 5);
+      const best = topRows[0];
+      previewEl.textContent = "Leaderboard: Best score " + Number(best.pct || 0) + "%";
+      listEl.innerHTML = topRows
+        .map((row, idx) => (
+          "<div class='d-flex justify-content-between gap-2'>" +
+          "<span>" + (idx + 1) + ". " + esc(row.name || "Student") + "</span>" +
+          "<span><strong>" + Number(row.pct || 0) + "%</strong> (" + Number(row.correctCount || 0) + "/" + Number(row.total || 0) + ")</span>" +
+          "</div>"
+        ))
+        .join("");
+    });
   })();
 </script>
-{% endif %}
 {% endblock %}

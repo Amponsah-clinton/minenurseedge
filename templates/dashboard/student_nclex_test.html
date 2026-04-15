@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}NCLEX Test - NurseEdge{% endblock %}
+{% block title %}NCLEX-RN Test - NurseEdge{% endblock %}
 
 {% block content %}
 <style>
@@ -23,7 +23,7 @@
 <div class="nclex-shell">
   <div class="nclex-hero d-flex flex-wrap align-items-center justify-content-between gap-2">
     <div>
-      <h4 class="mb-1" id="activeTestLabel">NCLEX Test</h4>
+      <h4 class="mb-1" id="activeTestLabel">NCLEX-RN Test</h4>
       <p class="text-muted mb-0">1.5 minutes per question. Submit before time runs out.</p>
     </div>
     <span class="timer-pill" id="examTimer">00:00</span>
@@ -33,9 +33,14 @@
   <div class="nclex-panel">
     <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
       <div class="d-flex align-items-center gap-2">
-        <span class="badge bg-label-secondary" id="qType">NCLEX</span>
+        <span class="badge bg-label-secondary" id="qType">NCLEX-RN</span>
         <small class="text-muted" id="qCounter">Question 1</small>
       </div>
+    </div>
+    <div class="alert alert-info py-2 px-3 mb-3">
+      <small class="mb-0 d-block">
+        Fill-in guide: for range answers, type both values in one box (example: <strong>150000 to 450000</strong>).
+      </small>
     </div>
     <div class="nclex-progress mb-3"><div id="nclexProgressBar"></div></div>
     <h5 id="qText" class="mb-3"></h5>
@@ -48,18 +53,19 @@
     </div>
   </div>
   {% else %}
-  <div class="nclex-panel text-center text-muted py-5">No NCLEX questions are available yet.</div>
+  <div class="nclex-panel text-center text-muted py-5">No NCLEX-RN questions are available yet.</div>
   {% endif %}
 </div>
 
 {% if questions %}
 {{ questions|json_script:"nclexQuestionsData" }}
 <script id="nclexTestMeta" type="application/json">{"test_index":"{{ test_index|default:'1'|escapejs }}"}</script>
+<script id="nclexStudentMeta" type="application/json">{"full_name":"{{ full_name|default:'Student'|escapejs }}","email":"{{ email|default:''|escapejs }}"}</script>
 <div class="modal fade" id="nclexScoreModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="resultModalTitle">NCLEX Test Result</h5>
+        <h5 class="modal-title" id="resultModalTitle">NCLEX-RN Test Result</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -79,6 +85,7 @@
   (function () {
     const raw = JSON.parse(document.getElementById("nclexQuestionsData").textContent || "[]");
     const meta = JSON.parse(document.getElementById("nclexTestMeta").textContent || "{}");
+    const studentMeta = JSON.parse(document.getElementById("nclexStudentMeta").textContent || "{}");
     const allQuestions = [...raw];
     const QUESTIONS_PER_TEST = 100;
     const SECONDS_PER_QUESTION = 90;
@@ -130,7 +137,7 @@
 
     function renderQuestion() {
       const q = questions[idx];
-      qType.textContent = typeLabels[q.question_type] || "NCLEX";
+      qType.textContent = typeLabels[q.question_type] || "NCLEX-RN";
       qCounter.textContent = "Question " + (idx + 1) + " of " + questions.length;
       qText.textContent = q.question_text || "";
       progressBar.style.width = (((idx + 1) / questions.length) * 100) + "%";
@@ -203,7 +210,7 @@
     function showResult(payload) {
       resultReview.innerHTML = "";
       (payload.reviewRows || []).forEach((html) => { const block = document.createElement("div"); block.className = "border rounded p-3 mb-2"; block.innerHTML = html; resultReview.appendChild(block); });
-      resultModalTitle.textContent = "NCLEX Test " + (testIndex + 1) + " Result";
+      resultModalTitle.textContent = "NCLEX-RN Test " + (testIndex + 1) + " Result";
       resultScore.textContent = "Score: " + payload.correctCount + " / " + payload.total + " (" + payload.pct + "%)";
       resultBreakdown.textContent = payload.pct >= 75 ? "Great performance" : "Keep practicing";
       if (scoreModal) scoreModal.show(); else alert(resultScore.textContent);
@@ -212,11 +219,35 @@
       stopTimer();
       const payload = buildResultPayload();
       try { localStorage.setItem(solvedKey, JSON.stringify(payload)); } catch (e) {}
+      try {
+        const boardKey = "nclex_leaderboard_test_" + (testIndex + 1);
+        const rawBoard = localStorage.getItem(boardKey);
+        const boardRows = rawBoard ? JSON.parse(rawBoard) : [];
+        const entry = {
+          name: (studentMeta.full_name || "Student").trim() || "Student",
+          email: (studentMeta.email || "").trim(),
+          correctCount: payload.correctCount,
+          total: payload.total,
+          pct: payload.pct,
+          completed_at: payload.completed_at || new Date().toISOString(),
+        };
+        boardRows.push(entry);
+        boardRows.sort((a, b) => {
+          const pctDelta = Number(b.pct || 0) - Number(a.pct || 0);
+          if (pctDelta !== 0) return pctDelta;
+          const correctDelta = Number(b.correctCount || 0) - Number(a.correctCount || 0);
+          if (correctDelta !== 0) return correctDelta;
+          const aTime = new Date(a.completed_at || 0).getTime();
+          const bTime = new Date(b.completed_at || 0).getTime();
+          return bTime - aTime;
+        });
+        localStorage.setItem(boardKey, JSON.stringify(boardRows.slice(0, 20)));
+      } catch (e) {}
       showResult(payload);
-      if (isAutoTimeout && window.showAppMessageModal) window.showAppMessageModal("Time is up. Your test was submitted automatically.", "NCLEX Timer");
+      if (isAutoTimeout && window.showAppMessageModal) window.showAppMessageModal("Time is up. Your test was submitted automatically.", "NCLEX-RN Timer");
     }
 
-    activeTestLabel.textContent = "NCLEX Test " + (testIndex + 1);
+    activeTestLabel.textContent = "NCLEX-RN Test " + (testIndex + 1);
     btnPrev.addEventListener("click", () => { if (idx > 0) { idx -= 1; renderQuestion(); } });
     btnNext.addEventListener("click", () => { if (idx < questions.length - 1) { idx += 1; renderQuestion(); } });
     btnSubmit.addEventListener("click", () => submitTest(false));
