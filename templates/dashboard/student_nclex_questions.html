@@ -41,8 +41,16 @@
           <div class="small text-muted mb-2" id="leaderboard-preview-{{ group.index }}">
             Leaderboard: No attempts yet.
           </div>
-          <div class="small mb-2" id="leaderboard-list-{{ group.index }}"></div>
-          <a class="btn btn-sm btn-primary" href="{{ group.start_link }}">Start Answering</a>
+          <div class="d-flex gap-2 flex-wrap">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary leaderboard-open-btn"
+              data-group-index="{{ group.index }}"
+            >
+              View Leaderboard
+            </button>
+            <a class="btn btn-sm btn-primary" href="{{ group.start_link }}">Start Answering</a>
+          </div>
         </article>
         {% endfor %}
       </div>
@@ -57,9 +65,43 @@
   </div>
 </div>
 {{ question_groups|json_script:"nclexQuestionGroupsData" }}
+<div class="modal fade" id="nclexLeaderboardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="leaderboardModalTitle">Test Leaderboard</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th style="width: 72px;">Rank</th>
+                <th>Student</th>
+                <th style="width: 180px;">Score</th>
+                <th style="width: 150px;">Percent</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboardModalBody">
+              <tr><td colspan="4" class="text-center text-muted py-3">No leaderboard entries yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
   (function () {
     const groups = JSON.parse(document.getElementById("nclexQuestionGroupsData").textContent || "[]");
+    const leaderboardModalEl = document.getElementById("nclexLeaderboardModal");
+    const leaderboardModalTitle = document.getElementById("leaderboardModalTitle");
+    const leaderboardModalBody = document.getElementById("leaderboardModalBody");
+    const leaderboardModal = (window.bootstrap && leaderboardModalEl) ? new window.bootstrap.Modal(leaderboardModalEl) : null;
 
     function esc(text) {
       return String(text || "")
@@ -70,13 +112,7 @@
         .replace(/'/g, "&#039;");
     }
 
-    groups.forEach((group) => {
-      const index = Number(group.index || 0);
-      if (!index) return;
-      const previewEl = document.getElementById("leaderboard-preview-" + index);
-      const listEl = document.getElementById("leaderboard-list-" + index);
-      if (!previewEl || !listEl) return;
-
+    function leaderboardRowsFor(index) {
       let rows = [];
       try {
         const raw = localStorage.getItem("nclex_leaderboard_test_" + index);
@@ -84,13 +120,7 @@
       } catch (e) {
         rows = [];
       }
-
-      if (!Array.isArray(rows) || !rows.length) {
-        previewEl.textContent = "Leaderboard: No attempts yet.";
-        listEl.innerHTML = "";
-        return;
-      }
-
+      if (!Array.isArray(rows)) return [];
       rows.sort((a, b) => {
         const pctDelta = Number(b.pct || 0) - Number(a.pct || 0);
         if (pctDelta !== 0) return pctDelta;
@@ -100,18 +130,47 @@
         const bTime = new Date(b.completed_at || 0).getTime();
         return bTime - aTime;
       });
+      return rows;
+    }
 
-      const topRows = rows.slice(0, 5);
-      const best = topRows[0];
+    function openLeaderboardModal(groupIndex) {
+      const rows = leaderboardRowsFor(groupIndex);
+      leaderboardModalTitle.textContent = "Question Group " + groupIndex + " Leaderboard";
+      if (!rows.length) {
+        leaderboardModalBody.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-3'>No leaderboard entries yet.</td></tr>";
+      } else {
+        leaderboardModalBody.innerHTML = rows.slice(0, 20).map((row, idx) => (
+          "<tr>" +
+          "<td><strong>" + (idx + 1) + "</strong></td>" +
+          "<td>" + esc(row.name || "Student") + "</td>" +
+          "<td>" + Number(row.correctCount || 0) + "/" + Number(row.total || 0) + "</td>" +
+          "<td><strong>" + Number(row.pct || 0) + "%</strong></td>" +
+          "</tr>"
+        )).join("");
+      }
+      if (leaderboardModal) leaderboardModal.show();
+    }
+
+    groups.forEach((group) => {
+      const index = Number(group.index || 0);
+      if (!index) return;
+      const previewEl = document.getElementById("leaderboard-preview-" + index);
+      if (!previewEl) return;
+      const rows = leaderboardRowsFor(index);
+      if (!rows.length) {
+        previewEl.textContent = "Leaderboard: No attempts yet.";
+        return;
+      }
+      const best = rows[0];
       previewEl.textContent = "Leaderboard: Best score " + Number(best.pct || 0) + "%";
-      listEl.innerHTML = topRows
-        .map((row, idx) => (
-          "<div class='d-flex justify-content-between gap-2'>" +
-          "<span>" + (idx + 1) + ". " + esc(row.name || "Student") + "</span>" +
-          "<span><strong>" + Number(row.pct || 0) + "%</strong> (" + Number(row.correctCount || 0) + "/" + Number(row.total || 0) + ")</span>" +
-          "</div>"
-        ))
-        .join("");
+    });
+
+    document.querySelectorAll(".leaderboard-open-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const index = Number(this.dataset.groupIndex || 0);
+        if (!index) return;
+        openLeaderboardModal(index);
+      });
     });
   })();
 </script>

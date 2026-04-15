@@ -82,22 +82,32 @@
     .ab-groups-name { font-size:15px; font-weight:600; color:#18181b; line-height:1.45; }
     .ab-groups-code { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#4b5563; border:1px solid #e5e7eb; background:#f8fafc; border-radius:999px; padding:6px 12px; white-space:nowrap; }
 
+    .ab-nclex { background:#f8f8f8; padding:70px 24px; border-top:1px solid #ededed; border-bottom:1px solid #ededed; }
+    .ab-nclex-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
+    .ab-nclex-left { flex:0 0 280px; }
+    .ab-nclex-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 14px; line-height:1.2; }
+    .ab-nclex-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; margin:0; }
+    .ab-nclex-right { flex:1; }
+    .ab-nclex-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .ab-nclex-list li { background:#fff; border:1px solid #e6e6e6; border-radius:10px; padding:14px 16px; font-size:14px; color:#333; line-height:1.6; }
+
     .ab-cta { background:#f8f8f8; border-top:1px solid #ebebeb; padding:90px 24px; text-align:center; }
     .ab-cta-inner { max-width:580px; margin:0 auto; }
     .ab-cta h2 { font-size:36px; font-weight:800; color:#111; margin:0 0 14px; }
     .ab-cta p { font-size:17px; font-weight:300; color:#555; line-height:1.8; margin:0 0 36px; }
 
     @media(max-width:900px){
-        .ab-story-inner, .ab-platform-inner, .ab-groups-inner { flex-direction:column; gap:40px; }
+        .ab-story-inner, .ab-platform-inner, .ab-groups-inner, .ab-nclex-inner { flex-direction:column; gap:40px; }
         .ab-bullets { grid-template-columns:1fr; }
+        .ab-nclex-list { grid-template-columns:1fr; }
     }
     @media(max-width:600px){
         .ab-hero { height:420px; }
         .ab-hero h1 { font-size:30px; }
         .ab-hero p { font-size:15px; }
-        .ab-story-left h2, .ab-platform-left h2, .ab-groups-left h2, .ab-cta h2 { font-size:26px; }
+        .ab-story-left h2, .ab-platform-left h2, .ab-groups-left h2, .ab-nclex-left h2, .ab-cta h2 { font-size:26px; }
         .ab-section-head h2 { font-size:26px; }
-        .ab-groups { padding:52px 16px; }
+        .ab-groups, .ab-nclex { padding:52px 16px; }
         .ab-groups-list li { flex-direction:column; align-items:flex-start; padding:14px 16px; }
     }
 </style>
@@ -144,6 +154,24 @@
                 <li><span class="ab-groups-name">Nurse Assistant Clinical</span><span class="ab-groups-code">NAC / NAP</span></li>
                 <li><span class="ab-groups-name">Registered Mental Health Nursing</span><span class="ab-groups-code">RMHN</span></li>
                 <li><span class="ab-groups-name">Registered Public Health Nursing</span><span class="ab-groups-code">RPHN</span></li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<section class="ab-nclex">
+    <div class="ab-nclex-inner">
+        <div class="ab-nclex-left wow fadeInLeft" data-wow-delay="0.1s">
+            <span class="ab-eyebrow">NCLEX-RN</span>
+            <h2>NCLEX-RN Prep Inside NurseEdge</h2>
+            <p>We now include NCLEX-RN practice flow so students can train with exam-style timing and structured question groups.</p>
+        </div>
+        <div class="ab-nclex-right wow fadeInRight" data-wow-delay="0.2s">
+            <ul class="ab-nclex-list">
+                <li>Question groups are organized in test batches for guided practice.</li>
+                <li>Each test opens on a dedicated answering page with timer support.</li>
+                <li>Supports MCQ, SATA, fill-in-the-blank, and ordered response questions.</li>
+                <li>Results and performance review appear instantly after submission.</li>
             </ul>
         </div>
     </div>
@@ -196,6 +224,7 @@
                 <li><i class="fa fa-check-circle"></i>Bookmarks &amp; downloadable notes</li>
                 <li><i class="fa fa-check-circle"></i>Anonymous discussion rooms</li>
                 <li><i class="fa fa-check-circle"></i>NMC licensure exam preparation</li>
+                <li><i class="fa fa-check-circle"></i>NCLEX-RN grouped practice tests and test review</li>
             </ul>
         </div>
     </div>
@@ -205,8 +234,9 @@
     <div class="ab-cta-inner wow fadeInUp" data-wow-delay="0.1s">
         <span class="ab-eyebrow">Get Started</span>
         <h2>Ready to Study Smarter?</h2>
-        <p>Join nursing students across Ghana already preparing with NurseEdge.</p>
+        <p>Join nursing students across Ghana already preparing with NurseEdge and NCLEX-RN practice tools.</p>
         <a href="/signup/" class="button">Get Started Today</a>
+        <a href="/nclex/" class="button" style="margin-left:10px;">Explore NCLEX-RN</a>
     </div>
 </section>
 {% endblock %}

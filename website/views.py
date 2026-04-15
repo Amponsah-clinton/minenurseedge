@@ -3244,7 +3244,15 @@ def admin_nclex_questions(request):
             "external_url": "",
         },
         "book_links": [],
+        "total_uploaded_count": 0,
+        "pagination": None,
     }
+    try:
+        page = int((request.GET.get("page") or "1").strip())
+    except Exception:
+        page = 1
+    page = max(1, page)
+    page_size = 50
 
     try:
         if request.method == "POST":
@@ -3456,16 +3464,43 @@ def admin_nclex_questions(request):
         }
 
     try:
+        count_resp = (
+            admin.table("nclex_questions")
+            .select("id", count="exact")
+            .limit(1)
+            .execute()
+        )
+        total_uploaded_count = int(count_resp.count or 0)
+        total_pages = max(1, math.ceil(total_uploaded_count / page_size)) if total_uploaded_count else 1
+        page = min(page, total_pages)
+        offset = (page - 1) * page_size
+        end = offset + page_size - 1
         rows = (
             admin.table("nclex_questions")
             .select("*")
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(300)
+            .range(offset, end)
             .execute()
             .data
             or []
         )
+        page_window_start = max(1, page - 2)
+        page_window_end = min(total_pages, page + 2)
+        context["total_uploaded_count"] = total_uploaded_count
+        context["pagination"] = {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_uploaded_count,
+            "total_pages": total_pages,
+            "has_prev": page > 1,
+            "has_next": page < total_pages,
+            "prev_page": max(1, page - 1),
+            "next_page": min(total_pages, page + 1),
+            "start_index": (offset + 1) if total_uploaded_count else 0,
+            "end_index": min(offset + len(rows), total_uploaded_count),
+            "page_numbers": list(range(page_window_start, page_window_end + 1)),
+        }
     except Exception:
         rows = []
         if not context.get("error"):

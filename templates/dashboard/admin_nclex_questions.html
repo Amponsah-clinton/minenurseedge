@@ -64,7 +64,12 @@
       <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
           <h5 class="mb-0">Existing Questions (CRUD)</h5>
-          <small class="text-muted">Total uploaded: <strong>{{ questions|length }}</strong></small>
+          <small class="text-muted">
+            Total uploaded: <strong>{{ total_uploaded_count }}</strong>
+            {% if pagination %}
+            &nbsp;|&nbsp; Showing <strong>{{ pagination.start_index }}-{{ pagination.end_index }}</strong>
+            {% endif %}
+          </small>
         </div>
         <button class="btn btn-primary btn-sm" type="button" id="nclexAddBtn" data-bs-toggle="modal" data-bs-target="#nclexQuestionModal">
           Add Question
@@ -119,6 +124,23 @@
             </tbody>
           </table>
         </div>
+        {% if pagination and pagination.total_pages > 1 %}
+        <nav aria-label="NCLEX question pages" class="mt-3">
+          <ul class="pagination mb-0">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="?page={{ pagination.prev_page }}">Previous</a>
+            </li>
+            {% for page_num in pagination.page_numbers %}
+            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+              <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="?page={{ pagination.next_page }}">Next</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
       </div>
     </div>
   </div>
