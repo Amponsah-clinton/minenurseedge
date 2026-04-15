@@ -49,12 +49,12 @@
     font-size: 13px;
     font-weight: 700;
   }
-  .ms-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .ms-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
   .ms-card {
     background: #fff;
     border: 1px solid #e1e8f5;
     border-radius: 16px;
-    padding: 16px;
+    padding: 0;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
     transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
   }
@@ -63,7 +63,16 @@
     box-shadow: 0 14px 28px rgba(15, 23, 42, 0.11);
     transform: translateY(-2px);
   }
-  .ms-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .ms-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid #e8edf7;
+    background: #fbfdff;
+    border-radius: 16px 16px 0 0;
+  }
   .ms-title { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4; }
   .ms-code {
     border: 1px solid #d6e4ff;
@@ -73,27 +82,53 @@
     padding: 3px 8px;
     font-size: 12px;
     font-weight: 700;
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
+    text-align: right;
+    max-width: 52%;
   }
-  .ms-list { margin: 0; padding: 0; list-style: none; }
-  .ms-list li {
-    margin: 0 0 8px;
-    color: #31394a;
-    line-height: 1.6;
-    font-size: 14px;
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
+  .ms-body { padding: 12px 14px 14px; }
+  .ms-table-wrap {
+    border: 1px solid #e4ebf7;
+    border-radius: 12px;
+    overflow: hidden;
   }
-  .ms-list li:last-child { margin-bottom: 0; }
-  .ms-list li::before {
-    content: "";
-    width: 8px;
-    height: 8px;
+  .ms-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .ms-table thead th {
+    text-align: left;
+    background: #f4f8ff;
+    color: #1f3f79;
+    font-weight: 800;
+    padding: 10px 10px;
+    border-bottom: 1px solid #dce8fb;
+  }
+  .ms-table tbody td {
+    padding: 10px;
+    border-bottom: 1px solid #eef3fb;
+    vertical-align: top;
+    color: #1f2937;
+    line-height: 1.55;
+  }
+  .ms-table tbody tr:last-child td { border-bottom: 0; }
+  .ms-col-letter { width: 110px; font-weight: 700; color: #0f2f64; }
+  .ms-col-meaning { width: 42%; font-weight: 600; color: #243145; }
+  .ms-col-explain { color: #4a5a74; }
+  .ms-empty-explain { color: #98a3b6; font-style: italic; }
+  .ms-tip {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #60708b;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #e3ebfa;
+    background: #f9fbff;
     border-radius: 999px;
-    background: #2f6ed9;
-    margin-top: 7px;
-    flex-shrink: 0;
+    padding: 4px 10px;
   }
   .ms-empty {
     display: none;
@@ -105,7 +140,20 @@
     color: #5a6475;
     margin-top: 10px;
   }
-  @media (max-width: 900px) { .ms-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) { .ms-code { max-width: 60%; } }
+  @media (max-width: 640px) {
+    .ms-shell { padding: 0 4px; }
+    .ms-hero { padding: 16px; border-radius: 14px; }
+    .ms-tools { flex-direction: column; align-items: stretch; }
+    .ms-search { width: 100%; flex: 1 1 auto; }
+    .ms-count { width: 100%; justify-content: center; }
+    .ms-card { border-radius: 14px; }
+    .ms-head { flex-direction: column; align-items: flex-start; }
+    .ms-title { font-size: 16px; }
+    .ms-code { max-width: 100%; text-align: left; }
+    .ms-table-wrap { overflow-x: auto; }
+    .ms-table { min-width: 620px; }
+  }
 </style>
 
 <div class="ms-shell">
@@ -129,11 +177,31 @@
         <h5 class="ms-title">{{ item.title }}</h5>
         <div class="ms-code">{{ item.code }}</div>
       </div>
-      <ul class="ms-list">
-        {% for row in item.items %}
-        <li>{{ row }}</li>
-        {% endfor %}
-      </ul>
+      <div class="ms-body">
+        <div class="ms-table-wrap">
+          <table class="ms-table">
+            <thead>
+              <tr>
+                <th class="ms-col-letter">Letter</th>
+                <th class="ms-col-meaning">Meaning</th>
+                <th class="ms-col-explain">Explanation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in item.rows %}
+              <tr>
+                <td class="ms-col-letter">{{ row.letter }}</td>
+                <td class="ms-col-meaning">{{ row.meaning }}</td>
+                <td class="ms-col-explain">
+                  {% if row.explanation %}{{ row.explanation }}{% else %}<span class="ms-empty-explain">-</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <span class="ms-tip"><i class="bx bx-bulb"></i> NMC quick recall format</span>
+      </div>
     </article>
     {% endfor %}
   </section>

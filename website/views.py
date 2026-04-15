@@ -5136,83 +5136,431 @@ def student_mnemonics_guide(request):
 
 def _student_mnemonic_sections():
     fundamentals = [
-        {"title": "Vital Signs", "code": "TPR BP", "items": ["T - Temperature (36.5-37.5 C)", "P - Pulse (60-100 bpm)", "R - Respiration (12-20 bpm)", "BP - Blood Pressure (~120/80 mmHg)"]},
-        {"title": "Drug Administration", "code": "DR TIMED", "items": ["D - Drug", "R - Right patient", "T - Time", "I - Route", "M - Dose", "E - Education", "D - Documentation"]},
-        {"title": "Hypoglycemia", "code": "TIRED", "items": ["T - Tremors", "I - Irritability", "R - Rapid pulse", "E - Excess hunger", "D - Diaphoresis"]},
-        {"title": "Shock", "code": "SHOCK", "items": ["S - Sweating", "H - Hypotension", "O - Oliguria", "C - Confusion", "K - Cold skin"]},
-        {"title": "Pregnancy Danger Signs", "code": "BLEED", "items": ["B - Bleeding", "L - Loss of fetal movement", "E - Excess vomiting", "E - Edema", "D - Dizziness"]},
-        {"title": "APGAR Score", "code": "APGAR", "items": ["A - Appearance", "P - Pulse", "G - Grimace", "A - Activity", "R - Respiration"]},
-        {"title": "Hand Hygiene", "code": "BEFAR", "items": ["B - Before patient", "E - Before procedure", "F - After fluid exposure", "A - After patient", "R - After surroundings"]},
-        {"title": "Cranial Nerves", "code": "Oh Oh Oh To Touch And Feel Very Good Velvet AH", "items": ["Classic cranial nerve order mnemonic used in assessment."]},
-        {"title": "Anemia", "code": "PALE", "items": ["P - Pallor", "A - Anorexia/weakness", "L - Lethargy", "E - Easy fatigue"]},
-        {"title": "Hypertension Complications", "code": "HARD", "items": ["H - Heart disease", "A - Aneurysm", "R - Renal failure", "D - Death"]},
+        {"title": "Vital Signs", "code": "TPR BP", "rows": [
+            {"letter": "T", "meaning": "Temperature (36.5-37.5 C)", "explanation": "Normal body temperature range for a healthy adult."},
+            {"letter": "P", "meaning": "Pulse (60-100 bpm)", "explanation": "Normal resting heart rate for an adult."},
+            {"letter": "R", "meaning": "Respiration (12-20 bpm)", "explanation": "Normal breathing rate for a healthy adult at rest."},
+            {"letter": "BP", "meaning": "Blood Pressure (~120/80 mmHg)", "explanation": "Ideal blood pressure reading for a healthy adult."},
+        ]},
+        {"title": "Drug Administration", "code": "DR TIMED", "rows": [
+            {"letter": "D", "meaning": "Drug", "explanation": "Verify you have the correct medication as prescribed."},
+            {"letter": "R", "meaning": "Right patient", "explanation": "Confirm the patient's identity using two identifiers."},
+            {"letter": "T", "meaning": "Time", "explanation": "Administer at the correct scheduled time."},
+            {"letter": "I", "meaning": "Route", "explanation": "Ensure the route (PO, IV, IM, etc.) matches the order."},
+            {"letter": "M", "meaning": "Dose", "explanation": "Double-check the prescribed dose against the available concentration."},
+            {"letter": "E", "meaning": "Education", "explanation": "Teach the patient about the medication's purpose and side effects."},
+            {"letter": "D", "meaning": "Documentation", "explanation": "Record administration immediately after giving the drug."},
+        ]},
+        {"title": "Hypoglycemia", "code": "TIRED", "rows": [
+            {"letter": "T", "meaning": "Tremors", "explanation": "Shaking or trembling due to low blood sugar."},
+            {"letter": "I", "meaning": "Irritability", "explanation": "Mood changes and agitation from neuroglycopenia."},
+            {"letter": "R", "meaning": "Rapid pulse", "explanation": "Tachycardia from sympathetic nervous system activation."},
+            {"letter": "E", "meaning": "Excess hunger", "explanation": "Polyphagia as the body craves glucose."},
+            {"letter": "D", "meaning": "Diaphoresis", "explanation": "Sweating from autonomic nervous system response."},
+        ]},
+        {"title": "Shock", "code": "SHOCK", "rows": [
+            {"letter": "S", "meaning": "Sweating", "explanation": "Cool, clammy skin from sympathetic activation."},
+            {"letter": "H", "meaning": "Hypotension", "explanation": "Low blood pressure due to inadequate tissue perfusion."},
+            {"letter": "O", "meaning": "Oliguria", "explanation": "Decreased urine output (<0.5 mL/kg/hr) from reduced renal perfusion."},
+            {"letter": "C", "meaning": "Confusion", "explanation": "Altered mental status from decreased cerebral blood flow."},
+            {"letter": "K", "meaning": "Cold skin", "explanation": "Peripheral vasoconstriction shunts blood to vital organs."},
+        ]},
+        {"title": "Pregnancy Danger Signs", "code": "BLEED", "rows": [
+            {"letter": "B", "meaning": "Bleeding", "explanation": "Any vaginal bleeding in pregnancy may indicate abruption or placenta previa."},
+            {"letter": "L", "meaning": "Loss of fetal movement", "explanation": "Decreased or absent fetal movement suggests fetal distress."},
+            {"letter": "E", "meaning": "Excess vomiting", "explanation": "Hyperemesis gravidarum can cause dehydration and electrolyte imbalance."},
+            {"letter": "E", "meaning": "Edema", "explanation": "Sudden swelling of face/hands may indicate preeclampsia."},
+            {"letter": "D", "meaning": "Dizziness", "explanation": "Lightheadedness or syncope may indicate anemia or hypotension."},
+        ]},
+        {"title": "APGAR Score", "code": "APGAR", "rows": [
+            {"letter": "A", "meaning": "Appearance", "explanation": "Skin color (cyanotic, pink, or pale)."},
+            {"letter": "P", "meaning": "Pulse", "explanation": "Heart rate (absent, <100, or >100 bpm)."},
+            {"letter": "G", "meaning": "Grimace", "explanation": "Reflex irritability in response to stimulation."},
+            {"letter": "A", "meaning": "Activity", "explanation": "Muscle tone (limp, some flexion, or active movement)."},
+            {"letter": "R", "meaning": "Respiration", "explanation": "Breathing effort (absent, weak cry, or strong cry)."},
+        ]},
+        {"title": "Hand Hygiene", "code": "BEFAR", "rows": [
+            {"letter": "B", "meaning": "Before patient", "explanation": "Clean hands before touching any patient."},
+            {"letter": "E", "meaning": "Before procedure", "explanation": "Perform hand hygiene before any aseptic or clean procedure."},
+            {"letter": "F", "meaning": "After fluid exposure", "explanation": "Wash hands after exposure to body fluids."},
+            {"letter": "A", "meaning": "After patient", "explanation": "Clean hands after touching the patient or their environment."},
+            {"letter": "R", "meaning": "After surroundings", "explanation": "Perform hand hygiene after contact with surfaces near the patient."},
+        ]},
+        {"title": "Cranial Nerves", "code": "Oh Oh Oh To Touch And Feel Very Good Velvet AH", "rows": [
+            {"letter": "Oh", "meaning": "Olfactory (I)", "explanation": "Smell"},
+            {"letter": "Oh", "meaning": "Optic (II)", "explanation": "Vision"},
+            {"letter": "Oh", "meaning": "Oculomotor (III)", "explanation": "Eye movement, pupil constriction"},
+            {"letter": "To", "meaning": "Trochlear (IV)", "explanation": "Downward and inward eye movement"},
+            {"letter": "Touch", "meaning": "Trigeminal (V)", "explanation": "Facial sensation, chewing"},
+            {"letter": "And", "meaning": "Abducens (VI)", "explanation": "Lateral eye movement"},
+            {"letter": "Feel", "meaning": "Facial (VII)", "explanation": "Facial expression, taste (anterior 2/3 of tongue)"},
+            {"letter": "Very", "meaning": "Vestibulocochlear (VIII)", "explanation": "Hearing and balance"},
+            {"letter": "Good", "meaning": "Glossopharyngeal (IX)", "explanation": "Taste (posterior 1/3 of tongue), swallowing"},
+            {"letter": "Velvet", "meaning": "Vagus (X)", "explanation": "Autonomic functions, speech, swallowing"},
+            {"letter": "AH", "meaning": "Accessory (XI)", "explanation": "Shoulder shrug, head turning"},
+            {"letter": "AH", "meaning": "Hypoglossal (XII)", "explanation": "Tongue movement"},
+        ]},
+        {"title": "Anemia", "code": "PALE", "rows": [
+            {"letter": "P", "meaning": "Pallor", "explanation": "Pale skin and mucous membranes from reduced hemoglobin."},
+            {"letter": "A", "meaning": "Anorexia/weakness", "explanation": "Loss of appetite and generalized fatigue."},
+            {"letter": "L", "meaning": "Lethargy", "explanation": "Persistent tiredness and lack of energy."},
+            {"letter": "E", "meaning": "Easy fatigue", "explanation": "Rapid exhaustion with minimal exertion."},
+        ]},
+        {"title": "Hypertension Complications", "code": "HARD", "rows": [
+            {"letter": "H", "meaning": "Heart disease", "explanation": "Hypertension increases risk of MI, heart failure, and LVH."},
+            {"letter": "A", "meaning": "Aneurysm", "explanation": "Chronic high pressure weakens arterial walls, causing aneurysms."},
+            {"letter": "R", "meaning": "Renal failure", "explanation": "Hypertensive nephrosclerosis leads to chronic kidney disease."},
+            {"letter": "D", "meaning": "Death", "explanation": "Uncontrolled hypertension increases overall mortality risk."},
+        ]},
     ]
     medical_surgical = [
-        {"title": "Systems of the Body", "code": "My Very Easy Method Just Speeds Up Naming Parts", "items": ["Musculoskeletal", "Vascular", "Endocrine", "Metabolic", "Gastrointestinal", "Urinary", "Nervous", "Pulmonary"]},
-        {"title": "Cranial Nerves", "code": "Oh Oh Oh To Touch And Feel Very Good Velvet AH", "items": ["Major cranial nerve order mnemonic for exams and OSCE."]},
-        {"title": "Cholelithiasis Risk", "code": "5 F's", "items": ["Female", "Fat", "Forty", "Fertile", "Fair"]},
-        {"title": "Malignant Mole (Melanoma)", "code": "ABCDE", "items": ["A - Asymmetry", "B - Border irregular", "C - Color variation", "D - Diameter > 6 mm", "E - Evolution"]},
-        {"title": "Hypoplasia vs Hyperplasia", "code": "Hypo = LOW cells | Hyper = HIGH cells", "items": ["Use quick compare wording in viva and short answers."]},
-        {"title": "Blood Group O Compatibility", "code": "O = Only Give O", "items": ["Universal donor", "Receives only O"]},
-        {"title": "Minor Bleeding Signs", "code": "BRUISE", "items": ["Bleeding gums", "Red spots (petechiae)", "Unusual bruising", "Injury bleeding", "Skin spots", "Epistaxis"]},
-        {"title": "Sickle Cell Disease", "code": "SICKLE", "items": ["Swelling", "Infection", "Crisis pain", "Kidney issues", "Low Hb", "Episodes"]},
-        {"title": "MgSO4 Toxicity", "code": "3 D's", "items": ["Decreased reflexes", "Depressed respiration", "Drowsiness"]},
-        {"title": "Congestive Heart Failure", "code": "FACES", "items": ["Fatigue", "Activity intolerance", "Congestion", "Edema", "Shortness of breath"]},
-        {"title": "Hypoxia", "code": "RESTLESS / BLUE", "items": ["Early: Restlessness, Anxiety, Tachycardia", "Late: Bradycardia, Low BP, Unconscious, Extreme cyanosis"]},
-        {"title": "Increased ICP", "code": "CUSHING", "items": ["Increased BP", "Decreased pulse", "Irregular breathing"]},
-        {"title": "Parkinson's Disease", "code": "TRAP", "items": ["Tremor", "Rigidity", "Akinesia", "Postural instability"]},
-        {"title": "Splenomegaly Causes", "code": "CHIMPS", "items": ["Cirrhosis", "Hemolysis", "Infection", "Malaria", "Portal HTN", "Sickle cell"]},
-        {"title": "Scarlet Fever", "code": "PASTIA", "items": ["Pastia lines", "Angina", "Strawberry tongue", "Tonsillitis", "Infection rash", "Antibiotics needed"]},
-        {"title": "Cor Pulmonale", "code": "RIGHT", "items": ["Right heart failure", "Increased JVP", "General edema", "Hypoxia", "Tachycardia"]},
-        {"title": "Essential Amino Acids", "code": "PVT TIM HALL", "items": ["High-yield memory phrase for amino acid recall."]},
-        {"title": "WBC Order", "code": "Never Let Monkeys Eat Bananas", "items": ["Neutrophils", "Lymphocytes", "Monocytes", "Eosinophils", "Basophils"]},
-        {"title": "Mitosis", "code": "IPMAT", "items": ["Interphase", "Prophase", "Metaphase", "Anaphase", "Telophase"]},
-        {"title": "Viral Diarrhea", "code": "RRRA", "items": ["Rotavirus", "Norovirus", "Adenovirus"]},
-        {"title": "Carpal Bones", "code": "Some Lovers Try Positions That They Can't Handle", "items": ["Classic carpals order mnemonic."]},
-        {"title": "Scalp Layers", "code": "SCALP", "items": ["Skin", "Connective tissue", "Aponeurosis", "Loose tissue", "Periosteum"]},
-        {"title": "Joint Movements", "code": "FLEX RAP", "items": ["Flexion", "Rotation", "Abduction", "Pronation"]},
-        {"title": "C4 Injury", "code": "C4 = breathe no more", "items": ["Recall respiratory compromise with high cervical injury."]},
-        {"title": "Lung Assessment", "code": "Point & Shoot", "items": ["Posterior = lower lobes", "Anterior = upper lobes"]},
-        {"title": "Valve Locations", "code": "All People Enjoy Time Magazine", "items": ["Aortic", "Pulmonic", "Erb's", "Tricuspid", "Mitral"]},
-        {"title": "Cancer Warning Signs", "code": "CAUTION", "items": ["Change bowel", "A sore", "Unusual bleeding", "Thickening", "Indigestion", "Obvious change", "Nagging cough"]},
-        {"title": "DKA Management", "code": "3 F's", "items": ["Fluids", "Fix insulin", "Fix electrolytes"]},
-        {"title": "Ventricular Fibrillation", "code": "DEFIB", "items": ["Defibrillate immediately"]},
-        {"title": "MI Treatment", "code": "MONA", "items": ["Morphine", "Oxygen", "Nitrates", "Aspirin"]},
-        {"title": "Cushing's Syndrome", "code": "MOON FACE", "items": ["Moon facies and classic hypercortisolism recall."]},
-        {"title": "Coma Causes", "code": "AEIOU TIPS", "items": ["Alcohol", "Epilepsy/Endocrine", "Insulin", "Overdose/Oxygen", "Uremia", "Trauma", "Infection", "Psych", "Stroke/Shock"]},
-        {"title": "Neurovascular Occlusion", "code": "5 Ps", "items": ["Pain", "Pallor", "Pulselessness", "Paresthesia", "Paralysis"]},
-        {"title": "Appendicitis", "code": "RLQ PAIN", "items": ["Right lower quadrant pain focus in quick differential."]},
-        {"title": "Angina Triggers", "code": "4 E's", "items": ["Exercise", "Emotion", "Eating", "Environment"]},
-        {"title": "Acid-Base Interpretation", "code": "ROME", "items": ["Respiratory Opposite", "Metabolic Equal"]},
-        {"title": "Hypocalcemia", "code": "CATS", "items": ["Convulsions", "Arrhythmias", "Tetany", "Spasms"]},
-        {"title": "Hypernatremia", "code": "DRY", "items": ["Dehydration", "Restlessness", "Increased thirst"]},
-        {"title": "Hyperkalemia Causes", "code": "MACHINE", "items": ["Metabolic acidosis", "Addison's", "Cell destruction", "Hypoaldosteronism", "Intake excess", "Nephron failure", "Excretion reduced"]},
-        {"title": "Hyperkalemia Signs", "code": "MURDER", "items": ["Muscle weakness", "Urine reduced", "Respiratory distress", "Decreased cardiac contractility", "ECG changes", "Reflexes reduced"]},
+        {"title": "Systems of the Body", "code": "My Very Easy Method Just Speeds Up Naming Parts", "rows": [
+            {"letter": "My", "meaning": "Musculoskeletal", "explanation": "Bones, muscles, joints."},
+            {"letter": "Very", "meaning": "Vascular", "explanation": "Blood vessels (arteries, veins, capillaries)."},
+            {"letter": "Easy", "meaning": "Endocrine", "explanation": "Hormone-producing glands (thyroid, pituitary, etc.)."},
+            {"letter": "Method", "meaning": "Metabolic", "explanation": "Biochemical processes (e.g., glucose metabolism)."},
+            {"letter": "Just", "meaning": "Gastrointestinal", "explanation": "Digestive tract (stomach, intestines, liver)."},
+            {"letter": "Speeds", "meaning": "Urinary", "explanation": "Kidneys, ureters, bladder, urethra."},
+            {"letter": "Up", "meaning": "Nervous", "explanation": "Brain, spinal cord, peripheral nerves."},
+            {"letter": "Naming", "meaning": "Pulmonary", "explanation": "Lungs and airways."},
+            {"letter": "Parts", "meaning": "(Reproductive/Integumentary)", "explanation": "Often added for completion."},
+        ]},
+        {"title": "Cholelithiasis Risk", "code": "5 F's", "rows": [
+            {"letter": "F", "meaning": "Female", "explanation": "Women have higher estrogen levels, increasing cholesterol saturation in bile."},
+            {"letter": "F", "meaning": "Fat", "explanation": "Obesity increases cholesterol secretion into bile."},
+            {"letter": "F", "meaning": "Forty", "explanation": "Risk increases with age, especially after 40."},
+            {"letter": "F", "meaning": "Fertile", "explanation": "Multiple pregnancies increase risk due to hormonal changes."},
+            {"letter": "F", "meaning": "Fair", "explanation": "Fair-skinned individuals of Northern European descent have higher risk."},
+        ]},
+        {"title": "Malignant Mole (Melanoma)", "code": "ABCDE", "rows": [
+            {"letter": "A", "meaning": "Asymmetry", "explanation": "Two halves of the mole do not match."},
+            {"letter": "B", "meaning": "Border irregular", "explanation": "Edges are ragged, notched, or blurred."},
+            {"letter": "C", "meaning": "Color variation", "explanation": "Multiple colors within one mole."},
+            {"letter": "D", "meaning": "Diameter > 6 mm", "explanation": "Larger than a pencil eraser, though melanomas can be smaller."},
+            {"letter": "E", "meaning": "Evolution", "explanation": "Any change in size, shape, color, or symptoms over time."},
+        ]},
+        {"title": "Hypoplasia vs Hyperplasia", "code": "Hypo vs Hyper", "rows": [
+            {"letter": "Hypo = LOW cells", "meaning": "Hypoplasia", "explanation": "Decreased cell production, resulting in underdeveloped tissue."},
+            {"letter": "Hyper = HIGH cells", "meaning": "Hyperplasia", "explanation": "Increased cell division, leading to tissue enlargement."},
+        ]},
+        {"title": "Blood Group O Compatibility", "code": "O = Only Give O", "rows": [
+            {"letter": "O = Only give O", "meaning": "Universal donor", "explanation": "Type O negative blood can be given to any recipient."},
+            {"letter": "Universal donor", "meaning": "O negative", "explanation": "No A, B, or Rh antigens to trigger reaction."},
+            {"letter": "Receives only O", "meaning": "Recipient limitation", "explanation": "Type O patients can only receive type O blood."},
+        ]},
+        {"title": "Minor Bleeding Signs", "code": "BRUISE", "rows": [
+            {"letter": "B", "meaning": "Bleeding gums", "explanation": "Gums bleed easily with minimal trauma or brushing."},
+            {"letter": "R", "meaning": "Red spots (petechiae)", "explanation": "Tiny red/purple spots from capillary bleeding."},
+            {"letter": "U", "meaning": "Unusual bruising", "explanation": "Bruising without known injury or from minor bumps."},
+            {"letter": "I", "meaning": "Injury bleeding", "explanation": "Prolonged bleeding from small cuts or abrasions."},
+            {"letter": "S", "meaning": "Skin spots (ecchymosis)", "explanation": "Larger areas of bruising or purpura."},
+            {"letter": "E", "meaning": "Epistaxis", "explanation": "Frequent or prolonged nosebleeds."},
+        ]},
+        {"title": "Sickle Cell Disease", "code": "SICKLE", "rows": [
+            {"letter": "S", "meaning": "Swelling", "explanation": "Dactylitis (hand-foot syndrome) in infants."},
+            {"letter": "I", "meaning": "Infection", "explanation": "Functional asplenia increases risk of encapsulated bacteria."},
+            {"letter": "C", "meaning": "Crisis pain", "explanation": "Vaso-occlusive crisis causes severe bone and joint pain."},
+            {"letter": "K", "meaning": "Kidney issues", "explanation": "Sickle nephropathy leads to hematuria and impaired concentration."},
+            {"letter": "L", "meaning": "Low Hb", "explanation": "Chronic hemolytic anemia with hemoglobin 6-9 g/dL."},
+            {"letter": "E", "meaning": "Episodes", "explanation": "Acute exacerbations triggered by stress, dehydration, or infection."},
+        ]},
+        {"title": "MgSO4 Toxicity", "code": "3 D's", "rows": [
+            {"letter": "D", "meaning": "Decreased reflexes", "explanation": "Loss of patellar reflex is an early sign of magnesium toxicity."},
+            {"letter": "D", "meaning": "Depressed respiration", "explanation": "Respiratory rate <12/min indicates severe toxicity."},
+            {"letter": "D", "meaning": "Drowsiness", "explanation": "Altered mental status progressing to coma."},
+        ]},
+        {"title": "Congestive Heart Failure", "code": "FACES", "rows": [
+            {"letter": "F", "meaning": "Fatigue", "explanation": "Reduced cardiac output causes generalized weakness."},
+            {"letter": "A", "meaning": "Activity intolerance", "explanation": "Dyspnea or exhaustion with minimal exertion."},
+            {"letter": "C", "meaning": "Congestion", "explanation": "Pulmonary or systemic congestion."},
+            {"letter": "E", "meaning": "Edema", "explanation": "Peripheral edema from fluid retention."},
+            {"letter": "S", "meaning": "Shortness of breath", "explanation": "DOE, orthopnea, or PND."},
+        ]},
+        {"title": "Hypoxia", "code": "RESTLESS / BLUE", "rows": [
+            {"letter": "Early R", "meaning": "Restlessness", "explanation": "Early sign of hypoxia as the brain senses low oxygen."},
+            {"letter": "Early E", "meaning": "Anxiety", "explanation": "Patient feels uneasy or fearful without clear cause."},
+            {"letter": "Early S", "meaning": "Tachycardia", "explanation": "Heart rate increases to compensate for low oxygen."},
+            {"letter": "Late B", "meaning": "Bradycardia", "explanation": "Late sign indicating impending respiratory arrest."},
+            {"letter": "Late L", "meaning": "Low BP", "explanation": "Hypotension from cardiovascular decompensation."},
+            {"letter": "Late U", "meaning": "Unconscious", "explanation": "Loss of consciousness due to cerebral hypoxia."},
+            {"letter": "Late E", "meaning": "Extreme cyanosis", "explanation": "Severe bluish discoloration of skin and mucous membranes."},
+        ]},
+        {"title": "Increased ICP", "code": "CUSHING", "rows": [
+            {"letter": "C", "meaning": "Increased BP", "explanation": "Cushing's triad: hypertension with widening pulse pressure."},
+            {"letter": "U", "meaning": "Decreased pulse", "explanation": "Cushing's triad: bradycardia."},
+            {"letter": "S", "meaning": "Irregular breathing", "explanation": "Cushing's triad respiratory pattern changes."},
+            {"letter": "H", "meaning": "Headache", "explanation": "Severe, constant headache often worse in the morning."},
+            {"letter": "I", "meaning": "Impaired consciousness", "explanation": "Reduced LOC from brain compression."},
+            {"letter": "N", "meaning": "Nausea/vomiting", "explanation": "Projectile vomiting may occur."},
+            {"letter": "G", "meaning": "Gaze changes", "explanation": "Pupil dilation/fixation or gaze palsies."},
+        ]},
+        {"title": "Parkinson's Disease", "code": "TRAP", "rows": [
+            {"letter": "T", "meaning": "Tremor", "explanation": "Resting tremor (pill-rolling)."},
+            {"letter": "R", "meaning": "Rigidity", "explanation": "Cogwheel or lead-pipe rigidity."},
+            {"letter": "A", "meaning": "Akinesia", "explanation": "Bradykinesia and difficulty initiating movement."},
+            {"letter": "P", "meaning": "Postural instability", "explanation": "Impaired balance and frequent falls."},
+        ]},
+        {"title": "Splenomegaly Causes", "code": "CHIMPS", "rows": [
+            {"letter": "C", "meaning": "Cirrhosis", "explanation": "Portal hypertension causes splenic congestion."},
+            {"letter": "H", "meaning": "Hemolysis", "explanation": "Hemolytic states enlarge spleen."},
+            {"letter": "I", "meaning": "Infection", "explanation": "EBV, malaria, endocarditis, typhoid etc."},
+            {"letter": "M", "meaning": "Malaria", "explanation": "Common cause of massive splenomegaly in endemic regions."},
+            {"letter": "P", "meaning": "Portal HTN", "explanation": "Increased portal pressure enlarges spleen."},
+            {"letter": "S", "meaning": "Sickle cell", "explanation": "Early splenomegaly; later autosplenectomy."},
+        ]},
+        {"title": "Scarlet Fever", "code": "PASTIA", "rows": [
+            {"letter": "P", "meaning": "Pastia lines", "explanation": "Linear petechial rash in skin folds."},
+            {"letter": "A", "meaning": "Angina", "explanation": "Severe sore throat with exudative tonsillitis."},
+            {"letter": "S", "meaning": "Strawberry tongue", "explanation": "Classic tongue change in scarlet fever."},
+            {"letter": "T", "meaning": "Tonsillitis", "explanation": "Inflamed, swollen tonsils often with exudate."},
+            {"letter": "I", "meaning": "Infection rash", "explanation": "Fine sandpaper-like rash spreading from trunk."},
+            {"letter": "A", "meaning": "Antibiotics needed", "explanation": "Treat to prevent rheumatic fever."},
+        ]},
+        {"title": "Cor Pulmonale", "code": "RIGHT", "rows": [
+            {"letter": "R", "meaning": "Right heart failure", "explanation": "Cor pulmonale is RV failure secondary to lung disease."},
+            {"letter": "I", "meaning": "Increased JVP", "explanation": "Raised right atrial pressure."},
+            {"letter": "G", "meaning": "General edema", "explanation": "Systemic venous congestion."},
+            {"letter": "H", "meaning": "Hypoxia", "explanation": "Chronic hypoxemia from pulmonary disease."},
+            {"letter": "T", "meaning": "Tachycardia", "explanation": "Compensatory increase in HR."},
+        ]},
+        {"title": "WBC Order", "code": "Never Let Monkeys Eat Bananas", "rows": [
+            {"letter": "Never", "meaning": "Neutrophils", "explanation": "Most abundant, first responders to bacterial infection."},
+            {"letter": "Let", "meaning": "Lymphocytes", "explanation": "Key in viral infections and adaptive immunity."},
+            {"letter": "Monkeys", "meaning": "Monocytes", "explanation": "Become macrophages in tissues."},
+            {"letter": "Eat", "meaning": "Eosinophils", "explanation": "Increase in parasitic infections and allergies."},
+            {"letter": "Bananas", "meaning": "Basophils", "explanation": "Release histamine in allergic reactions."},
+        ]},
+        {"title": "Mitosis", "code": "IPMAT", "rows": [
+            {"letter": "I", "meaning": "Interphase", "explanation": "Cell growth and DNA replication."},
+            {"letter": "P", "meaning": "Prophase", "explanation": "Chromosomes condense, nuclear envelope dissolves."},
+            {"letter": "M", "meaning": "Metaphase", "explanation": "Chromosomes align at metaphase plate."},
+            {"letter": "A", "meaning": "Anaphase", "explanation": "Sister chromatids separate."},
+            {"letter": "T", "meaning": "Telophase", "explanation": "Nuclear membranes reform."},
+        ]},
+        {"title": "Viral Diarrhea", "code": "RRRA", "rows": [
+            {"letter": "R", "meaning": "Rotavirus", "explanation": "Most common severe diarrhea in infants/young children."},
+            {"letter": "R", "meaning": "Norovirus", "explanation": "Common outbreak cause in communities."},
+            {"letter": "R", "meaning": "Adenovirus", "explanation": "Enteric serotypes 40/41 in young children."},
+            {"letter": "A", "meaning": "Astrovirus", "explanation": "Mild, self-limiting diarrhea."},
+        ]},
+        {"title": "Cancer Warning Signs", "code": "CAUTION", "rows": [
+            {"letter": "C", "meaning": "Change in bowel/bladder habits", "explanation": "Persistent bowel/urine change with or without blood."},
+            {"letter": "A", "meaning": "A sore that does not heal", "explanation": "Persistent non-healing lesion."},
+            {"letter": "U", "meaning": "Unusual bleeding/discharge", "explanation": "Blood in sputum, urine, stool, nipple etc."},
+            {"letter": "T", "meaning": "Thickening or lump", "explanation": "Palpable mass."},
+            {"letter": "I", "meaning": "Indigestion or difficulty swallowing", "explanation": "Persistent dyspepsia/dysphagia."},
+            {"letter": "O", "meaning": "Obvious change in wart/mole", "explanation": "Concerning skin lesion changes."},
+            {"letter": "N", "meaning": "Nagging cough or hoarseness", "explanation": "Persistent respiratory/voice symptom."},
+        ]},
+        {"title": "DKA Management", "code": "3 F's", "rows": [
+            {"letter": "F", "meaning": "Fluids", "explanation": "IV normal saline to restore volume."},
+            {"letter": "F", "meaning": "Fix insulin", "explanation": "IV regular insulin to reverse ketoacidosis."},
+            {"letter": "F", "meaning": "Fix electrolytes", "explanation": "Replace potassium (and phosphate if needed)."},
+        ]},
+        {"title": "Ventricular Fibrillation", "code": "DEFIB", "rows": [
+            {"letter": "DEFIB", "meaning": "Defibrillate immediately", "explanation": "VFib is a shockable rhythm requiring immediate defibrillation."},
+        ]},
+        {"title": "MI Treatment", "code": "MONA", "rows": [
+            {"letter": "M", "meaning": "Morphine", "explanation": "Relieves pain and reduces preload/oxygen demand."},
+            {"letter": "O", "meaning": "Oxygen", "explanation": "Give if hypoxemic or in respiratory distress."},
+            {"letter": "N", "meaning": "Nitrates", "explanation": "Vasodilation and pain relief."},
+            {"letter": "A", "meaning": "Aspirin", "explanation": "Antiplatelet; chew immediately unless contraindicated."},
+        ]},
+        {"title": "Coma Causes", "code": "AEIOU TIPS", "rows": [
+            {"letter": "A", "meaning": "Alcohol", "explanation": "Intoxication, withdrawal, or Wernicke's."},
+            {"letter": "E", "meaning": "Epilepsy/Endocrine", "explanation": "Postictal state or endocrine emergencies."},
+            {"letter": "I", "meaning": "Insulin", "explanation": "Hypoglycemia/hyperglycemia."},
+            {"letter": "O", "meaning": "Overdose/Oxygen", "explanation": "Drug overdose or hypoxia."},
+            {"letter": "U", "meaning": "Uremia", "explanation": "Renal failure toxin buildup."},
+            {"letter": "T", "meaning": "Trauma", "explanation": "Head injury/ICH."},
+            {"letter": "I", "meaning": "Infection", "explanation": "Meningitis, encephalitis, sepsis."},
+            {"letter": "P", "meaning": "Psych", "explanation": "Selected psychiatric etiologies."},
+            {"letter": "S", "meaning": "Stroke/Shock", "explanation": "CVA or severe circulatory collapse."},
+        ]},
+        {"title": "Neurovascular Occlusion", "code": "5 Ps", "rows": [
+            {"letter": "P", "meaning": "Pain", "explanation": "Pain out of proportion is early warning."},
+            {"letter": "P", "meaning": "Pallor", "explanation": "Pale cool limb."},
+            {"letter": "P", "meaning": "Pulselessness", "explanation": "Absent/distal weak pulses."},
+            {"letter": "P", "meaning": "Paresthesia", "explanation": "Numbness/tingling."},
+            {"letter": "P", "meaning": "Paralysis", "explanation": "Late sign, threatened viability."},
+        ]},
+        {"title": "Angina Triggers", "code": "4 E's", "rows": [
+            {"letter": "E", "meaning": "Exercise", "explanation": "Increases myocardial oxygen demand."},
+            {"letter": "E", "meaning": "Emotion", "explanation": "Stress catecholamine surge."},
+            {"letter": "E", "meaning": "Eating", "explanation": "Postprandial increased workload."},
+            {"letter": "E", "meaning": "Environment", "explanation": "Cold causes vasoconstriction/afterload rise."},
+        ]},
+        {"title": "Acid-Base Interpretation", "code": "ROME", "rows": [
+            {"letter": "R", "meaning": "Respiratory Opposite", "explanation": "pH and PaCO2 move in opposite directions."},
+            {"letter": "M", "meaning": "Metabolic Equal", "explanation": "pH and HCO3 move in same direction."},
+        ]},
+        {"title": "Hypocalcemia", "code": "CATS", "rows": [
+            {"letter": "C", "meaning": "Convulsions", "explanation": "Seizures from neuronal irritability."},
+            {"letter": "A", "meaning": "Arrhythmias", "explanation": "QT prolongation and conduction effects."},
+            {"letter": "T", "meaning": "Tetany", "explanation": "Spasms, Chvostek/Trousseau signs."},
+            {"letter": "S", "meaning": "Spasms", "explanation": "May include life-threatening laryngospasm."},
+        ]},
+        {"title": "Hypernatremia", "code": "DRY", "rows": [
+            {"letter": "D", "meaning": "Dehydration", "explanation": "Cellular water loss and shrinkage."},
+            {"letter": "R", "meaning": "Restlessness", "explanation": "Neurologic irritability/mental status change."},
+            {"letter": "Y", "meaning": "Increased thirst", "explanation": "Osmotic thirst response."},
+        ]},
+        {"title": "Hyperkalemia Causes", "code": "MACHINE", "rows": [
+            {"letter": "M", "meaning": "Metabolic acidosis", "explanation": "K shifts out of cells."},
+            {"letter": "A", "meaning": "Addison's disease", "explanation": "Aldosterone deficiency reduces K excretion."},
+            {"letter": "C", "meaning": "Cell destruction", "explanation": "Hemolysis/rhabdo/tumor lysis."},
+            {"letter": "H", "meaning": "Hypoaldosteronism", "explanation": "Reduced mineralocorticoid effect."},
+            {"letter": "I", "meaning": "Intake excess", "explanation": "Excess oral/IV potassium."},
+            {"letter": "N", "meaning": "Nephron failure", "explanation": "Kidney disease reduces excretion."},
+            {"letter": "E", "meaning": "Excretion reduced", "explanation": "Drug-related reduced potassium elimination."},
+        ]},
+        {"title": "Hyperkalemia Signs", "code": "MURDER", "rows": [
+            {"letter": "M", "meaning": "Muscle weakness", "explanation": "Ascending weakness may occur."},
+            {"letter": "U", "meaning": "Urine reduced", "explanation": "Often from underlying renal cause."},
+            {"letter": "R", "meaning": "Respiratory distress", "explanation": "Respiratory muscle weakness in severe cases."},
+            {"letter": "D", "meaning": "Decreased cardiac contractility", "explanation": "Reduced myocardial performance."},
+            {"letter": "E", "meaning": "ECG changes", "explanation": "Peaked T, widened QRS, sine-wave risk."},
+            {"letter": "R", "meaning": "Reflexes reduced", "explanation": "Hyporeflexia from neuromuscular effect."},
+        ]},
     ]
     midwifery = [
-        {"title": "Placenta-Crossing Substances", "code": "DAAMP", "items": ["D - Drugs", "A - Alcohol", "A - Antibodies (IgG)", "M - Microorganisms", "P - Poisons", "Exam tip: Most substances cross placenta except large proteins."]},
-        {"title": "Preterm Infant Problems", "code": "IMMATURE", "items": ["I - Infection risk", "M - Metabolic issues (hypoglycemia)", "M - Minimal fat (hypothermia)", "A - Apnea", "T - Temperature instability", "U - Underdeveloped lungs", "R - Respiratory distress", "E - Eating difficulty"]},
-        {"title": "Obstetric History", "code": "GTPAL", "items": ["G - Gravida", "T - Term births", "P - Preterm", "A - Abortions", "L - Living children"]},
-        {"title": "Newborn Assessment", "code": "APGAR + HEAD TO TOE", "items": ["APGAR for immediate transition", "Full head-to-toe physical exam after initial stabilization"]},
-        {"title": "IUD Problems", "code": "PAINS", "items": ["P - Period late", "A - Abdominal pain", "I - Infection", "N - Not feeling strings", "S - Spotting", "Very commonly tested in exams."]},
-        {"title": "Oral Contraceptive Danger Signs", "code": "ACHES", "items": ["A - Abdominal pain", "C - Chest pain", "H - Headache", "E - Eye problems", "S - Severe leg pain"]},
-        {"title": "Infections in Pregnancy", "code": "TORCH", "items": ["T - Toxoplasmosis", "O - Other (syphilis, HIV)", "R - Rubella", "C - CMV", "H - Herpes"]},
-        {"title": "Episiotomy Assessment", "code": "REEDA", "items": ["R - Redness", "E - Edema", "E - Ecchymosis", "D - Discharge", "A - Approximation"]},
-        {"title": "Dystocia Etiology", "code": "3 Ps", "items": ["P - Power (contractions)", "P - Passenger (baby)", "P - Passage (pelvis)"]},
-        {"title": "Dystocia Maternal Factors", "code": "PELVIS", "items": ["P - Pelvic size", "E - Exhaustion", "L - Labour dysfunction", "V - Vaginal issues", "I - Infection", "S - Stress"]},
-        {"title": "Severe Preeclampsia Complications", "code": "HELLP", "items": ["H - Hemolysis", "E - Elevated liver enzymes", "L - Low platelets", "L - Liver damage", "P - Poor outcomes"]},
+        {"title": "Placenta-Crossing Substances", "code": "DAAMP", "rows": [
+            {"letter": "D", "meaning": "Drugs", "explanation": "Most medications cross the placenta (e.g., opioids, anticonvulsants, ACE inhibitors)."},
+            {"letter": "A", "meaning": "Alcohol", "explanation": "Ethanol crosses freely and causes fetal alcohol spectrum disorders."},
+            {"letter": "A", "meaning": "Antibodies (IgG)", "explanation": "Maternal IgG crosses and can cause hemolytic disease of the newborn (Rh incompatibility)."},
+            {"letter": "M", "meaning": "Microorganisms", "explanation": "Viruses and bacteria can cross and affect the fetus."},
+            {"letter": "P", "meaning": "Poisons", "explanation": "Nicotine, lead, mercury, and environmental toxins can cross to the fetus."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Most substances cross the placenta except large proteins (e.g., IgM, insulin)."},
+        ]},
+        {"title": "Preterm Infant Problems", "code": "IMMATURE", "rows": [
+            {"letter": "I", "meaning": "Infection risk", "explanation": "Immature immunity increases sepsis susceptibility."},
+            {"letter": "M", "meaning": "Metabolic issues", "explanation": "Hypoglycemia from poor glycogen stores."},
+            {"letter": "M", "meaning": "Minimal fat", "explanation": "Hypothermia risk from low adipose tissue."},
+            {"letter": "A", "meaning": "Apnea", "explanation": "Immature respiratory control."},
+            {"letter": "T", "meaning": "Temperature instability", "explanation": "Poor thermoregulation in preterms."},
+            {"letter": "U", "meaning": "Underdeveloped lungs", "explanation": "Surfactant deficiency and RDS risk."},
+            {"letter": "R", "meaning": "Respiratory distress", "explanation": "Grunting/flaring/retractions."},
+            {"letter": "E", "meaning": "Eating difficulty", "explanation": "Poor suck-swallow-breathe coordination."},
+        ]},
+        {"title": "Obstetric History", "code": "GTPAL", "rows": [
+            {"letter": "G", "meaning": "Gravida", "explanation": "Total pregnancies including current."},
+            {"letter": "T", "meaning": "Term births", "explanation": "Births at 37 weeks or later."},
+            {"letter": "P", "meaning": "Preterm births", "explanation": "Births between 20-36 weeks."},
+            {"letter": "A", "meaning": "Abortions", "explanation": "Pregnancy losses before 20 weeks."},
+            {"letter": "L", "meaning": "Living children", "explanation": "Currently living offspring count."},
+        ]},
+        {"title": "Newborn Assessment", "code": "APGAR + HEAD TO TOE", "rows": [
+            {"letter": "APGAR", "meaning": "Immediate transition", "explanation": "Scored at 1 and 5 minutes."},
+            {"letter": "HEAD TO TOE", "meaning": "Full physical exam", "explanation": "Systematic newborn exam after stabilization."},
+        ]},
+        {"title": "IUD Problems", "code": "PAINS", "rows": [
+            {"letter": "P", "meaning": "Period late", "explanation": "May indicate pregnancy (including ectopic)."},
+            {"letter": "A", "meaning": "Abdominal pain", "explanation": "Could signal perforation, infection, or expulsion."},
+            {"letter": "I", "meaning": "Infection", "explanation": "PID concern, especially early post-insertion."},
+            {"letter": "N", "meaning": "Not feeling strings", "explanation": "Possible migration/expulsion."},
+            {"letter": "S", "meaning": "Spotting", "explanation": "Could indicate malposition or infection."},
+            {"letter": "Tip", "meaning": "Exam focus", "explanation": "PAINS is very commonly tested."},
+        ]},
+        {"title": "Oral Contraceptive Danger Signs", "code": "ACHES", "rows": [
+            {"letter": "A", "meaning": "Abdominal pain", "explanation": "May indicate hepatic or pancreatic complication."},
+            {"letter": "C", "meaning": "Chest pain", "explanation": "Possible PE/MI."},
+            {"letter": "H", "meaning": "Headache", "explanation": "Severe headache may indicate stroke/HTN."},
+            {"letter": "E", "meaning": "Eye problems", "explanation": "Visual disturbance may indicate thrombotic event."},
+            {"letter": "S", "meaning": "Severe leg pain", "explanation": "Possible DVT."},
+        ]},
+        {"title": "Infections in Pregnancy", "code": "TORCH", "rows": [
+            {"letter": "T", "meaning": "Toxoplasmosis", "explanation": "Can cause congenital neurologic/ocular disease."},
+            {"letter": "O", "meaning": "Other (syphilis, HIV, VZV, parvovirus B19)", "explanation": "Other vertically transmitted infections."},
+            {"letter": "R", "meaning": "Rubella", "explanation": "Congenital syndrome with cataract/heart/deafness."},
+            {"letter": "C", "meaning": "CMV", "explanation": "Common congenital infection with neurodevelopment impact."},
+            {"letter": "H", "meaning": "Herpes simplex", "explanation": "Can cause severe neonatal HSV disease."},
+        ]},
+        {"title": "Episiotomy Assessment", "code": "REEDA", "rows": [
+            {"letter": "R", "meaning": "Redness", "explanation": "Inflammation/infection sign."},
+            {"letter": "E", "meaning": "Edema", "explanation": "Swelling from tissue trauma/fluid."},
+            {"letter": "E", "meaning": "Ecchymosis", "explanation": "Bruising around wound."},
+            {"letter": "D", "meaning": "Discharge", "explanation": "Purulent/foul discharge suggests infection."},
+            {"letter": "A", "meaning": "Approximation", "explanation": "Wound edge alignment quality."},
+        ]},
+        {"title": "Dystocia Etiology", "code": "3 Ps", "rows": [
+            {"letter": "P", "meaning": "Power", "explanation": "Contraction strength/frequency issues."},
+            {"letter": "P", "meaning": "Passenger", "explanation": "Fetal size/position/anomaly factors."},
+            {"letter": "P", "meaning": "Passage", "explanation": "Pelvic or birth canal constraints."},
+        ]},
+        {"title": "Dystocia Maternal Factors", "code": "PELVIS", "rows": [
+            {"letter": "P", "meaning": "Pelvic size", "explanation": "Contracted or unfavorable pelvis."},
+            {"letter": "E", "meaning": "Exhaustion", "explanation": "Maternal fatigue in prolonged labour."},
+            {"letter": "L", "meaning": "Labour dysfunction", "explanation": "Abnormal labour pattern."},
+            {"letter": "V", "meaning": "Vaginal issues", "explanation": "Structural obstruction or pathology."},
+            {"letter": "I", "meaning": "Infection", "explanation": "Can worsen labour effectiveness and outcomes."},
+            {"letter": "S", "meaning": "Stress", "explanation": "Catecholamine surge can reduce contractions."},
+        ]},
+        {"title": "Severe Preeclampsia Complications", "code": "HELLP", "rows": [
+            {"letter": "H", "meaning": "Hemolysis", "explanation": "Microangiopathic hemolytic anemia."},
+            {"letter": "E", "meaning": "Elevated liver enzymes", "explanation": "AST/ALT elevation due to hepatic injury."},
+            {"letter": "L", "meaning": "Low platelets", "explanation": "Thrombocytopenia from consumption."},
+            {"letter": "L", "meaning": "Liver damage", "explanation": "Risk of infarction/rupture."},
+            {"letter": "P", "meaning": "Poor outcomes", "explanation": "Maternal-fetal morbidity/mortality risk."},
+        ]},
     ]
     psychiatric = [
-        {"title": "Wernicke-Korsakoff Syndrome", "code": "CAN'T SEE, CAN'T WALK, CAN'T THINK", "items": ["Confusion", "Ataxia (unsteady gait)", "Ophthalmoplegia (eye problems)", "Cause: Thiamine (Vitamin B1) deficiency", "Exam tip: Give thiamine before glucose."]},
-        {"title": "Schizophrenia Primary Symptoms", "code": "4 A's", "items": ["A - Affect (flat)", "A - Autism (withdrawal)", "A - Ambivalence", "A - Association loosened"]},
-        {"title": "Schizophrenia Positive Symptoms", "code": "HALL", "items": ["H - Hallucinations", "A - Agitation", "L - Loosened thoughts", "L - Loss of reality"]},
-        {"title": "Tricyclic Antidepressants (TCAs)", "code": "3 Ts", "items": ["T - Tofranil (Imipramine)", "T - Tryptanol (Amitriptyline)", "T - TCA class"]},
-        {"title": "TCA Side Effects", "code": "ABC", "items": ["A - Anticholinergic (dry mouth)", "B - Blurred vision", "C - Cardiotoxicity"]},
-        {"title": "Intellectual Disability Care Plan", "code": "CARE", "items": ["C - Consistency", "A - Assist ADLs", "R - Reinforce learning", "E - Encourage independence"]},
-        {"title": "Cognitive Disorders Assessment", "code": "MEMORY", "items": ["M - Memory loss", "E - Executive dysfunction", "M - Mood changes", "O - Orientation loss", "R - Reasoning impaired", "Y - Year confusion"]},
-        {"title": "Alcohol Withdrawal", "code": "WITHDRAWAL", "items": ["W - Weakness", "I - Irritability", "T - Tremors", "H - Hallucinations", "D - Delirium", "R - Restlessness", "A - Anxiety", "W - Withdrawal seizures", "A - Autonomic instability", "L - Loss of appetite", "Severe form: Delirium Tremens (DTs)."]},
+        {"title": "Wernicke-Korsakoff Syndrome", "code": "CAN'T SEE, CAN'T WALK, CAN'T THINK", "rows": [
+            {"letter": "CAN'T SEE", "meaning": "Ophthalmoplegia", "explanation": "Eye movement abnormalities (nystagmus, gaze palsies)."},
+            {"letter": "CAN'T WALK", "meaning": "Ataxia", "explanation": "Unsteady gait and poor coordination."},
+            {"letter": "CAN'T THINK", "meaning": "Confusion", "explanation": "Global confusion, disorientation, and memory impairment."},
+            {"letter": "Cause", "meaning": "Thiamine deficiency", "explanation": "Typically due to chronic alcohol use disorder."},
+            {"letter": "Tip", "meaning": "Clinical exam tip", "explanation": "Give thiamine BEFORE glucose."},
+        ]},
+        {"title": "Schizophrenia Primary Symptoms", "code": "4 A's (Bleuler's)", "rows": [
+            {"letter": "A", "meaning": "Affect (flat)", "explanation": "Reduced emotional expression (blunted/flat)."},
+            {"letter": "A", "meaning": "Autism (withdrawal)", "explanation": "Social withdrawal and detachment."},
+            {"letter": "A", "meaning": "Ambivalence", "explanation": "Contradictory thoughts and indecision."},
+            {"letter": "A", "meaning": "Association loosened", "explanation": "Disorganized thought and loose associations."},
+        ]},
+        {"title": "Schizophrenia Positive Symptoms", "code": "HALL", "rows": [
+            {"letter": "H", "meaning": "Hallucinations", "explanation": "False sensory perceptions (often auditory)."},
+            {"letter": "A", "meaning": "Agitation", "explanation": "Restlessness/aggression/catatonic excitement."},
+            {"letter": "L", "meaning": "Loosened thoughts", "explanation": "Formal thought disorder, derailment."},
+            {"letter": "L", "meaning": "Loss of reality", "explanation": "Delusions and impaired insight."},
+        ]},
+        {"title": "Tricyclic Antidepressants (TCAs)", "code": "3 Ts", "rows": [
+            {"letter": "T", "meaning": "Tofranil (Imipramine)", "explanation": "Prototype TCA; also used in enuresis."},
+            {"letter": "T", "meaning": "Tryptanol (Amitriptyline)", "explanation": "Sedating TCA option."},
+            {"letter": "T", "meaning": "TCA class", "explanation": "Shared mechanism and risk profile."},
+        ]},
+        {"title": "TCA Side Effects", "code": "ABC", "rows": [
+            {"letter": "A", "meaning": "Anticholinergic", "explanation": "Dry mouth, constipation, urinary retention."},
+            {"letter": "B", "meaning": "Blurred vision", "explanation": "Anticholinergic ciliary effect."},
+            {"letter": "C", "meaning": "Cardiotoxicity", "explanation": "Conduction delay and arrhythmia risk, especially overdose."},
+        ]},
+        {"title": "Intellectual Disability Care Plan", "code": "CARE", "rows": [
+            {"letter": "C", "meaning": "Consistency", "explanation": "Stable routines/caregivers reduce anxiety."},
+            {"letter": "A", "meaning": "Assist ADLs", "explanation": "Support function while preserving dignity."},
+            {"letter": "R", "meaning": "Reinforce learning", "explanation": "Repetition and positive reinforcement."},
+            {"letter": "E", "meaning": "Encourage independence", "explanation": "Promote maximal safe self-care."},
+        ]},
+        {"title": "Cognitive Disorders Assessment", "code": "MEMORY", "rows": [
+            {"letter": "M", "meaning": "Memory loss", "explanation": "Recent memory usually affected early."},
+            {"letter": "E", "meaning": "Executive dysfunction", "explanation": "Planning/organization decline."},
+            {"letter": "M", "meaning": "Mood changes", "explanation": "Depression, anxiety, irritability, apathy."},
+            {"letter": "O", "meaning": "Orientation loss", "explanation": "Disorientation to time/place/person."},
+            {"letter": "R", "meaning": "Reasoning impaired", "explanation": "Poor judgment and abstract thinking."},
+            {"letter": "Y", "meaning": "Year confusion", "explanation": "Time confusion and anosognosia may appear."},
+        ]},
+        {"title": "Alcohol Withdrawal", "code": "WITHDRAWAL", "rows": [
+            {"letter": "W", "meaning": "Weakness", "explanation": "Generalized fatigue and malaise."},
+            {"letter": "I", "meaning": "Irritability", "explanation": "Mood lability and agitation."},
+            {"letter": "T", "meaning": "Tremors", "explanation": "Fine hand tremors early in withdrawal."},
+            {"letter": "H", "meaning": "Hallucinations", "explanation": "Visual/tactile/auditory hallucinations may occur."},
+            {"letter": "D", "meaning": "Delirium", "explanation": "Severe withdrawal can progress to DTs."},
+            {"letter": "R", "meaning": "Restlessness", "explanation": "Psychomotor agitation."},
+            {"letter": "A", "meaning": "Anxiety", "explanation": "Marked unease/panic symptoms."},
+            {"letter": "W", "meaning": "Withdrawal seizures", "explanation": "Generalized tonic-clonic seizures risk."},
+            {"letter": "A", "meaning": "Autonomic instability", "explanation": "Tachycardia, HTN, fever, diaphoresis."},
+            {"letter": "L", "meaning": "Loss of appetite", "explanation": "Anorexia and GI upset are common."},
+        ]},
     ]
-    return [
+    sections = [
         {
             "slug": "fundamentals-in-nursing",
             "title": "Fundamentals in Nursing",
@@ -5242,6 +5590,50 @@ def _student_mnemonic_sections():
             "mnemonics": psychiatric,
         },
     ]
+    for section in sections:
+        for mnemonic in section.get("mnemonics") or []:
+            if mnemonic.get("rows"):
+                continue
+            mnemonic["rows"] = _build_mnemonic_rows(mnemonic.get("items") or [])
+    return sections
+
+
+def _build_mnemonic_rows(items):
+    rows = []
+    for raw in items:
+        text = str(raw or "").strip()
+        if not text:
+            continue
+        if " - " in text:
+            key, rest = text.split(" - ", 1)
+            key = key.strip()
+            rest = rest.strip()
+            explanation = ""
+            if "(" in rest and ")" in rest:
+                try:
+                    explanation = rest[rest.index("(") + 1:rest.rindex(")")].strip()
+                except Exception:
+                    explanation = ""
+            rows.append({
+                "letter": key,
+                "meaning": rest,
+                "explanation": explanation,
+            })
+            continue
+        if ":" in text:
+            key, rest = text.split(":", 1)
+            rows.append({
+                "letter": key.strip(),
+                "meaning": rest.strip(),
+                "explanation": "",
+            })
+            continue
+        rows.append({
+            "letter": "Tip",
+            "meaning": text,
+            "explanation": "",
+        })
+    return rows
 
 
 def student_mnemonics_section(request, section_slug):
