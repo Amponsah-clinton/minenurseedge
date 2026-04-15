@@ -418,10 +418,48 @@
             gap: 10px;
             flex-wrap: wrap;
         }
+        .pricing-feature-list {
+            list-style: none;
+            margin: 4px 0 0;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 12px;
+            text-align: left;
+        }
+        .pricing-feature-list li {
+            margin: 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            line-height: 1.5;
+            font-size: 14px;
+            color: #2f2f34;
+            border: 1px solid #e6ebf4;
+            border-radius: 10px;
+            background: #fafcff;
+            padding: 10px 10px 10px 12px;
+            min-height: 44px;
+            transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+        }
+        .pricing-feature-list li:hover {
+            border-color: #cddcf6;
+            box-shadow: 0 6px 16px rgba(18, 58, 120, 0.08);
+            transform: translateY(-1px);
+        }
+        .pricing-feature-list li::before {
+            content: "\f00c";
+            font-family: FontAwesome;
+            color: #22c55e;
+            font-size: 13px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
         @media only screen and (max-width: 767px) {
             .landing-nclex-band { padding: 36px 0 26px; }
             .landing-nclex-card { padding: 22px 18px; margin: 0 12px; }
             .landing-nclex-title { font-size: 23px; }
+            .pricing-feature-list { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -683,8 +721,9 @@
                             <div class="price">GHS {{ basic.price|default:"50" }}</div>
                             <p>/ {{ basic.duration_days|default:365 }} days</p>
                         </div>
-                        <ul>
+                        <ul class="pricing-feature-list">
                             <li>All Practice Questions</li>
+                            <li>NCLEX-RN Practice Tests</li>
                             <li>General Tests and Mock Exams</li>
                             <li>Lecture Notes</li>
                             <li>Flashcards</li>

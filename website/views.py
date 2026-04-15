@@ -2374,6 +2374,8 @@ def student_nmc_mastery(request):
         return redirect("/admin-panel/dashboard/")
 
     user_id = request.session.get("user_id")
+    fundamentals_mnemonics = mnemonics[:10]
+    clinical_mnemonics = mnemonics[10:]
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -5106,6 +5108,168 @@ def student_nclex_guide(request):
         "has_unread_notifications": unread_count > 0,
     }
     return render(request, "dashboard/student_nclex_guide.html", context)
+
+
+def student_mnemonics_guide(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+    sections = _student_mnemonic_sections()
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "mnemonics_guide",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "sections": sections,
+        "sections_total": len(sections),
+    }
+    return render(request, "dashboard/student_mnemonics_guide.html", context)
+
+
+def _student_mnemonic_sections():
+    fundamentals = [
+        {"title": "Vital Signs", "code": "TPR BP", "items": ["T - Temperature (36.5-37.5 C)", "P - Pulse (60-100 bpm)", "R - Respiration (12-20 bpm)", "BP - Blood Pressure (~120/80 mmHg)"]},
+        {"title": "Drug Administration", "code": "DR TIMED", "items": ["D - Drug", "R - Right patient", "T - Time", "I - Route", "M - Dose", "E - Education", "D - Documentation"]},
+        {"title": "Hypoglycemia", "code": "TIRED", "items": ["T - Tremors", "I - Irritability", "R - Rapid pulse", "E - Excess hunger", "D - Diaphoresis"]},
+        {"title": "Shock", "code": "SHOCK", "items": ["S - Sweating", "H - Hypotension", "O - Oliguria", "C - Confusion", "K - Cold skin"]},
+        {"title": "Pregnancy Danger Signs", "code": "BLEED", "items": ["B - Bleeding", "L - Loss of fetal movement", "E - Excess vomiting", "E - Edema", "D - Dizziness"]},
+        {"title": "APGAR Score", "code": "APGAR", "items": ["A - Appearance", "P - Pulse", "G - Grimace", "A - Activity", "R - Respiration"]},
+        {"title": "Hand Hygiene", "code": "BEFAR", "items": ["B - Before patient", "E - Before procedure", "F - After fluid exposure", "A - After patient", "R - After surroundings"]},
+        {"title": "Cranial Nerves", "code": "Oh Oh Oh To Touch And Feel Very Good Velvet AH", "items": ["Classic cranial nerve order mnemonic used in assessment."]},
+        {"title": "Anemia", "code": "PALE", "items": ["P - Pallor", "A - Anorexia/weakness", "L - Lethargy", "E - Easy fatigue"]},
+        {"title": "Hypertension Complications", "code": "HARD", "items": ["H - Heart disease", "A - Aneurysm", "R - Renal failure", "D - Death"]},
+    ]
+    medical_surgical = [
+        {"title": "Systems of the Body", "code": "My Very Easy Method Just Speeds Up Naming Parts", "items": ["Musculoskeletal", "Vascular", "Endocrine", "Metabolic", "Gastrointestinal", "Urinary", "Nervous", "Pulmonary"]},
+        {"title": "Cranial Nerves", "code": "Oh Oh Oh To Touch And Feel Very Good Velvet AH", "items": ["Major cranial nerve order mnemonic for exams and OSCE."]},
+        {"title": "Cholelithiasis Risk", "code": "5 F's", "items": ["Female", "Fat", "Forty", "Fertile", "Fair"]},
+        {"title": "Malignant Mole (Melanoma)", "code": "ABCDE", "items": ["A - Asymmetry", "B - Border irregular", "C - Color variation", "D - Diameter > 6 mm", "E - Evolution"]},
+        {"title": "Hypoplasia vs Hyperplasia", "code": "Hypo = LOW cells | Hyper = HIGH cells", "items": ["Use quick compare wording in viva and short answers."]},
+        {"title": "Blood Group O Compatibility", "code": "O = Only Give O", "items": ["Universal donor", "Receives only O"]},
+        {"title": "Minor Bleeding Signs", "code": "BRUISE", "items": ["Bleeding gums", "Red spots (petechiae)", "Unusual bruising", "Injury bleeding", "Skin spots", "Epistaxis"]},
+        {"title": "Sickle Cell Disease", "code": "SICKLE", "items": ["Swelling", "Infection", "Crisis pain", "Kidney issues", "Low Hb", "Episodes"]},
+        {"title": "MgSO4 Toxicity", "code": "3 D's", "items": ["Decreased reflexes", "Depressed respiration", "Drowsiness"]},
+        {"title": "Congestive Heart Failure", "code": "FACES", "items": ["Fatigue", "Activity intolerance", "Congestion", "Edema", "Shortness of breath"]},
+        {"title": "Hypoxia", "code": "RESTLESS / BLUE", "items": ["Early: Restlessness, Anxiety, Tachycardia", "Late: Bradycardia, Low BP, Unconscious, Extreme cyanosis"]},
+        {"title": "Increased ICP", "code": "CUSHING", "items": ["Increased BP", "Decreased pulse", "Irregular breathing"]},
+        {"title": "Parkinson's Disease", "code": "TRAP", "items": ["Tremor", "Rigidity", "Akinesia", "Postural instability"]},
+        {"title": "Splenomegaly Causes", "code": "CHIMPS", "items": ["Cirrhosis", "Hemolysis", "Infection", "Malaria", "Portal HTN", "Sickle cell"]},
+        {"title": "Scarlet Fever", "code": "PASTIA", "items": ["Pastia lines", "Angina", "Strawberry tongue", "Tonsillitis", "Infection rash", "Antibiotics needed"]},
+        {"title": "Cor Pulmonale", "code": "RIGHT", "items": ["Right heart failure", "Increased JVP", "General edema", "Hypoxia", "Tachycardia"]},
+        {"title": "Essential Amino Acids", "code": "PVT TIM HALL", "items": ["High-yield memory phrase for amino acid recall."]},
+        {"title": "WBC Order", "code": "Never Let Monkeys Eat Bananas", "items": ["Neutrophils", "Lymphocytes", "Monocytes", "Eosinophils", "Basophils"]},
+        {"title": "Mitosis", "code": "IPMAT", "items": ["Interphase", "Prophase", "Metaphase", "Anaphase", "Telophase"]},
+        {"title": "Viral Diarrhea", "code": "RRRA", "items": ["Rotavirus", "Norovirus", "Adenovirus"]},
+        {"title": "Carpal Bones", "code": "Some Lovers Try Positions That They Can't Handle", "items": ["Classic carpals order mnemonic."]},
+        {"title": "Scalp Layers", "code": "SCALP", "items": ["Skin", "Connective tissue", "Aponeurosis", "Loose tissue", "Periosteum"]},
+        {"title": "Joint Movements", "code": "FLEX RAP", "items": ["Flexion", "Rotation", "Abduction", "Pronation"]},
+        {"title": "C4 Injury", "code": "C4 = breathe no more", "items": ["Recall respiratory compromise with high cervical injury."]},
+        {"title": "Lung Assessment", "code": "Point & Shoot", "items": ["Posterior = lower lobes", "Anterior = upper lobes"]},
+        {"title": "Valve Locations", "code": "All People Enjoy Time Magazine", "items": ["Aortic", "Pulmonic", "Erb's", "Tricuspid", "Mitral"]},
+        {"title": "Cancer Warning Signs", "code": "CAUTION", "items": ["Change bowel", "A sore", "Unusual bleeding", "Thickening", "Indigestion", "Obvious change", "Nagging cough"]},
+        {"title": "DKA Management", "code": "3 F's", "items": ["Fluids", "Fix insulin", "Fix electrolytes"]},
+        {"title": "Ventricular Fibrillation", "code": "DEFIB", "items": ["Defibrillate immediately"]},
+        {"title": "MI Treatment", "code": "MONA", "items": ["Morphine", "Oxygen", "Nitrates", "Aspirin"]},
+        {"title": "Cushing's Syndrome", "code": "MOON FACE", "items": ["Moon facies and classic hypercortisolism recall."]},
+        {"title": "Coma Causes", "code": "AEIOU TIPS", "items": ["Alcohol", "Epilepsy/Endocrine", "Insulin", "Overdose/Oxygen", "Uremia", "Trauma", "Infection", "Psych", "Stroke/Shock"]},
+        {"title": "Neurovascular Occlusion", "code": "5 Ps", "items": ["Pain", "Pallor", "Pulselessness", "Paresthesia", "Paralysis"]},
+        {"title": "Appendicitis", "code": "RLQ PAIN", "items": ["Right lower quadrant pain focus in quick differential."]},
+        {"title": "Angina Triggers", "code": "4 E's", "items": ["Exercise", "Emotion", "Eating", "Environment"]},
+        {"title": "Acid-Base Interpretation", "code": "ROME", "items": ["Respiratory Opposite", "Metabolic Equal"]},
+        {"title": "Hypocalcemia", "code": "CATS", "items": ["Convulsions", "Arrhythmias", "Tetany", "Spasms"]},
+        {"title": "Hypernatremia", "code": "DRY", "items": ["Dehydration", "Restlessness", "Increased thirst"]},
+        {"title": "Hyperkalemia Causes", "code": "MACHINE", "items": ["Metabolic acidosis", "Addison's", "Cell destruction", "Hypoaldosteronism", "Intake excess", "Nephron failure", "Excretion reduced"]},
+        {"title": "Hyperkalemia Signs", "code": "MURDER", "items": ["Muscle weakness", "Urine reduced", "Respiratory distress", "Decreased cardiac contractility", "ECG changes", "Reflexes reduced"]},
+    ]
+    midwifery = [
+        {"title": "Placenta-Crossing Substances", "code": "DAAMP", "items": ["D - Drugs", "A - Alcohol", "A - Antibodies (IgG)", "M - Microorganisms", "P - Poisons", "Exam tip: Most substances cross placenta except large proteins."]},
+        {"title": "Preterm Infant Problems", "code": "IMMATURE", "items": ["I - Infection risk", "M - Metabolic issues (hypoglycemia)", "M - Minimal fat (hypothermia)", "A - Apnea", "T - Temperature instability", "U - Underdeveloped lungs", "R - Respiratory distress", "E - Eating difficulty"]},
+        {"title": "Obstetric History", "code": "GTPAL", "items": ["G - Gravida", "T - Term births", "P - Preterm", "A - Abortions", "L - Living children"]},
+        {"title": "Newborn Assessment", "code": "APGAR + HEAD TO TOE", "items": ["APGAR for immediate transition", "Full head-to-toe physical exam after initial stabilization"]},
+        {"title": "IUD Problems", "code": "PAINS", "items": ["P - Period late", "A - Abdominal pain", "I - Infection", "N - Not feeling strings", "S - Spotting", "Very commonly tested in exams."]},
+        {"title": "Oral Contraceptive Danger Signs", "code": "ACHES", "items": ["A - Abdominal pain", "C - Chest pain", "H - Headache", "E - Eye problems", "S - Severe leg pain"]},
+        {"title": "Infections in Pregnancy", "code": "TORCH", "items": ["T - Toxoplasmosis", "O - Other (syphilis, HIV)", "R - Rubella", "C - CMV", "H - Herpes"]},
+        {"title": "Episiotomy Assessment", "code": "REEDA", "items": ["R - Redness", "E - Edema", "E - Ecchymosis", "D - Discharge", "A - Approximation"]},
+        {"title": "Dystocia Etiology", "code": "3 Ps", "items": ["P - Power (contractions)", "P - Passenger (baby)", "P - Passage (pelvis)"]},
+        {"title": "Dystocia Maternal Factors", "code": "PELVIS", "items": ["P - Pelvic size", "E - Exhaustion", "L - Labour dysfunction", "V - Vaginal issues", "I - Infection", "S - Stress"]},
+        {"title": "Severe Preeclampsia Complications", "code": "HELLP", "items": ["H - Hemolysis", "E - Elevated liver enzymes", "L - Low platelets", "L - Liver damage", "P - Poor outcomes"]},
+    ]
+    psychiatric = [
+        {"title": "Wernicke-Korsakoff Syndrome", "code": "CAN'T SEE, CAN'T WALK, CAN'T THINK", "items": ["Confusion", "Ataxia (unsteady gait)", "Ophthalmoplegia (eye problems)", "Cause: Thiamine (Vitamin B1) deficiency", "Exam tip: Give thiamine before glucose."]},
+        {"title": "Schizophrenia Primary Symptoms", "code": "4 A's", "items": ["A - Affect (flat)", "A - Autism (withdrawal)", "A - Ambivalence", "A - Association loosened"]},
+        {"title": "Schizophrenia Positive Symptoms", "code": "HALL", "items": ["H - Hallucinations", "A - Agitation", "L - Loosened thoughts", "L - Loss of reality"]},
+        {"title": "Tricyclic Antidepressants (TCAs)", "code": "3 Ts", "items": ["T - Tofranil (Imipramine)", "T - Tryptanol (Amitriptyline)", "T - TCA class"]},
+        {"title": "TCA Side Effects", "code": "ABC", "items": ["A - Anticholinergic (dry mouth)", "B - Blurred vision", "C - Cardiotoxicity"]},
+        {"title": "Intellectual Disability Care Plan", "code": "CARE", "items": ["C - Consistency", "A - Assist ADLs", "R - Reinforce learning", "E - Encourage independence"]},
+        {"title": "Cognitive Disorders Assessment", "code": "MEMORY", "items": ["M - Memory loss", "E - Executive dysfunction", "M - Mood changes", "O - Orientation loss", "R - Reasoning impaired", "Y - Year confusion"]},
+        {"title": "Alcohol Withdrawal", "code": "WITHDRAWAL", "items": ["W - Weakness", "I - Irritability", "T - Tremors", "H - Hallucinations", "D - Delirium", "R - Restlessness", "A - Anxiety", "W - Withdrawal seizures", "A - Autonomic instability", "L - Loss of appetite", "Severe form: Delirium Tremens (DTs)."]},
+    ]
+    return [
+        {
+            "slug": "fundamentals-in-nursing",
+            "title": "Fundamentals in Nursing",
+            "subtitle": "Core day-to-day nursing recall mnemonics.",
+            "icon": "bx bx-book-reader",
+            "mnemonics": fundamentals,
+        },
+        {
+            "slug": "medical-surgical-nursing",
+            "title": "Medical & Surgical Nursing",
+            "subtitle": "High-yield NMC-focused medical-surgical mnemonics and tips.",
+            "icon": "bx bx-plus-medical",
+            "mnemonics": medical_surgical,
+        },
+        {
+            "slug": "midwifery-nmc-high-yield",
+            "title": "Midwifery (NMC High-Yield)",
+            "subtitle": "Focused mnemonics for ANC, labour, postpartum, and newborn exam prep.",
+            "icon": "bx bx-baby-carriage",
+            "mnemonics": midwifery,
+        },
+        {
+            "slug": "psychiatric-nursing",
+            "title": "Psychiatric Nursing",
+            "subtitle": "Mental health high-yield mnemonics for NMC exams and clinical recall.",
+            "icon": "bx bx-brain",
+            "mnemonics": psychiatric,
+        },
+    ]
+
+
+def student_mnemonics_section(request, section_slug):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+    sections = _student_mnemonic_sections()
+    section = next((s for s in sections if s["slug"] == section_slug), None)
+    if not section:
+        return redirect("/dashboard/mnemonics-guide/")
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "mnemonics_guide",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "section": section,
+        "mnemonics_total": len(section.get("mnemonics") or []),
+    }
+    return render(request, "dashboard/student_mnemonics_section.html", context)
 
 
 def student_books_library(request):

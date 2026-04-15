@@ -1,0 +1,170 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ section.title }} - Mnemonics{% endblock %}
+
+{% block content %}
+<style>
+  .ms-shell { max-width: 1160px; margin: 0 auto; }
+  .ms-hero {
+    background: #fff;
+    border: 1px solid #dfe7f5;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .ms-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .ms-back { text-decoration: none; font-weight: 700; color: #2f6ed9; }
+  .ms-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #cfe0ff;
+    background: #f3f7ff;
+    color: #1d4f9d;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .ms-sub { color: #5a6475; margin: 10px 0 0; line-height: 1.65; max-width: 70ch; }
+  .ms-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 2px; }
+  .ms-search {
+    flex: 1 1 320px;
+    border: 1px solid #dbe4f4;
+    border-radius: 10px;
+    height: 40px;
+    padding: 0 12px;
+    color: #1f2937;
+    background: #fff;
+  }
+  .ms-count {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e2e8f6;
+    border-radius: 10px;
+    padding: 0 12px;
+    height: 40px;
+    background: #f8fbff;
+    color: #42526b;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .ms-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .ms-card {
+    background: #fff;
+    border: 1px solid #e1e8f5;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  .ms-card:hover {
+    border-color: #cbdaf7;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.11);
+    transform: translateY(-2px);
+  }
+  .ms-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .ms-title { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4; }
+  .ms-code {
+    border: 1px solid #d6e4ff;
+    background: #f8fbff;
+    color: #1d4f9d;
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .ms-list { margin: 0; padding: 0; list-style: none; }
+  .ms-list li {
+    margin: 0 0 8px;
+    color: #31394a;
+    line-height: 1.6;
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .ms-list li:last-child { margin-bottom: 0; }
+  .ms-list li::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #2f6ed9;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+  .ms-empty {
+    display: none;
+    background: #fff;
+    border: 1px solid #e2e8f6;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    color: #5a6475;
+    margin-top: 10px;
+  }
+  @media (max-width: 900px) { .ms-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="ms-shell">
+  <section class="ms-hero">
+    <div class="ms-row">
+      <a class="ms-back" href="/dashboard/mnemonics-guide/"><i class="bx bx-arrow-back"></i> Back to sections</a>
+      <span class="ms-badge"><i class="bx bx-book"></i> {{ mnemonics_total }} mnemonic cards</span>
+    </div>
+    <h4 class="mb-1 mt-2">{{ section.title }}</h4>
+    <p class="ms-sub">{{ section.subtitle }}</p>
+    <div class="ms-tools">
+      <input id="sectionMnemonicSearch" class="ms-search" type="text" placeholder="Search in this section (e.g. MONA, FAST, CUSHING, HARD)" />
+      <div class="ms-count"><span id="sectionVisibleCount">{{ mnemonics_total }}</span>&nbsp;visible</div>
+    </div>
+  </section>
+
+  <section class="ms-grid" id="sectionMnemonicGrid">
+    {% for item in section.mnemonics %}
+    <article class="ms-card" data-search="{{ item.title|lower }} {{ item.code|lower }} {% for row in item.items %} {{ row|lower }} {% endfor %}">
+      <div class="ms-head">
+        <h5 class="ms-title">{{ item.title }}</h5>
+        <div class="ms-code">{{ item.code }}</div>
+      </div>
+      <ul class="ms-list">
+        {% for row in item.items %}
+        <li>{{ row }}</li>
+        {% endfor %}
+      </ul>
+    </article>
+    {% endfor %}
+  </section>
+
+  <div class="ms-empty" id="sectionMnemonicEmpty">
+    No mnemonic matched your search in <strong>{{ section.title }}</strong>.
+  </div>
+</div>
+<script>
+  (function () {
+    const input = document.getElementById("sectionMnemonicSearch");
+    const cards = Array.from(document.querySelectorAll("#sectionMnemonicGrid .ms-card"));
+    const countEl = document.getElementById("sectionVisibleCount");
+    const emptyEl = document.getElementById("sectionMnemonicEmpty");
+    if (!input || !cards.length || !countEl || !emptyEl) return;
+
+    function applyFilter() {
+      const q = (input.value || "").trim().toLowerCase();
+      let visible = 0;
+      cards.forEach((card) => {
+        const hay = card.getAttribute("data-search") || "";
+        const show = !q || hay.indexOf(q) >= 0;
+        card.style.display = show ? "" : "none";
+        if (show) visible += 1;
+      });
+      countEl.textContent = String(visible);
+      emptyEl.style.display = visible ? "none" : "block";
+    }
+
+    input.addEventListener("input", applyFilter);
+    applyFilter();
+  })();
+</script>
+{% endblock %}

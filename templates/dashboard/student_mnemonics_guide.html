@@ -1,0 +1,124 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Ghana Nursing Mnemonics - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .m-shell { max-width: 1080px; margin: 0 auto; }
+  .m-bg-wrap {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    padding: 16px;
+    background-image: url("https://images.unsplash.com/photo-1584982751601-97dcc096659c?auto=format&fit=crop&w=1800&q=80");
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+  }
+  .m-bg-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(245, 248, 255, 0.9);
+    pointer-events: none;
+  }
+  .m-bg-wrap > * {
+    position: relative;
+    z-index: 1;
+  }
+  .m-hero {
+    background: #fff;
+    border: 1px solid #dfe7f5;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .m-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #cfe0ff;
+    background: #f3f7ff;
+    color: #1d4f9d;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .m-sub { color: #5a6475; margin: 10px 0 0; line-height: 1.65; max-width: 65ch; }
+  .m-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 14px; }
+  .m-section-card {
+    background: #fff;
+    border: 1px solid #e1e8f5;
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    text-decoration: none;
+    display: block;
+  }
+  .m-section-card:hover {
+    border-color: #cbdaf7;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.11);
+    transform: translateY(-2px);
+  }
+  .m-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .m-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: #12233f;
+    line-height: 1.3;
+  }
+  .m-pill {
+    border: 1px solid #dae6ff;
+    background: #f5f9ff;
+    color: #2c4f93;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .m-desc { color: #475467; margin: 0 0 12px; line-height: 1.7; }
+  .m-meta { color: #344054; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .m-arrow { margin-left: auto; color: #2f6ed9; font-size: 18px; }
+  @media (max-width: 900px) { .m-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="m-shell">
+  <div class="m-bg-wrap">
+  <section class="m-hero">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <h4 class="mb-0">Ghana Nursing & Midwifery Mnemonics (NMC Exam Guide)</h4>
+      <span class="m-badge"><i class="bx bx-layer"></i> {{ sections_total }} main sections</span>
+    </div>
+    <p class="m-sub">
+      Select a section first. Each section opens a dedicated page with clean mnemonic cards and fast on-page search.
+    </p>
+  </section>
+
+  <section class="m-grid">
+    {% for section in sections %}
+    <a class="m-section-card" href="/dashboard/mnemonics-guide/{{ section.slug }}/">
+      <div class="m-card-head">
+        <h5 class="m-title">{{ section.title }}</h5>
+        <span class="m-pill">{{ section.mnemonics|length }} cards</span>
+      </div>
+      <p class="m-desc">{{ section.subtitle }}</p>
+      <div class="m-meta">
+        <i class="{{ section.icon }}"></i>
+        Open section
+        <i class="bx bx-chevron-right m-arrow"></i>
+      </div>
+    </a>
+    {% endfor %}
+  </section>
+  </div>
+</div>
+{% endblock %}
