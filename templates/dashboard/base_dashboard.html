@@ -266,18 +266,14 @@
       opacity: 0.8;
     }
     @media (max-width: 768px) {
-      .assistant-bot {
+      .assistant-bot:not(.is-minimized) {
         right: 10px;
         bottom: 10px;
         width: calc(100vw - 20px);
       }
-      /* On mobile, keep the robot icon visible so users can still reopen/minimize easily. */
-      .assistant-bot__mini {
-        display: inline-flex !important;
-        position: absolute;
-        right: 14px;
-        bottom: 14px;
-        animation: botPulse 1.8s ease-out infinite;
+      .assistant-bot.is-minimized {
+        right: 10px;
+        bottom: 10px;
       }
     }
     .nurseedge-sidebar-brand {
@@ -969,6 +965,13 @@
       const sendBtn = bot.querySelector('#assistant-send');
 
       const bytezApiKey = "{{ bytez_api_key|default:''|escapejs }}";
+
+      // Small viewports: start collapsed (FAB only); user opens the panel by tapping the bot.
+      var mqSmall = window.matchMedia('(max-width: 768px)');
+      if (mqSmall.matches) {
+        bot.classList.add('is-minimized');
+      }
+
       if (closeBtn) {
         closeBtn.addEventListener('click', function () {
           bot.classList.add('is-minimized');
@@ -977,6 +980,11 @@
       if (miniBtn) {
         miniBtn.addEventListener('click', function () {
           bot.classList.remove('is-minimized');
+          if (inputEl) {
+            try {
+              inputEl.focus();
+            } catch (_) {}
+          }
         });
       }
 
