@@ -153,6 +153,15 @@ PAYSTACK_PUBLIC_KEY = (
 VITE_PAYSTACK_PUBLIC_KEY = os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "")
 VITE_PAYSTACK_SECRET_KEY = os.getenv("VITE_PAYSTACK_SECRET_KEY", "")
 
+# Bulkclix (mobile money initiation for subscription checkout)
+BULKCLIX_BASE_URL = (os.getenv("BULKCLIX_BASE_URL", "https://api.bulkclix.com").strip() or "https://api.bulkclix.com").rstrip("/")
+BULKCLIX_API_KEY = (
+    os.getenv("BULKCLIX_X_API_KEY", "").strip()
+    or os.getenv("BULKCLIX_API_KEY", "").strip()
+    or os.getenv("BULKCLIX_KEY", "").strip()
+)
+BULKCLIX_PAYMENT_TYPE = os.getenv("BULKCLIX_PAYMENT_TYPE", "momo").strip() or "momo"
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},

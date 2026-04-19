@@ -44,7 +44,7 @@
   {% if request.GET.reason == 'payment_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
     Your subscription is not active yet. Complete payment below to access your dashboard.
-    <div class="small mt-2 mb-0 text-muted">If you already paid when you registered, your server must use a valid Paystack <strong>secret</strong> key so we can confirm the charge. After fixing <code>PAYSTACK_SECRET_KEY</code>, refresh this page or log in again — we will verify automatically without charging twice.</div>
+    <div class="small mt-2 mb-0 text-muted">If payment does not start, check your Bulkclix configuration in <code>.env</code> and try again.</div>
   </div>
   {% endif %}
   {% if request.GET.reason == 'renewal_required' %}
@@ -61,7 +61,7 @@
   {% if error %}
   <div class="alert alert-danger mb-3" style="border-radius:10px;">
     {% if error == "verify_failed" %}
-      We could not verify the payment with Paystack. If money left your account, contact support with your reference.
+      We could not verify the payment. If money left your account, contact support with your reference.
     {% else %}
       Payment could not continue (code: {{ error }}).
     {% endif %}
@@ -81,9 +81,9 @@
         </label>
       </div>
       <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
-        Pay with Paystack
+        Pay with Bulkclix
       </button>
-      <p class="sub-hint">You will be redirected to Paystack to complete payment securely.</p>
+      <p class="sub-hint">A mobile money prompt will be initiated via Bulkclix.</p>
     </div>
   </form>
 

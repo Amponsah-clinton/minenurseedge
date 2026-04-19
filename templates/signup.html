@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Create Account - NurseEdge{% endblock %}
 {% block head_extra %}
-<script src="https://js.paystack.co/v1/inline.js"></script>
 <style>
   body { margin:0; background:#f4f5f7; font-family:"Open Sans",Arial,sans-serif; color:#111; }
   .auth-page { min-height:calc(100vh - 170px); display:flex; align-items:flex-start; justify-content:center; padding:36px 16px 48px; }
@@ -298,7 +297,7 @@
           <input type="checkbox" id="agree" name="agree" required>
           <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
         </label>
-        <input type="hidden" id="paystack_reference" name="paystack_reference" value="">
+        <input type="hidden" id="payment_reference" name="payment_reference" value="">
         <button type="button" class="auth-submit" id="signupBtn">
           Create Account &amp; Suscribe →
         </button>
@@ -321,8 +320,7 @@
   var form    = document.getElementById("signupForm");
   var btn     = document.getElementById("signupBtn");
 
-  var PLAN_PRICES = { standard: {{ standard.price|default:50 }} };
-  var PAYSTACK_KEY = "{{ paystack_pub_key|default:'' }}";
+  var PLAN_PRICES = { standard: Number("{{ standard.price|default:'50' }}") };
 
   // Password strength rules
   var rules = {
@@ -363,6 +361,54 @@
     return true;
   }
 
+  function checkAccountExists(email) {
+    var url = "/api/signup/account-exists/?email=" + encodeURIComponent(email);
+    return fetch(url, {
+      method: "GET",
+      headers: { "X-Requested-With": "XMLHttpRequest" }
+    })
+    .then(function (res) {
+      if (!res.ok) throw new Error("precheck_failed");
+      return res.json();
+    })
+    .then(function (data) {
+      if (!data || data.ok !== true) throw new Error("precheck_failed");
+      return Boolean(data.exists);
+    });
+  }
+
+  function initiateBulkclixPayment(fullName, phone, amount) {
+    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+    var payload = new URLSearchParams();
+    payload.append("full_name", fullName);
+    payload.append("phone", phone);
+    payload.append("amount", String(amount));
+    return fetch("/api/signup/initiate-payment/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+        "X-CSRFToken": csrfInput ? csrfInput.value : "",
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: payload.toString()
+    })
+    .then(function (res) {
+      return res.json()
+        .catch(function () { return {}; })
+        .then(function (data) {
+          if (!res.ok || !data || data.ok !== true || !data.reference) {
+            var baseErr = (data && data.error) ? data.error : "";
+            var httpErr = "HTTP " + res.status;
+            throw new Error(baseErr || httpErr || "payment_init_failed");
+          }
+          return data;
+        });
+    })
+    .then(function (data) {
+      return data.reference;
+    });
+  }
+
   btn.addEventListener("click", function () {
     if (!validateForm()) return;
 
@@ -371,30 +417,45 @@
     var planSlug = planRadio ? planRadio.value : "standard";
     var amount   = Math.round((PLAN_PRICES[planSlug] || 0) * 100); // pesewas
 
-    if (!PAYSTACK_KEY) {
-      // No Paystack key configured — submit anyway (server will redirect to /subscribe/)
-      form.submit(); return;
-    }
-
     btn.disabled = true;
-    btn.textContent = "Opening Paystack…";
+    btn.textContent = "Checking account...";
 
-    var handler = PaystackPop.setup({
-      key:      PAYSTACK_KEY,
-      email:    email,
-      amount:   amount,
-      currency: "GHS",
-      callback: function (response) {
-        document.getElementById("paystack_reference").value = response.reference;
-        btn.textContent = "Verifying payment…";
-        form.submit();
-      },
-      onClose: function () {
+    checkAccountExists(email)
+      .then(function (exists) {
+        if (exists) {
+          btn.disabled = false;
+          btn.textContent = "Create Account & Suscribe \u2192";
+          alert("This email is already registered. Please log in instead.");
+          return;
+        }
+        btn.textContent = "Starting payment...";
+        var fullName = document.getElementById("fullName").value.trim();
+        var phone = document.getElementById("phone").value.trim();
+        return initiateBulkclixPayment(fullName, phone, PLAN_PRICES[planSlug] || 0)
+          .then(function (reference) {
+            document.getElementById("payment_reference").value = reference;
+            btn.textContent = "Finalizing account...";
+            form.submit();
+          });
+      })
+      .catch(function (err) {
         btn.disabled = false;
-        btn.textContent = "Create Account & Pay";
-      }
-    });
-    handler.openIframe();
+        btn.textContent = "Create Account & Suscribe \u2192";
+        if (String(err && err.message || "").indexOf("precheck_failed") !== -1) {
+          alert("We could not confirm your account status. Please try again.");
+          return;
+        }
+        var msg = String(err && err.message || "").trim();
+        if (!msg) {
+          msg = "Payment start failed. Please try again.";
+        }
+        if (msg.toLowerCase().indexOf("not allowed for momo collection") !== -1) {
+          msg =
+            "Bulkclix is not enabled for MoMo collection on this account. " +
+            "Contact Bulkclix support to enable it, then try again.";
+        }
+        alert(msg);
+      });
   });
 
   cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });

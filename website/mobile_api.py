@@ -661,16 +661,21 @@ def mobile_general_tests(request):
             if count <= 0:
                 continue
             batch_size = V._general_test_question_count(paper)
-            available_batches = count // batch_size
-            for test_number in range(1, available_batches + 1):
+            num_batches = V._general_test_num_batches(count, batch_size)
+            for test_number in range(1, num_batches + 1):
+                actual_q = V._general_test_actual_batch_size(count, batch_size, test_number)
+                if actual_q <= 0:
+                    continue
                 full_title = f"{paper} — General Test {test_number}"
                 active = active_attempts_map.get(full_title)
                 tests.append(
                     {
                         "paper_title": paper,
                         "test_number": test_number,
-                        "question_count": batch_size,
-                        "duration_minutes": V._general_test_duration_minutes(paper),
+                        "question_count": actual_q,
+                        "duration_minutes": V._general_test_batch_duration_minutes(
+                            paper, batch_size, actual_q
+                        ),
                         "attempt_id": active["id"] if active else None,
                         "attempt_status": active.get("status", "in_progress") if active else None,
                     }
@@ -1300,7 +1305,8 @@ def mobile_general_test_start(request):
         .data
         or []
     )
-    if len(all_ids) < batch_size:
+    actual_count = len(all_ids)
+    if actual_count < 1:
         return JsonResponse({"ok": False, "error": "insufficient_questions"}, status=400)
     attempt = (
         admin.table("general_test_attempts")
@@ -1308,8 +1314,10 @@ def mobile_general_test_start(request):
             {
                 "student_id": user_id,
                 "paper_title": full_title,
-                "time_limit_minutes": V._general_test_duration_minutes(paper_title),
-                "total_questions": batch_size,
+                "time_limit_minutes": V._general_test_batch_duration_minutes(
+                    paper_title, batch_size, actual_count
+                ),
+                "total_questions": actual_count,
                 "status": "in_progress",
             }
         )

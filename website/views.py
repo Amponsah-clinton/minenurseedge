@@ -1680,7 +1680,10 @@ def signup_page(request):
                 "standard": plans.get("standard", {}),
             })
 
-        paystack_reference = request.POST.get("paystack_reference", "").strip()
+        payment_reference = (
+            request.POST.get("payment_reference", "").strip()
+            or request.POST.get("paystack_reference", "").strip()
+        )
         paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
 
         def _signup_err(msg):
@@ -1763,9 +1766,9 @@ def signup_page(request):
 
             # Keep Paystack reference on the row even if server-side verify fails (wrong key, 403, etc.)
             # so login /subscribe/ can retry verification without asking the user to pay again.
-            if paystack_reference and sub_id:
+            if payment_reference and sub_id:
                 admin.table("subscriptions").update({
-                    "payment_reference": paystack_reference,
+                    "payment_reference": payment_reference,
                 }).eq("id", sub_id).execute()
 
             price_val = float(plan.get("price") or 0)
@@ -1780,18 +1783,33 @@ def signup_page(request):
                 })
                 return redirect("/dashboard/")
 
-            # If Paystack reference provided, verify and activate immediately
+            # If a payment reference is provided (Bulkclix flow), activate immediately.
+            # The upstream API returns a transaction reference on successful initiation.
+            if payment_reference and sub_id:
+                _apply_successful_subscription_payment(
+                    user_id, sub_id, plan_slug, price_val, payment_reference
+                )
+                _create_session(request, user_id, email, full_name, "student")
+                request.session["pending_dashboard_disclaimer"] = True
+                _sync_pending_academic_profile(request, {
+                    "programme": programme,
+                    "year_of_study": year_of_study,
+                    "school": institution,
+                })
+                return redirect("/dashboard/")
+
+            # Legacy Paystack verify path (kept for backward compatibility)
             paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-            if paystack_reference and paystack_secret and sub_id:
+            if payment_reference and paystack_secret and sub_id:
                 import urllib.parse as _up
                 vresp, verr = _paystack_request(
-                    "GET", "/transaction/verify/" + _up.quote(paystack_reference, safe="")
+                    "GET", "/transaction/verify/" + _up.quote(payment_reference, safe="")
                 )
                 if (vresp and vresp.get("status")
                         and (vresp.get("data") or {}).get("status") == "success"):
                     amount_paid = float((vresp["data"].get("amount") or 0)) / 100
                     _apply_successful_subscription_payment(
-                        user_id, sub_id, plan_slug, amount_paid, paystack_reference
+                        user_id, sub_id, plan_slug, amount_paid, payment_reference
                     )
                     _create_session(request, user_id, email, full_name, "student")
                     request.session["pending_dashboard_disclaimer"] = True
@@ -1822,6 +1840,68 @@ def signup_page(request):
         "premium": plans.get("premium", {}),
         "paystack_pub_key": paystack_pub,
     })
+
+
+def signup_account_exists_api(request):
+    """
+    Lightweight preflight check used by signup payment flow.
+    Prevents opening checkout for emails that already have an account.
+    """
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+
+    email = (request.GET.get("email") or "").strip().lower()
+    if not email:
+        return JsonResponse({"ok": False, "error": "Email is required."}, status=400)
+
+    try:
+        admin = _supabase_admin()
+        profile = _profile_by_email_flexible(admin, email)
+        auth_user = _find_auth_user_by_email(email)
+        exists = bool(profile or auth_user)
+        return JsonResponse({"ok": True, "exists": exists})
+    except Exception:
+        return JsonResponse(
+            {"ok": False, "error": "Could not validate account status right now."},
+            status=500,
+        )
+
+
+def signup_initiate_payment_api(request):
+    """
+    Start Bulkclix payment for signup and return a transaction reference.
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+
+    full_name = (request.POST.get("full_name") or "").strip()
+    phone = (request.POST.get("phone") or "").strip()
+    amount_raw = (request.POST.get("amount") or "0").strip()
+    try:
+        amount = float(amount_raw)
+    except Exception:
+        amount = 0.0
+
+    if not full_name or not phone:
+        return JsonResponse({"ok": False, "error": "Full name and phone are required."}, status=400)
+    if amount <= 0:
+        return JsonResponse({"ok": False, "error": "Invalid payment amount."}, status=400)
+
+    result, err = _bulkclix_start_subscription_payment(
+        full_name=full_name,
+        phone_number=phone,
+        amount=amount,
+    )
+    if err:
+        return JsonResponse({"ok": False, "error": err}, status=400)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "reference": result.get("reference"),
+            "amount_paid": result.get("amount_paid"),
+        }
+    )
 
 
 def logout_view(request):
@@ -4755,6 +4835,31 @@ def _general_test_question_count(paper_title):
     return 100 if _is_general_paper(paper_title) else 180
 
 
+def _general_test_num_batches(total_count, batch_size):
+    """Full batches plus one final batch when there is a remainder (e.g. 200 Q / 180 → 2 tests)."""
+    if total_count <= 0 or batch_size <= 0:
+        return 0
+    return (total_count + batch_size - 1) // batch_size
+
+
+def _general_test_actual_batch_size(total_count, batch_size, test_number):
+    """How many questions are in test_number (1-based); 0 if out of range."""
+    if test_number < 1 or batch_size <= 0:
+        return 0
+    start_idx = (test_number - 1) * batch_size
+    if start_idx >= total_count:
+        return 0
+    return min(batch_size, total_count - start_idx)
+
+
+def _general_test_batch_duration_minutes(paper_title, nominal_batch_size, actual_question_count):
+    """Scale the standard paper duration when a batch has fewer than the nominal question count."""
+    full_min = _general_test_duration_minutes(paper_title)
+    if actual_question_count <= 0 or nominal_batch_size <= 0:
+        return max(1, full_min)
+    return max(1, round(full_min * actual_question_count / nominal_batch_size))
+
+
 def _practice_quiz_title_from_sort_index(sort_index):
     """sort_index 0 -> Quiz A, 1 -> Quiz B, ... 25 -> Quiz Z, 26 -> Quiz AA."""
     n = int(sort_index)
@@ -5765,16 +5870,19 @@ def student_general_tests(request):
             if count <= 0:
                 continue
             batch_size = _general_test_question_count(paper)
-            available_batches = count // batch_size
-            for test_number in range(1, available_batches + 1):
+            num_batches = _general_test_num_batches(count, batch_size)
+            for test_number in range(1, num_batches + 1):
+                actual_q = _general_test_actual_batch_size(count, batch_size, test_number)
+                if actual_q <= 0:
+                    continue
                 full_title = f"{paper} — General Test {test_number}"
                 active = active_attempts_map.get(full_title)
 
                 entry = {
                     "paper_title": paper,
                     "test_number": test_number,
-                    "question_count": batch_size,
-                    "duration_minutes": _general_test_duration_minutes(paper),
+                    "question_count": actual_q,
+                    "duration_minutes": _general_test_batch_duration_minutes(paper, batch_size, actual_q),
                     "attempt_id": active["id"] if active else None,
                     "attempt_status": active.get("status", "in_progress") if active else None,
                 }
@@ -5867,7 +5975,9 @@ def student_general_test_start(request):
             "student_id": user_id,
             "programme": programme,
             "paper_title": full_title,
-            "time_limit_minutes": _general_test_duration_minutes(paper_title),
+            "time_limit_minutes": _general_test_batch_duration_minutes(
+                paper_title, batch_size, len(batch_ids)
+            ),
             "total_questions": len(batch_ids),
             "status": "in_progress",
         })
@@ -9241,6 +9351,122 @@ def _paystack_request(method, path, body_dict=None):
         return None, str(e)
 
 
+def _bulkclix_request(method, path, body_dict=None):
+    import json
+    import urllib.error
+    import urllib.request
+
+    api_key = (getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()
+    if not api_key:
+        return None, "bulkclix_not_configured"
+
+    base_url = (getattr(settings, "BULKCLIX_BASE_URL", None) or "https://api.bulkclix.com").strip().rstrip("/")
+    url = f"{base_url}{path}"
+
+    payload = None
+    if method != "GET":
+        payload = json.dumps(body_dict if body_dict is not None else {}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, method=method)
+    req.add_header("x-api-key", api_key)
+    req.add_header("Authorization", f"ApiKey {api_key}")
+    req.add_header("Accept", "application/json")
+    if method != "GET":
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            return json.loads(resp.read().decode()), None
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode(errors="replace")
+        try:
+            return json.loads(raw), None
+        except Exception:
+            snippet = " ".join(raw.split())[:280]
+            return None, f"http_{e.code}:{snippet}" if snippet else f"http_{e.code}"
+    except Exception as e:
+        return None, str(e)
+
+
+def _infer_network_from_phone(phone_number):
+    digits = re.sub(r"\D+", "", phone_number or "")
+    if digits.startswith("233"):
+        digits = "0" + digits[3:]
+    if len(digits) < 3:
+        return "MTN"
+    prefix = digits[:3]
+    mtn = {"024", "025", "053", "054", "055", "059"}
+    telecel = {"020", "050"}
+    airteltigo = {"026", "027", "056", "057"}
+    if prefix in mtn:
+        return "MTN"
+    if prefix in telecel:
+        return "Telecel"
+    if prefix in airteltigo:
+        return "AirtelTigo"
+    return "MTN"
+
+
+def _bulkclix_start_subscription_payment(*, full_name, phone_number, amount):
+    network = _infer_network_from_phone(phone_number)
+    client_reference = f"NE-{secrets.token_hex(8)}"
+
+    payload = {
+        "amount": str(float(amount or 0)).rstrip("0").rstrip("."),
+        "account_number": phone_number,
+        "channel": network,
+        "account_name": (full_name or "Student").strip()[:120],
+        "client_reference": client_reference,
+    }
+    # Mobile money transfer endpoint per Bulkclix payment API.
+    resp, err = _bulkclix_request("POST", "/api/v1/payment-api/send/mobilemoney", payload)
+    if err:
+        return None, err
+    if not resp:
+        return None, "bulkclix_invalid_response"
+    if isinstance(resp, dict) and resp.get("status") is False:
+        return None, str(resp.get("message") or "bulkclix_request_failed")
+    if "data" not in resp:
+        return None, str(resp.get("message") or "bulkclix_invalid_response")
+    data_block = (resp.get("data") or {}) if isinstance(resp, dict) else {}
+    if not data_block:
+        msg = (resp.get("message") if isinstance(resp, dict) else "") or ""
+        return None, str(msg or "bulkclix_invalid_response")
+    payment = (data_block.get("payment") or {}) if isinstance(data_block, dict) else {}
+
+    def _pick_reference(obj):
+        if not isinstance(obj, dict):
+            return ""
+        for key in (
+            "transaction_id",
+            "order_id",
+            "ext_transaction_id",
+            "payment_reference",
+            "reference",
+            "trxref",
+            "id",
+        ):
+            val = obj.get(key)
+            if val is not None and str(val).strip():
+                return str(val).strip()
+        return ""
+
+    reference = (
+        _pick_reference(payment)
+        or _pick_reference(data_block)
+        or _pick_reference(resp if isinstance(resp, dict) else {})
+    )
+    if not reference:
+        msg = (resp.get("message") if isinstance(resp, dict) else "") or ""
+        return None, str(msg or "bulkclix_missing_reference")
+    amount_paid = float(
+        payment.get("amount")
+        or data_block.get("amount")
+        or (resp.get("amount") if isinstance(resp, dict) else 0)
+        or amount
+        or 0
+    )
+    return {"reference": str(reference), "amount_paid": amount_paid}, None
+
+
 def _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, payment_reference):
     user_id = str(user_id)
     if plan_slug not in ("standard", "basic", "premium"):
@@ -9350,8 +9576,7 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "checkout_row": checkout_row,
         "config_error": config_error,
         "error": error,
-        "paystack_pub_key": (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip(),
-        "using_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
+        "using_bulkclix": bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()),
     }
 
 
@@ -9416,17 +9641,15 @@ def student_subscribe(request):
         return redirect("/subscribe/?error=setup")
 
     if request.method == "POST" and request.POST.get("start_checkout"):
-        paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-        stripe_secret = (getattr(settings, "STRIPE_SECRET_KEY", None) or "").strip()
-
-        if not paystack_secret and not stripe_secret:
+        bulkclix_key = (getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()
+        if not bulkclix_key:
             return render(
                 request,
                 "subscribe.html",
                 _subscribe_ctx(request, user_id, plans, checkout_row,
                     config_error=(
                         "Online payments are not configured. "
-                        "Add PAYSTACK_SECRET_KEY to your .env and restart the server."
+                        "Add BULKCLIX_X_API_KEY to your .env and restart the server."
                     ), error=error),
             )
 
@@ -9439,68 +9662,48 @@ def student_subscribe(request):
                     config_error="Plan price must be greater than zero. Ask your admin to set it.",
                     error=error))
 
-        amount_minor = int(round(price * 100))
-        cur = (plan.get("currency") or "GHS").upper()
-        if cur not in ("GHS", "NGN", "ZAR", "KES", "XOF"):
-            cur = "GHS"
-
-        if paystack_secret:
-            try:
-                origin = _public_site_origin(request)
-                callback_url = f"{origin}/subscribe/success/"
-                email_addr = (request.session.get("email") or "").strip()
-                if not email_addr:
-                    raise ValueError("Your account needs an email address to use Paystack.")
-
-                resp, perr = _paystack_request("POST", "/transaction/initialize", {
-                    "email": email_addr,
-                    "amount": amount_minor,
-                    "currency": cur,
-                    "callback_url": callback_url,
-                    "metadata": {
-                        "user_id": str(user_id),
-                        "subscription_id": str(checkout_row.get("id")),
-                        "plan_slug": plan_slug,
-                    },
-                })
-                if perr and perr != "paystack_not_configured":
-                    raise RuntimeError(_paystack_api_error_message(perr) or perr)
-                if not resp or not resp.get("status"):
-                    raise RuntimeError((resp or {}).get("message", "Paystack initialize failed"))
-                pay_url = (resp.get("data") or {}).get("authorization_url")
-                if not pay_url:
-                    raise RuntimeError("Paystack did not return a checkout URL.")
-                return HttpResponseRedirect(pay_url)
-            except Exception as exc:
-                return render(request, "subscribe.html",
-                    _subscribe_ctx(request, user_id, plans, checkout_row,
-                        config_error=str(exc), error=error))
-
-        # Stripe fallback (only used if STRIPE_SECRET_KEY is set and Paystack is not)
         try:
-            import stripe
-            stripe.api_key = settings.STRIPE_SECRET_KEY
-            origin = _public_site_origin(request)
-            product_data = {"name": str(plan.get("name") or plan_slug.title())}
-            tag = str(plan.get("tagline") or "").strip()
-            if tag:
-                product_data["description"] = tag[:500]
-            session = stripe.checkout.Session.create(
-                mode="payment",
-                customer_email=request.session.get("email") or None,
-                client_reference_id=str(user_id),
-                success_url=f"{origin}/subscribe/success/?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{origin}/subscribe/cancel/",
-                line_items=[{"price_data": {"currency": cur.lower(), "unit_amount": amount_minor,
-                    "product_data": product_data}, "quantity": 1}],
-                metadata={"user_id": str(user_id),
-                    "subscription_id": str(checkout_row.get("id")), "plan_slug": plan_slug},
+            profile_rows = (
+                _supabase_admin()
+                .table("profiles")
+                .select("full_name, phone_number")
+                .eq("id", str(user_id))
+                .limit(1)
+                .execute()
+                .data
+                or []
             )
-            return HttpResponseRedirect(session.url)
+            profile = profile_rows[0] if profile_rows else {}
+            full_name = (profile.get("full_name") or request.session.get("full_name") or "Student").strip()
+            phone_number = (profile.get("phone_number") or "").strip()
+            if not phone_number:
+                raise ValueError("Add your phone number to your profile before making payment.")
+            payment, berr = _bulkclix_start_subscription_payment(
+                full_name=full_name,
+                phone_number=phone_number,
+                amount=price,
+            )
+            if berr:
+                raise ValueError(berr)
+            _apply_successful_subscription_payment(
+                user_id,
+                checkout_row.get("id"),
+                plan_slug,
+                float(payment.get("amount_paid") or price),
+                payment.get("reference"),
+            )
+            request.session["plan_slug"] = plan_slug
+            return redirect("/dashboard/")
         except Exception as exc:
+            emsg = str(exc)
+            if "not allowed for momo collection" in emsg.lower():
+                emsg = (
+                    "Bulkclix is not enabled for MoMo collection on this account. "
+                    "Contact Bulkclix support to enable it, then try again."
+                )
             return render(request, "subscribe.html",
                 _subscribe_ctx(request, user_id, plans, checkout_row,
-                    config_error=str(exc), error=error))
+                    config_error=emsg, error=error))
 
     return render(request, "subscribe.html",
         _subscribe_ctx(request, user_id, plans, checkout_row, error=error))
