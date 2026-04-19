@@ -2588,6 +2588,32 @@ def student_nmc_mastery(request):
     return render(request, "dashboard/student_nmc_mastery.html", context)
 
 
+def _fetch_clinical_visual_gallery_urls_from_db(admin_client):
+    """
+    Active clinical visual image URLs from Supabase, ordered by sort_order then created_at.
+    Returns None on failure (missing table / network); empty list if none configured.
+    """
+    try:
+        rows = (
+            admin_client.table("clinical_visual_gallery")
+            .select("image_url")
+            .eq("is_active", True)
+            .order("sort_order", desc=False)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+        out = []
+        for r in rows:
+            u = (r.get("image_url") or "").strip()
+            if u.lower().startswith(("http://", "https://")):
+                out.append(u)
+        return out
+    except Exception:
+        return None
+
+
 def student_clinical_visual_library(request):
     """High-resolution clinical / study reference images (grid on desktop; swipe-style nav on phones)."""
     guard = _require_login(request)
@@ -2596,10 +2622,13 @@ def student_clinical_visual_library(request):
     if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
 
-    from website.clinical_visual_gallery_urls import CLINICAL_VISUAL_GALLERY_URLS
-
     user_id = request.session.get("user_id")
-    urls = list(CLINICAL_VISUAL_GALLERY_URLS)
+    admin = _supabase_admin()
+    urls = _fetch_clinical_visual_gallery_urls_from_db(admin)
+    if urls is None:
+        from website.clinical_visual_gallery_urls import CLINICAL_VISUAL_GALLERY_URLS
+
+        urls = list(CLINICAL_VISUAL_GALLERY_URLS)
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -3235,6 +3264,130 @@ def admin_free_users(request):
         "error":              error,
     }
     return render(request, "dashboard/admin_free_users.html", context)
+
+
+def _clinical_visual_url_ok(url):
+    u = (url or "").strip()
+    return u.lower().startswith(("http://", "https://")) and len(u) < 4000
+
+
+def admin_clinical_visual_gallery(request):
+    """Manage student Clinical Visual Library image URLs in Supabase."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin = _supabase_admin()
+    success = error = None
+    rows = []
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        uid = request.session.get("user_id")
+
+        try:
+            if action == "add_one":
+                image_url = (request.POST.get("image_url") or "").strip()
+                caption = (request.POST.get("caption") or "").strip()[:500]
+                sort_raw = (request.POST.get("sort_order") or "").strip()
+                try:
+                    sort_order = int(sort_raw) if sort_raw != "" else 0
+                except Exception:
+                    sort_order = 0
+                if not _clinical_visual_url_ok(image_url):
+                    error = "Enter a valid image URL (must start with http:// or https://)."
+                else:
+                    admin.table("clinical_visual_gallery").insert(
+                        {
+                            "image_url": image_url,
+                            "caption": caption,
+                            "sort_order": sort_order,
+                            "is_active": True,
+                            "created_by": str(uid) if uid else None,
+                        }
+                    ).execute()
+                    success = "Image added."
+
+            elif action == "bulk_add":
+                raw = (request.POST.get("urls_bulk") or "")
+                lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+                payloads = [
+                    {
+                        "image_url": line,
+                        "caption": "",
+                        "sort_order": 0,
+                        "is_active": True,
+                        "created_by": str(uid) if uid else None,
+                    }
+                    for line in lines
+                    if _clinical_visual_url_ok(line)
+                ]
+                if payloads:
+                    admin.table("clinical_visual_gallery").insert(payloads).execute()
+                    success = f"Added {len(payloads)} image(s)."
+                else:
+                    error = "No valid URLs found. Each line must be a full http(s) URL."
+
+            elif action == "delete":
+                rid = (request.POST.get("row_id") or "").strip()
+                if rid:
+                    admin.table("clinical_visual_gallery").delete().eq("id", rid).execute()
+                    success = "Removed."
+
+            elif action == "toggle_active":
+                rid = (request.POST.get("row_id") or "").strip()
+                nxt = (request.POST.get("next_state") or "false").strip().lower() == "true"
+                if rid:
+                    admin.table("clinical_visual_gallery").update({"is_active": nxt}).eq("id", rid).execute()
+                    success = "Updated."
+
+            elif action == "update_meta":
+                rid = (request.POST.get("row_id") or "").strip()
+                caption = (request.POST.get("caption") or "").strip()[:500]
+                sort_raw = (request.POST.get("sort_order") or "").strip()
+                try:
+                    sort_order = int(sort_raw) if sort_raw != "" else 0
+                except Exception:
+                    sort_order = 0
+                if rid:
+                    admin.table("clinical_visual_gallery").update(
+                        {"caption": caption, "sort_order": sort_order}
+                    ).eq("id", rid).execute()
+                    success = "Saved."
+
+        except Exception as exc:
+            err = str(exc).lower()
+            if "pgrst205" in err or "could not find the table" in err or "does not exist" in err:
+                error = (
+                    "Table clinical_visual_gallery is missing. Run the SQL in sql/create_clinical_visual_gallery.sql "
+                    "in the Supabase SQL editor, then try again."
+                )
+            else:
+                error = str(exc)
+
+    try:
+        rows = (
+            admin.table("clinical_visual_gallery")
+            .select("*")
+            .order("sort_order", desc=False)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        rows = []
+
+    context = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "admin_clinical_visuals",
+        "gallery_rows": rows,
+        "success": success,
+        "error": error,
+    }
+    return render(request, "dashboard/admin_clinical_visual_gallery.html", context)
 
 
 def admin_messages(request):

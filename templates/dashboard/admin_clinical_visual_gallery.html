@@ -1,0 +1,162 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Clinical Visual Library - Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex flex-wrap align-items-baseline justify-content-between gap-2">
+        <div>
+          <h4 class="mb-0">Clinical Visual Library</h4>
+          <p class="text-muted small mb-0 mt-1">
+            Images appear on the student page <strong>Clinical Visual Library</strong> (<code>/dashboard/clinical-visuals/</code>).
+            Lower <strong>sort order</strong> numbers appear first.
+          </p>
+        </div>
+        <span class="badge bg-label-primary fs-6">{{ gallery_rows|length }} image{{ gallery_rows|length|pluralize }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <i class="bx bx-check-circle me-2"></i>{{ success }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+  <i class="bx bx-error-circle me-2"></i>{{ error }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header border-bottom py-3">
+        <h5 class="mb-0"><i class="bx bx-image-add me-2 text-primary"></i>Add one image</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_one">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Image URL <span class="text-danger">*</span></label>
+            <input type="url" name="image_url" class="form-control" placeholder="https://..." required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Caption <span class="text-muted">(optional)</span></label>
+            <input type="text" name="caption" class="form-control" placeholder="Short label for admins" maxlength="500">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Sort order <span class="text-muted">(optional)</span></label>
+            <input type="number" name="sort_order" class="form-control" placeholder="0" value="0">
+            <div class="form-text">Smaller numbers list first.</div>
+          </div>
+          <button type="submit" class="btn btn-primary">Add image</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header border-bottom py-3">
+        <h5 class="mb-0"><i class="bx bx-list-plus me-2 text-primary"></i>Add many images</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="bulk_add">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">URLs <span class="text-danger">*</span></label>
+            <textarea name="urls_bulk" class="form-control font-monospace" rows="10" placeholder="One URL per line&#10;https://...&#10;https://..." required></textarea>
+            <div class="form-text">Each line must be a full <code>http://</code> or <code>https://</code> link.</div>
+          </div>
+          <button type="submit" class="btn btn-primary">Add all valid URLs</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header border-bottom py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h5 class="mb-0"><i class="bx bx-grid-alt me-2"></i>All images</h5>
+      </div>
+      <div class="card-body p-0">
+        {% if gallery_rows %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:72px;">Preview</th>
+                <th>URL</th>
+                <th style="width:220px;">Caption / order</th>
+                <th style="width:100px;">Active</th>
+                <th style="width:120px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in gallery_rows %}
+              <tr>
+                <td>
+                  <img src="{{ row.image_url }}" alt="" width="56" height="56" style="object-fit:cover;border-radius:6px;border:1px solid #e8eaef;background:#fafbfc;" loading="lazy" onerror="this.style.opacity=0.35">
+                </td>
+                <td class="small">
+                  <a href="{{ row.image_url }}" target="_blank" rel="noopener noreferrer" class="text-break">{{ row.image_url|truncatechars:80 }}</a>
+                </td>
+                <td>
+                  <form method="post" class="d-flex flex-column gap-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_meta">
+                    <input type="hidden" name="row_id" value="{{ row.id }}">
+                    <input type="text" name="caption" class="form-control form-control-sm" value="{{ row.caption|default:'' }}" placeholder="Caption">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text">Order</span>
+                      <input type="number" name="sort_order" class="form-control" value="{{ row.sort_order|default:0 }}">
+                      <button type="submit" class="btn btn-outline-secondary">Save</button>
+                    </div>
+                  </form>
+                </td>
+                <td>
+                  {% if row.is_active %}
+                  <span class="badge bg-label-success">On</span>
+                  {% else %}
+                  <span class="badge bg-label-secondary">Off</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <form method="post" class="d-inline" onsubmit="return confirm('Remove this image from the library?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="row_id" value="{{ row.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                  <form method="post" class="d-inline ms-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="row_id" value="{{ row.id }}">
+                    <input type="hidden" name="next_state" value="{% if row.is_active %}false{% else %}true{% endif %}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">{% if row.is_active %}Hide{% else %}Show{% endif %}</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+          <p class="mb-2">No images yet. Add URLs using the forms above.</p>
+          <p class="small mb-0">If saves fail, create the table by running <code>sql/create_clinical_visual_gallery.sql</code> in Supabase.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

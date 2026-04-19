@@ -86,6 +86,11 @@ urlpatterns = [
     path("admin-panel/drug-cards/", views.admin_drug_cards, name="admin_drug_cards"),
     path("admin-panel/drug-cards/add/", views.admin_drug_card_form, name="admin_drug_card_add"),
     path("admin-panel/drug-cards/<uuid:drug_id>/edit/", views.admin_drug_card_form, name="admin_drug_card_edit"),
+    path(
+        "admin-panel/clinical-visuals/",
+        views.admin_clinical_visual_gallery,
+        name="admin_clinical_visual_gallery",
+    ),
 
     # Payment / Subscription
     path("payment/", views.payment_page, name="payment_page"),
