@@ -872,12 +872,100 @@ def _normalize_question_payload(item):
 MOCK_QUESTION_BATCH_SIZE = 60
 MOCK_DURATION_MINUTES = 30
 GLOBAL_MOCK_PROGRAMME = "All Programmes"
+# Mock exams: this many questions are drawn at random from General Paper (student's programme);
+# the random pool is at most this many GP questions before picking.
+MOCK_GENERAL_PAPER_QUESTIONS = 15
+MOCK_GENERAL_PAPER_POOL_CAP = 120
 # Admin-created free accounts: subscriptions row uses this reference; also used when profiles.is_free_access is missing.
 FREE_ACCESS_PAYMENT_REFERENCE = "free_access"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
 # PostgREST / Supabase often caps each response (~1000 rows). Use range() chunks.
 POSTGREST_LIST_CHUNK = 1000
+
+
+def _collect_general_paper_ids_for_mock_pool(admin_client, programme, frame_cap):
+    """
+    Collect General Paper question ids for a programme. If more than frame_cap exist,
+    return a random subset of size frame_cap (sampling frame for mock picks).
+    """
+    programme = (programme or "").strip()
+    if not programme or frame_cap < 1:
+        return []
+    ids = []
+    offset = 0
+    chunk = POSTGREST_LIST_CHUNK
+    hard_cap = 8000
+    while len(ids) < hard_cap:
+        rows = (
+            admin_client.table("question_bank")
+            .select("id")
+            .eq("programme", programme)
+            .eq("paper_title", GENERAL_PAPER_TITLE)
+            .order("created_at", desc=False)
+            .range(offset, offset + chunk - 1)
+            .execute()
+            .data
+            or []
+        )
+        for r in rows:
+            qid = r.get("id")
+            if qid is not None:
+                ids.append(qid)
+        if len(rows) < chunk:
+            break
+        offset += chunk
+    if not ids:
+        return []
+    if len(ids) > frame_cap:
+        return random.sample(ids, frame_cap)
+    return ids
+
+
+def _build_mock_exam_question_pool(admin_client, *, student_programme, needed, mock_number):
+    """
+    Build the list of question_bank ids for a mock attempt:
+    - Up to MOCK_GENERAL_PAPER_QUESTIONS questions randomly chosen from at most
+      MOCK_GENERAL_PAPER_POOL_CAP General Paper questions (student's programme).
+    - Remainder from the global mock pool (GLOBAL_MOCK_PROGRAMME) using the usual
+      per-mock slice: mock N uses the N-th block of MOCK_QUESTION_BATCH_SIZE rows.
+    Returns a list of length `needed` or None if the mock slice is short on questions.
+    """
+    needed = int(needed)
+    mock_number = max(1, int(mock_number or 1))
+    if needed < 1:
+        return None
+
+    block = MOCK_QUESTION_BATCH_SIZE
+    gp_want = min(MOCK_GENERAL_PAPER_QUESTIONS, needed)
+    gp_frame = _collect_general_paper_ids_for_mock_pool(
+        admin_client, student_programme, MOCK_GENERAL_PAPER_POOL_CAP
+    )
+    gp_n = min(gp_want, len(gp_frame))
+    gp_chosen = random.sample(gp_frame, gp_n) if gp_n > 0 else []
+
+    mock_sub = needed - len(gp_chosen)
+    range_start = (mock_number - 1) * block
+
+    mock_part = []
+    if mock_sub > 0:
+        resp = (
+            admin_client.table("question_bank")
+            .select("id")
+            .eq("programme", GLOBAL_MOCK_PROGRAMME)
+            .order("created_at", desc=False)
+            .range(range_start, range_start + mock_sub - 1)
+            .execute()
+            .data
+            or []
+        )
+        mock_part = [r["id"] for r in resp if r.get("id")]
+        if len(mock_part) < mock_sub:
+            return None
+
+    out = gp_chosen + mock_part
+    random.shuffle(out)
+    return out
 
 
 def _mq_fetch_question_rows(
@@ -4620,31 +4708,29 @@ def student_take_mock_exam(request, exam_id):
         needed = int(exam.get("question_count") or MOCK_QUESTION_BATCH_SIZE)
         mock_number = int(exam.get("mock_number") or 1)
 
-        # Each mock owns a non-overlapping slice of the pool ordered by
-        # creation date.  Mock 1 → rows 0-59, Mock 2 → rows 60-119, etc.
-        # This guarantees every student sitting the same mock gets the same
-        # 60 questions; only the display order is shuffled per attempt.
-        range_start = (mock_number - 1) * needed
-        range_end   = range_start + needed - 1   # Supabase range is inclusive
-
-        pool = (
-            admin.table("question_bank")
-            .select("id")
-            .eq("programme", GLOBAL_MOCK_PROGRAMME)
-            .order("created_at", desc=False)
-            .range(range_start, range_end)
+        prof_rows = (
+            admin.table("profiles")
+            .select("programme")
+            .eq("id", str(user_id))
+            .limit(1)
             .execute()
             .data
             or []
         )
+        student_programme = (prof_rows[0].get("programme") or "").strip() if prof_rows else ""
 
-        if len(pool) < needed:
-            # Not enough questions in this mock's slice — redirect gracefully.
+        # Up to 15 General Paper questions (random from ≤120 GP pool) + rest from the
+        # global mock bank slice for this mock_number (non-overlapping 60-ID blocks).
+        pool_ids = _build_mock_exam_question_pool(
+            admin,
+            student_programme=student_programme,
+            needed=needed,
+            mock_number=mock_number,
+        )
+        if not pool_ids or len(pool_ids) < needed:
             return redirect("/dashboard/mock-exams/")
 
-        # Shuffle display order so each student sees questions in a unique
-        # sequence, but the underlying set is always the same 60.
-        random.shuffle(pool)
+        pool = [{"id": qid} for qid in pool_ids]
         attempt_questions = [
             {
                 "attempt_id": attempt["id"],

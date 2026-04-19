@@ -1552,18 +1552,16 @@ def mobile_mock_exam_attempt(request, exam_id):
     if not links:
         needed = int(exam.get("question_count") or V.MOCK_QUESTION_BATCH_SIZE)
         mock_number = int(exam.get("mock_number") or 1)
-        range_start = (mock_number - 1) * needed
-        pool = (
-            admin.table("question_bank")
-            .select("id")
-            .eq("programme", V.GLOBAL_MOCK_PROGRAMME)
-            .order("created_at", desc=False)
-            .range(range_start, range_start + needed - 1)
-            .execute()
-            .data
-            or []
+        student_programme = ((profile or {}).get("programme") or "").strip()
+        pool_ids = V._build_mock_exam_question_pool(
+            admin,
+            student_programme=student_programme,
+            needed=needed,
+            mock_number=mock_number,
         )
-        random.shuffle(pool)
+        if not pool_ids or len(pool_ids) < needed:
+            return JsonResponse({"ok": False, "error": "insufficient_mock_questions"}, status=400)
+        pool = [{"id": qid} for qid in pool_ids]
         attempt_questions = [{"attempt_id": attempt["id"], "question_id": item["id"], "question_order": idx} for idx, item in enumerate(pool, start=1)]
         if attempt_questions:
             admin.table("mock_attempt_questions").insert(attempt_questions).execute()
