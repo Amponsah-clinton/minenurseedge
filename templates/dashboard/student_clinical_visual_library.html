@@ -1,0 +1,199 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Clinical Visual Library - NurseEdge{% endblock %}
+
+{% block content %}
+<style>
+  .cvl-wrap { max-width: 1120px; margin: 0 auto; padding: 0 4px; }
+  .cvl-hero {
+    background: #fff;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .cvl-hero h4 {
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #1f2d40;
+    margin: 0 0 8px;
+  }
+  .cvl-hero p {
+    font-size: 0.86rem;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* Desktop / tablet: grid */
+  .cvl-grid {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  @media (min-width: 768px) {
+    .cvl-grid { display: grid; }
+  }
+  .cvl-card {
+    margin: 0;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+  }
+  .cvl-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+    vertical-align: middle;
+    background: #fafbfc;
+  }
+
+  /* Phone: single image + controls */
+  .cvl-mobile {
+    display: block;
+    border: 1px solid #e4e7ec;
+    border-radius: 10px;
+    background: #fff;
+    padding: 12px;
+  }
+  @media (min-width: 768px) {
+    .cvl-mobile { display: none; }
+  }
+  .cvl-mobile__frame {
+    border: 1px solid #eceff3;
+    border-radius: 8px;
+    background: #fafbfc;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .cvl-mobile__frame img {
+    width: 100%;
+    height: auto;
+    max-height: min(72vh, 560px);
+    object-fit: contain;
+    display: block;
+  }
+  .cvl-mobile__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .cvl-btn {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #1f2d40;
+    background: #1f2d40;
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 11px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .cvl-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+  }
+  .cvl-btn:focus-visible {
+    outline: 2px solid #1f2d40;
+    outline-offset: 2px;
+  }
+  .cvl-count {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #4b5563;
+    text-align: center;
+    min-width: 5rem;
+  }
+</style>
+
+<div class="cvl-wrap">
+  <div class="cvl-hero">
+    <h4><i class="bx bx-images"></i> Clinical Visual Library</h4>
+    <p>
+      Reference diagrams and study visuals for revision. On a large screen you can scroll the full gallery;
+      on a phone, use Previous and Next to view one image at a time.
+    </p>
+  </div>
+
+  <div class="cvl-grid" aria-hidden="false">
+    {% for url in gallery_urls %}
+    <figure class="cvl-card">
+      <img src="{{ url }}" loading="lazy" decoding="async" alt="Clinical reference {{ forloop.counter }} of {{ gallery_count }}" />
+    </figure>
+    {% empty %}
+    <p class="text-muted">No images are configured yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="cvl-mobile" id="cvlMobileRoot" {% if not gallery_count %}style="display:none"{% endif %}>
+    <div class="cvl-mobile__frame">
+      <img
+        id="cvlMobileImg"
+        src="{% if gallery_urls %}{{ gallery_urls.0 }}{% endif %}"
+        alt="Clinical reference"
+        decoding="async"
+      />
+    </div>
+    <div class="cvl-mobile__bar">
+      <button type="button" class="cvl-btn" id="cvlPrev" aria-label="Previous image">Previous</button>
+      <span class="cvl-count" id="cvlCount" aria-live="polite">{% if gallery_count %}1 / {{ gallery_count }}{% else %}0 / 0{% endif %}</span>
+      <button type="button" class="cvl-btn" id="cvlNext" aria-label="Next image">Next</button>
+    </div>
+  </div>
+</div>
+
+{% if gallery_count %}
+<script>
+(function () {
+  var urls = {{ gallery_urls_json|safe }};
+  if (!urls || !urls.length) return;
+  var i = 0;
+  var img = document.getElementById("cvlMobileImg");
+  var countEl = document.getElementById("cvlCount");
+  var prevBtn = document.getElementById("cvlPrev");
+  var nextBtn = document.getElementById("cvlNext");
+
+  function render() {
+    img.src = urls[i];
+    img.alt = "Clinical reference " + (i + 1) + " of " + urls.length;
+    countEl.textContent = i + 1 + " / " + urls.length;
+    prevBtn.disabled = i <= 0;
+    nextBtn.disabled = i >= urls.length - 1;
+  }
+
+  prevBtn.addEventListener("click", function () {
+    if (i > 0) {
+      i -= 1;
+      render();
+    }
+  });
+  nextBtn.addEventListener("click", function () {
+    if (i < urls.length - 1) {
+      i += 1;
+      render();
+    }
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (window.matchMedia("(min-width: 768px)").matches) return;
+    if (e.key === "ArrowLeft" && i > 0) {
+      i -= 1;
+      render();
+    } else if (e.key === "ArrowRight" && i < urls.length - 1) {
+      i += 1;
+      render();
+    }
+  });
+
+  render();
+})();
+</script>
+{% endif %}
+{% endblock %}

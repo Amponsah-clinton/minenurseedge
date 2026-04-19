@@ -31,6 +31,11 @@ urlpatterns = [
     path("dashboard/ack-disclaimer/", views.dashboard_ack_nmc_disclaimer, name="dashboard_ack_nmc_disclaimer"),
     path("dashboard/nmc-mastery/", views.student_nmc_mastery, name="student_nmc_mastery"),
     path(
+        "dashboard/clinical-visuals/",
+        views.student_clinical_visual_library,
+        name="student_clinical_visual_library",
+    ),
+    path(
         "dashboard/hot-areas/",
         RedirectView.as_view(pattern_name="student_nmc_mastery", permanent=False),
     ),

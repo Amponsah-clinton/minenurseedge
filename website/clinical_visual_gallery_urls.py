@@ -1,0 +1,85 @@
+# Cloudinary URLs for the student Clinical Visual Library (deduped at import).
+_CLINICAL_VISUAL_GALLERY_URLS_RAW = """
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602398/61998866-5e91-42c5-8905-b83108273343_ckesn3.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602397/18933917-52d5-4a8c-bc38-54efe7246881_qzqe3p.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602397/5448228d-365b-432f-8af0-32a65b4a7c58_qunod8.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602397/799499d7-ec79-4d0e-86ad-e8263b150c43_ozb9hk.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602395/278a077a-43b7-4db0-aafa-eb9b356600f1_nw34m7.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602395/1202e6cb-be8f-48f3-a9d3-d5cc349118e9_jofvlf.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602395/3372b2b2-2ed4-43e7-81a5-79eb9b4337a0_i12mt3.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602396/68907d3f-7b9f-4a16-9e56-52eeeda36e21_qsrq7a.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602396/2623f596-79b2-4f3c-af39-4ea7b5c27f7c_u8lnma.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602396/91639f74-5684-4698-a70b-852bfa8d90f1_asp7j8.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/92b0bc3f-ecce-4fc5-a488-b33ef1a045b0_t35wy1.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/6d34f097-d79f-4f4d-bdf7-f5fdd5d68edf_yhuzxo.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/7fbd311e-ab32-4799-a5cf-5a12673cf57f_g0oluw.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602392/68f38d80-9895-449e-8ed9-105462c51078_em1cvq.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/81be7571-d0d5-434b-b8f1-f8041c5daf52_v2ft6c.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602392/9c68f65c-1baf-434d-8aef-2fe40e0a862e_ainpzj.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602389/2adc60d4-0085-4a93-ad4a-58b08836645d_kboz91.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602389/2b76796d-fef2-4a02-81f0-61e7ada26f3b_jruxxd.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602389/1e2ec790-1319-4baf-9a13-be04d3668a24_rce2p7.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602389/1dc528a9-02ef-42fe-a79d-1e9a97a2286e_jxl9eq.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602388/1dd68e7a-62eb-4675-ab00-2acf51f01d9a_blqyjd.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602388/dc1bdd99-b3a2-404f-8894-e49ec52efe55_zwjpmq.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602388/d06b9ae6-3147-463a-9954-ee5d27496b2c_gia1rh.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602388/dae3b753-6d30-4616-bed1-b33ac048fb3b_jnlsy8.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/0fb47b36-4812-4f02-a323-6165c1c91bfe_vlunyb.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602388/0fd6d24d-ccf9-413b-837b-a4db6c584feb_lbw8zy.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/0e4a353d-9b50-485d-923e-2b673804bb72_gmaqtg.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/00dccc1a-4fe0-4835-aae6-431b65e4ab76_c8dq41.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/d4c04930-d86f-418d-9f9b-67a4ac9fd27a_jhnp00.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/cc711a0a-48d3-4719-aad8-0d44c06ebb06_lhhjmp.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/cbf037c6-63be-4f77-93cc-1b10bf272d9a_wjulnh.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/c78527e3-7469-48c0-98d3-e54632f8b4be_lyzltv.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602387/caf254c2-3936-4e12-b38b-f460b6b21b72_fvb3v9.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/fc582214-446c-458d-b136-f86530ace010_p8ufep.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/5b45b219-0346-4339-8a04-bf26afe07a81_yuzsfw.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/6d83e2b9-43fd-4fb5-bae8-73a57ea40837_bh3syy.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/4ea47c07-fc71-41d0-a61f-f21b11351cb1_d6nifm.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/4e40cfad-bc4b-484b-8f79-8dfabf022b78_vtkyvz.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/5a94fe36-0914-4bb7-beb1-414da342449a_rmqokb.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/4c76b3b7-6910-4823-a58e-90d6251af287_fnwklg.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/3a877ed7-dd87-4737-9cce-9f90b21a697c_lzhwhl.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/3a556747-6810-4443-81d2-c84b2715334e_zyxpkw.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602390/3d663efb-b7c0-4aa6-ac5f-0dda8fc9a514_ttmdkr.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/c8ef13b7-245e-41a9-9d90-64c637462c6f_uwj4ai.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602389/2ee7098a-e519-4bc0-a8f5-efb89a15dae7_qba5fs.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/f286cd08-3de4-40f8-8fba-607b2134645b_xbqhwj.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/6b00c1df-78c1-40d7-9bc4-de81e5417199_jcovbf.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/dec11588-760f-483a-a45f-ea12af794706_iqwaqi.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/ba4aa765-8bdb-45fb-8d30-0be7abad6314_nd0dy4.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/b59f1567-6cc8-4793-bdb8-ecf977272fba_zqg56v.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/df6f4906-7c08-4508-9e56-98712f63f30c_t4bonv.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/e50e80bc-707f-435a-8814-45c3d29db1ae_plx2xl.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602391/4c91ba98-d164-4d8b-9f2a-0748f26f8db8_llwmrg.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/c36d5c04-d8a5-4953-afeb-21b4f250f48a_jro23r.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/c2113c1a-4ff5-4632-89ef-c98bb17cd9bf_gkiewa.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/bc27b8e5-147c-492a-9b37-a5c53a3ea6a0_k6qtfq.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602386/edee9988-6bc7-417d-97bc-f1e6aaa886bf_dntrmd.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602385/a264c42c-18ca-4b2c-bb41-e892fb64a1e4_xgpjst.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602392/50f447f1-1444-4fc1-95d4-057a33284e41_ccmg0g.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/46c70bed-de01-4db6-9de0-3058bd21fd0d_vmnxkb.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602392/25ebd5af-45fa-4609-b5dd-4b4d3d2a7c8c_hrokil.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602392/20b6c771-4abd-4120-a51f-c00810e78b92_p7ulya.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602396/5433fe10-521f-44ca-a968-91ae35101e66_ja3vrr.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/84b25319-56bf-4d77-82d9-678140ca0481_nndtlw.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/0164ee16-2765-4550-ab1e-1010f6f375f0_sqmoea.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602396/93333bbe-0a63-4c37-997b-5fea820a7ae2_pgewm2.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602395/1429fb46-692e-4cf9-9783-f1e97f48b191_fl5ree.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/84c88d8c-8e9b-43fc-8516-2d713e39afd9_yfwyer.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602395/2462d872-bd71-46f9-a90e-81f5e8ec6add_yzsyv1.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602393/226df307-f126-4986-b21f-d7f890e80fde_u0unx4.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602394/01127da4-d489-4537-b421-5e4beceab29c_lponhn.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602394/670ceef8-c203-47ec-98fe-e1c17840da36_tisy00.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602394/852e4b84-7ea6-4b71-ab74-63f81ab4cc3a_nvdaaq.jpg
+https://res.cloudinary.com/dbyhgl9z0/image/upload/v1776602394/864c9be4-77dc-44e8-9bc2-595dfb479a75_f2whmz.jpg
+"""
+
+CLINICAL_VISUAL_GALLERY_URLS = tuple(
+    dict.fromkeys(
+        line.strip()
+        for line in _CLINICAL_VISUAL_GALLERY_URLS_RAW.strip().splitlines()
+        if line.strip().startswith("http")
+    )
+)

@@ -2588,6 +2588,32 @@ def student_nmc_mastery(request):
     return render(request, "dashboard/student_nmc_mastery.html", context)
 
 
+def student_clinical_visual_library(request):
+    """High-resolution clinical / study reference images (grid on desktop; swipe-style nav on phones)."""
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    from website.clinical_visual_gallery_urls import CLINICAL_VISUAL_GALLERY_URLS
+
+    user_id = request.session.get("user_id")
+    urls = list(CLINICAL_VISUAL_GALLERY_URLS)
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "clinical_visuals",
+        "student_unread_notifications": _student_unread_count(user_id),
+        "community_unread": _community_unread_count(user_id),
+        "gallery_urls": urls,
+        "gallery_urls_json": json.dumps(urls),
+        "gallery_count": len(urls),
+    }
+    return render(request, "dashboard/student_clinical_visual_library.html", context)
+
+
 def student_messages(request):
     guard = _require_login(request)
     if guard:
