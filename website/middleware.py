@@ -1,6 +1,9 @@
 import threading
 
+from django.http import JsonResponse
 from django.shortcuts import redirect
+
+from website.site_maintenance import get_active_site_maintenance, maintenance_exempt_path
 
 # Paths that require the session check (dashboard routes + paid-area account pages)
 _PROTECTED_PREFIXES = ("/dashboard/", "/admin-panel/", "/payment/", "/subscribe/")
@@ -191,11 +194,42 @@ class VisitTrackerMiddleware:
 
 
 class MaintenanceModeMiddleware:
+    """
+    When a maintenance window is active in Supabase, block the site for non-admins:
+    - HTML: redirect to /maintenance/
+    - /api/mobile/*: 503 JSON (except health + mobile admin routes for admin sessions)
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        return self.get_response(request)
+        maint = get_active_site_maintenance()
+        if not maint:
+            return self.get_response(request)
+
+        path = request.path or ""
+
+        if maintenance_exempt_path(path):
+            return self.get_response(request)
+
+        # Mobile admin API: allow logged-in admins to keep operating the app
+        if path.startswith("/api/mobile/admin/") and request.session.get("role") == "admin":
+            return self.get_response(request)
+
+        if path.startswith("/api/mobile/"):
+            msg = (maint.get("message") or "").strip() or "The site is temporarily unavailable for maintenance."
+            title = (maint.get("title") or "").strip() or "Maintenance"
+            return JsonResponse(
+                {
+                    "error": "maintenance",
+                    "title": title,
+                    "message": msg,
+                },
+                status=503,
+            )
+
+        return redirect("/maintenance/")
 
 
 class LoginRequiredForFormsMiddleware:

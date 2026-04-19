@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}{{ maintenance_title }} - NurseEdge{% endblock %}
+{% block head_extra %}
+<style>
+  .maint-page {
+    min-height: calc(100vh - 170px);
+    padding: 28px 16px 48px;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .maint-card {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+  }
+  .maint-card__img-wrap {
+    background: linear-gradient(180deg, #e8f0ff 0%, #f7f9fc 100%);
+    padding: 24px 20px;
+    text-align: center;
+  }
+  .maint-card__img-wrap img {
+    max-width: min(100%, 520px);
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    vertical-align: middle;
+  }
+  .maint-card__body {
+    padding: 24px 22px 28px;
+  }
+  .maint-card__body h1 {
+    margin: 0 0 12px;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #111;
+    line-height: 1.25;
+  }
+  .maint-card__body p {
+    margin: 0 0 16px;
+    color: #4a5568;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+  }
+  .maint-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .maint-actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .maint-actions .btn-outline {
+    border: 1px solid #ccc;
+    color: #111;
+    background: #fff;
+  }
+  .maint-actions .btn-outline:hover {
+    background: #f5f5f5;
+  }
+  .maint-actions .btn-primary {
+    background: #111;
+    color: #fff;
+    border: 1px solid #111;
+  }
+  .maint-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10050;
+    padding: 16px;
+    backdrop-filter: blur(4px);
+  }
+  .maint-modal-backdrop.is-open {
+    display: flex;
+  }
+  .maint-modal {
+    width: min(480px, 100%);
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    max-height: min(90vh, 640px);
+    display: flex;
+    flex-direction: column;
+  }
+  .maint-modal__img {
+    max-height: 180px;
+    width: 100%;
+    object-fit: contain;
+    background: #eef2ff;
+    padding: 16px;
+  }
+  .maint-modal__head {
+    padding: 16px 18px 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .maint-modal__body {
+    padding: 10px 18px 18px;
+    font-size: 0.92rem;
+    color: #475569;
+    line-height: 1.55;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .maint-modal__foot {
+    padding: 12px 18px 18px;
+    border-top: 1px solid #eef2f7;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .maint-modal__btn {
+    border: none;
+    background: #111;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .maint-modal__btn:hover {
+    background: #2a2a2a;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="maint-page">
+  <article class="maint-card" aria-labelledby="maint-title">
+    <div class="maint-card__img-wrap">
+      <img
+        src="{{ maintenance_image_url }}"
+        alt=""
+        width="740"
+        height="400"
+        loading="eager"
+        decoding="async"
+      />
+    </div>
+    <div class="maint-card__body">
+      <h1 id="maint-title">{{ maintenance_title }}</h1>
+      <p>{{ maintenance_message }}</p>
+      <div class="maint-actions">
+        {% if request.session.user_id %}
+        <a class="btn-primary" href="/logout/">Log out</a>
+        {% else %}
+        <a class="btn-primary" href="/login/">Back to login</a>
+        {% endif %}
+        <a class="btn-outline" href="/">Home</a>
+      </div>
+    </div>
+  </article>
+</main>
+
+<div id="maintenanceNoticeModal" class="maint-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="maint-modal-title" aria-hidden="true">
+  <div class="maint-modal">
+    <img class="maint-modal__img" src="{{ maintenance_image_url }}" alt="" />
+    <div class="maint-modal__head" id="maint-modal-title">{{ maintenance_title }}</div>
+    <div class="maint-modal__body">{{ maintenance_message }}</div>
+    <div class="maint-modal__foot">
+      <button type="button" class="maint-modal__btn" id="maintenanceNoticeDismiss">Got it</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var showFromServer = {{ show_maintenance_modal|yesno:"true,false" }};
+  var maintId = "{{ maintenance_row_id|escapejs }}";
+  var endsIso = "{{ maintenance_ends_at_iso|escapejs }}";
+  var backdrop = document.getElementById("maintenanceNoticeModal");
+  var dismissBtn = document.getElementById("maintenanceNoticeDismiss");
+  if (!backdrop || !dismissBtn) return;
+
+  var storageKey = "nedg_maint_notice_" + maintId;
+  var windowToken = endsIso || "until_deleted";
+
+  function openModal() {
+    backdrop.classList.add("is-open");
+    backdrop.setAttribute("aria-hidden", "false");
+    dismissBtn.focus();
+  }
+  function closeModal() {
+    backdrop.classList.remove("is-open");
+    backdrop.setAttribute("aria-hidden", "true");
+    try {
+      localStorage.setItem(storageKey, windowToken);
+    } catch (e) {}
+  }
+
+  /* After login, server sets show_maintenance_modal once — always show the notice. */
+  if (showFromServer) {
+    openModal();
+  }
+
+  dismissBtn.addEventListener("click", closeModal);
+  backdrop.addEventListener("click", function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && backdrop.classList.contains("is-open")) closeModal();
+  });
+})();
+</script>
+{% endblock %}

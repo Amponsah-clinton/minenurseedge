@@ -20,6 +20,8 @@ from supabase import create_client
 from supabase.lib.client_options import SyncClientOptions
 from supabase_auth import SyncSupportedStorage
 
+from website.site_maintenance import get_active_site_maintenance, invalidate_site_maintenance_cache
+
 EMPTY_QUESTION_FORM = {
     "programme": "",
     "paper_title": "",
@@ -1348,6 +1350,152 @@ def _parse_lenient_json_payload(payload_text):
 
 
 # ---------------------------------------------------------------------------
+# Site maintenance (public page + admin)
+# ---------------------------------------------------------------------------
+
+def _parse_utc_datetime_local(raw):
+    """HTML datetime-local → aware UTC datetime."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+
+def maintenance_page(request):
+    from website.site_maintenance import DEFAULT_MAINTENANCE_IMAGE_URL
+
+    m = get_active_site_maintenance()
+    if not m:
+        uid = request.session.get("user_id")
+        role = request.session.get("role")
+        if uid and role == "student":
+            return redirect("/dashboard/")
+        return redirect("/")
+
+    img = (m.get("image_url") or "").strip() or DEFAULT_MAINTENANCE_IMAGE_URL
+    show_modal = bool(request.session.pop("maintenance_notice_pending", None))
+    request.session.modified = True
+
+    ends_val = m.get("ends_at")
+    ends_iso = str(ends_val).strip() if ends_val is not None else ""
+
+    return render(
+        request,
+        "maintenance.html",
+        {
+            "maintenance": m,
+            "maintenance_image_url": img,
+            "maintenance_title": (m.get("title") or "Scheduled maintenance").strip(),
+            "maintenance_message": (m.get("message") or "").strip()
+            or "We are performing scheduled maintenance. Please check back soon.",
+            "show_maintenance_modal": show_modal,
+            "maintenance_row_id": str(m.get("id") or ""),
+            "maintenance_ends_at_iso": ends_iso,
+        },
+    )
+
+
+def admin_system_maintenance(request):
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    from website.site_maintenance import DEFAULT_MAINTENANCE_IMAGE_URL, maintenance_row_is_live
+
+    admin = _supabase_admin()
+    success = error = None
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        try:
+            if action == "create":
+                title = (request.POST.get("title") or "").strip() or "Scheduled maintenance"
+                message = (request.POST.get("message") or "").strip()
+                image_url = (request.POST.get("image_url") or "").strip() or DEFAULT_MAINTENANCE_IMAGE_URL
+                starts = _parse_utc_datetime_local(request.POST.get("starts_at"))
+                ends_raw = (request.POST.get("ends_at") or "").strip()
+                ends = _parse_utc_datetime_local(ends_raw) if ends_raw else None
+                if not starts:
+                    error = "Start date and time are required."
+                elif ends and ends <= starts:
+                    error = "End time must be after start time."
+                else:
+                    admin.table("site_maintenance").insert(
+                        {
+                            "title": title[:500],
+                            "message": message[:8000],
+                            "image_url": image_url[:4000],
+                            "starts_at": starts.isoformat(),
+                            "ends_at": ends.isoformat() if ends else None,
+                            "is_enabled": True,
+                        }
+                    ).execute()
+                    success = "Maintenance schedule saved."
+                    invalidate_site_maintenance_cache()
+
+            elif action == "toggle":
+                rid = (request.POST.get("row_id") or "").strip()
+                if rid:
+                    row = admin.table("site_maintenance").select("is_enabled").eq("id", rid).limit(1).execute()
+                    cur = (row.data or [{}])[0].get("is_enabled", True)
+                    admin.table("site_maintenance").update({"is_enabled": not cur}).eq("id", rid).execute()
+                    success = "Updated."
+                    invalidate_site_maintenance_cache()
+
+            elif action == "delete":
+                rid = (request.POST.get("row_id") or "").strip()
+                if rid:
+                    admin.table("site_maintenance").delete().eq("id", rid).execute()
+                    success = "Removed."
+                    invalidate_site_maintenance_cache()
+
+        except Exception as exc:
+            err = str(exc).lower()
+            if "pgrst205" in err or "could not find the table" in err or "does not exist" in err:
+                error = (
+                    "Table site_maintenance is missing. Run sql/create_site_maintenance.sql in Supabase, then try again."
+                )
+            else:
+                error = str(exc)
+
+    rows = []
+    try:
+        rows = (
+            admin.table("site_maintenance")
+            .select("*")
+            .order("starts_at", desc=True)
+            .limit(100)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        rows = []
+
+    for row in rows:
+        if isinstance(row, dict):
+            row["is_live_now"] = maintenance_row_is_live(row)
+
+    context = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "admin_system",
+        "maintenance_rows": rows,
+        "default_maintenance_image": DEFAULT_MAINTENANCE_IMAGE_URL,
+        "success": success,
+        "error": error,
+    }
+    return render(request, "dashboard/admin_system.html", context)
+
+
+# ---------------------------------------------------------------------------
 # Auth views
 # ---------------------------------------------------------------------------
 
@@ -1426,6 +1574,10 @@ def login_page(request):
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
+                if get_active_site_maintenance():
+                    request.session["maintenance_notice_pending"] = True
+                    request.session.modified = True
+                    return redirect("/maintenance/")
                 _reconcile_pending_subscription_from_paystack(user_id, force=True)
                 # Ensure a pending Paystack checkout row exists and matches current plan price (same as email signup).
                 if not subscription_allows_dashboard(user_id):
@@ -1649,6 +1801,10 @@ def google_oauth_callback(request):
     if role == "admin":
         return redirect("/admin-panel/dashboard/")
     if role == "student":
+        if get_active_site_maintenance():
+            request.session["maintenance_notice_pending"] = True
+            request.session.modified = True
+            return redirect("/maintenance/")
         _reconcile_pending_subscription_from_paystack(user_id, force=True)
         if not subscription_allows_dashboard(user_id):
             plans = _get_plans()

@@ -9,6 +9,7 @@ urlpatterns = [
     path("about/", views.about, name="about"),
     path("nclex/", views.nclex_page, name="nclex_page"),
     path("contact/", views.contact_page, name="contact"),
+    path("maintenance/", views.maintenance_page, name="maintenance_page"),
 
     # Auth
     path("login/", views.login_page, name="login"),
@@ -70,6 +71,7 @@ urlpatterns = [
 
     # Admin panel
     path("admin-panel/dashboard/", views.admin_dashboard, name="admin_dashboard"),
+    path("admin-panel/system/", views.admin_system_maintenance, name="admin_system_maintenance"),
     path("admin-panel/users/", views.admin_users, name="admin_users"),
     path("admin-panel/users/<uuid:user_id>/toggle-status/", views.admin_toggle_user_status, name="admin_toggle_user_status"),
     path("admin-panel/users/<uuid:user_id>/delete/", views.admin_delete_user, name="admin_delete_user"),

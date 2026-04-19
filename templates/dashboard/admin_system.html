@@ -1,0 +1,141 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}System - Maintenance - NurseEdge Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body d-flex flex-wrap align-items-baseline justify-content-between gap-2">
+        <div>
+          <h4 class="mb-0">System</h4>
+          <p class="text-muted small mb-0 mt-1">
+            Schedule maintenance windows in Supabase. While a window is <strong>live</strong>, students and the public are sent to
+            <code>/maintenance/</code> (navbar + footer + notice). Only <strong>Login</strong> and <strong>Admin</strong> stay reachable.
+            Delete a row or disable it to lift the lock. Leave <strong>End</strong> empty to keep maintenance until you remove it.
+          </p>
+        </div>
+        <span class="badge bg-label-secondary fs-6">{{ maintenance_rows|length }} record{{ maintenance_rows|length|pluralize }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if success %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <i class="bx bx-check-circle me-2"></i>{{ success }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+  <i class="bx bx-error-circle me-2"></i>{{ error }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header border-bottom py-3">
+        <h5 class="mb-0"><i class="bx bx-calendar-plus me-2 text-primary"></i>Schedule maintenance</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title</label>
+            <input type="text" name="title" class="form-control" value="Scheduled maintenance" maxlength="500">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Message <span class="text-muted">(shown in modal + page)</span></label>
+            <textarea name="message" class="form-control" rows="4" placeholder="We are upgrading servers…"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Image URL</label>
+            <input type="url" name="image_url" class="form-control font-monospace small" value="{{ default_maintenance_image }}">
+            <div class="form-text">Defaults to the Freepik maintenance illustration if left unchanged.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Starts (UTC) <span class="text-danger">*</span></label>
+            <input type="datetime-local" name="starts_at" class="form-control" required>
+            <div class="form-text">Use UTC to match server time in Supabase.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Ends (UTC) <span class="text-muted">(optional)</span></label>
+            <input type="datetime-local" name="ends_at" class="form-control">
+            <div class="form-text">If empty, maintenance stays active until you delete or disable this row.</div>
+          </div>
+          <button type="submit" class="btn btn-primary">Save schedule</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header border-bottom py-3">
+        <h5 class="mb-0"><i class="bx bx-list-ul me-2 text-primary"></i>Maintenance records</h5>
+      </div>
+      <div class="card-body p-0">
+        {% if maintenance_rows %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Title</th>
+                <th style="min-width:200px;">Window (UTC)</th>
+                <th>Status</th>
+                <th style="width:140px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in maintenance_rows %}
+              <tr>
+                <td class="small fw-semibold">{{ row.title|default:"—"|truncatechars:40 }}</td>
+                <td class="small text-muted">
+                  {{ row.starts_at }}<br>
+                  {% if row.ends_at %}→ {{ row.ends_at }}{% else %}→ <em>open-ended</em>{% endif %}
+                </td>
+                <td>
+                  {% if row.is_enabled %}
+                    {% if row.is_live_now %}
+                    <span class="badge bg-label-success">Live</span>
+                    {% else %}
+                    <span class="badge bg-label-warning">Scheduled / off-window</span>
+                    {% endif %}
+                  {% else %}
+                  <span class="badge bg-label-secondary">Disabled</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="row_id" value="{{ row.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">{% if row.is_enabled %}Disable{% else %}Enable{% endif %}</button>
+                  </form>
+                  <form method="post" class="d-inline" onsubmit="return confirm('Delete this maintenance record? Site lock lifts if this was the active window.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="row_id" value="{{ row.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+          <p class="mb-2">No rows yet. Create the table in Supabase if saves fail.</p>
+          <p class="small mb-0"><code>sql/create_site_maintenance.sql</code></p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
