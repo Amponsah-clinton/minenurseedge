@@ -13,7 +13,12 @@
             Lower <strong>sort order</strong> numbers appear first.
           </p>
         </div>
-        <span class="badge bg-label-primary fs-6">{{ gallery_rows|length }} image{{ gallery_rows|length|pluralize }}</span>
+        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+          <span class="badge bg-label-primary fs-6">Total: {{ gallery_total_count }}</span>
+          {% if gallery_active_count != gallery_total_count %}
+          <span class="badge bg-label-secondary fs-6">Active for students: {{ gallery_active_count }}</span>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>

@@ -1,5 +1,6 @@
 {% extends "dashboard/base_dashboard.html" %}
 {% block title %}Clinical Visual Library - NurseEdge{% endblock %}
+{% block body_extra_class %}page-clinical-visuals{% endblock %}
 
 {% block content %}
 <style>
@@ -20,8 +21,14 @@
   .cvl-hero p {
     font-size: 0.86rem;
     color: #6b7280;
-    margin: 0;
+    margin: 0 0 10px;
     line-height: 1.6;
+  }
+  .cvl-hero p:last-child { margin-bottom: 0; }
+  .cvl-hero .cvl-hint {
+    font-size: 0.84rem;
+    color: #374151;
+    font-weight: 600;
   }
 
   /* Desktop / tablet: grid */
@@ -40,12 +47,23 @@
     background: #fff;
     overflow: hidden;
   }
+  .cvl-card button.cvl-thumb {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    cursor: zoom-in;
+    text-align: left;
+  }
   .cvl-card img {
     width: 100%;
     height: auto;
     display: block;
     vertical-align: middle;
     background: #fafbfc;
+    pointer-events: none;
   }
 
   /* Phone: single image + controls */
@@ -69,12 +87,21 @@
     justify-content: center;
     overflow: hidden;
   }
+  .cvl-mobile__frame button.cvl-thumb {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: zoom-in;
+  }
   .cvl-mobile__frame img {
     width: 100%;
     height: auto;
     max-height: min(72vh, 560px);
     object-fit: contain;
     display: block;
+    pointer-events: none;
   }
   .cvl-mobile__bar {
     display: flex;
@@ -111,6 +138,68 @@
     text-align: center;
     min-width: 5rem;
   }
+
+  /* Full-screen preview (all viewports) */
+  .cvl-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 10080;
+    background: rgba(15, 23, 42, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    cursor: zoom-out;
+    border: none;
+    width: 100%;
+    height: 100%;
+  }
+  .cvl-lightbox[hidden] {
+    display: none !important;
+  }
+  .cvl-lightbox__inner {
+    position: relative;
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+  }
+  .cvl-lightbox__inner img {
+    max-width: min(100vw - 24px, 100%);
+    max-height: min(100vh - 24px, 100%);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  }
+  .cvl-lightbox__close {
+    position: fixed;
+    top: max(10px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    z-index: 1;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cvl-lightbox__close:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+  .cvl-lightbox__close:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
 </style>
 
 <div class="cvl-wrap">
@@ -120,12 +209,17 @@
       Reference diagrams and study visuals for revision. On a large screen you can scroll the full gallery;
       on a phone, use Previous and Next to view one image at a time.
     </p>
+    <p class="cvl-hint">
+      Tap or click any image to open it full screen; tap outside the picture or press Escape to close.
+    </p>
   </div>
 
   <div class="cvl-grid" aria-hidden="false">
     {% for url in gallery_urls %}
     <figure class="cvl-card">
-      <img src="{{ url }}" loading="lazy" decoding="async" alt="Clinical reference {{ forloop.counter }} of {{ gallery_count }}" />
+      <button type="button" class="cvl-thumb" data-cvl-open="{{ url }}" aria-label="Open image {{ forloop.counter }} full screen">
+        <img src="{{ url }}" loading="lazy" decoding="async" alt="Clinical reference {{ forloop.counter }} of {{ gallery_count }}" />
+      </button>
     </figure>
     {% empty %}
     <p class="text-muted">No images are configured yet.</p>
@@ -134,12 +228,14 @@
 
   <div class="cvl-mobile" id="cvlMobileRoot" {% if not gallery_count %}style="display:none"{% endif %}>
     <div class="cvl-mobile__frame">
-      <img
-        id="cvlMobileImg"
-        src="{% if gallery_urls %}{{ gallery_urls.0 }}{% endif %}"
-        alt="Clinical reference"
-        decoding="async"
-      />
+      <button type="button" class="cvl-thumb" id="cvlMobileOpen" aria-label="Open current image full screen">
+        <img
+          id="cvlMobileImg"
+          src="{% if gallery_urls %}{{ gallery_urls.0 }}{% endif %}"
+          alt="Clinical reference"
+          decoding="async"
+        />
+      </button>
     </div>
     <div class="cvl-mobile__bar">
       <button type="button" class="cvl-btn" id="cvlPrev" aria-label="Previous image">Previous</button>
@@ -150,10 +246,70 @@
 </div>
 
 {% if gallery_count %}
+<div id="cvlLightbox" class="cvl-lightbox" hidden role="dialog" aria-modal="true" aria-label="Full image">
+  <button type="button" class="cvl-lightbox__close" id="cvlLightboxClose" aria-label="Close full image">&times;</button>
+  <div class="cvl-lightbox__inner" id="cvlLightboxInner">
+    <img id="cvlLightboxImg" src="" alt="" />
+  </div>
+</div>
+
 <script>
 (function () {
   var urls = {{ gallery_urls_json|safe }};
   if (!urls || !urls.length) return;
+
+  var lb = document.getElementById("cvlLightbox");
+  var lbImg = document.getElementById("cvlLightboxImg");
+  var lbClose = document.getElementById("cvlLightboxClose");
+  var lbInner = document.getElementById("cvlLightboxInner");
+
+  function openLightbox(src, alt) {
+    lbImg.src = src;
+    lbImg.alt = alt || "Full size clinical reference";
+    lb.hidden = false;
+    document.body.style.overflow = "hidden";
+    lbClose.focus({ preventScroll: true });
+  }
+
+  function closeLightbox() {
+    lb.hidden = true;
+    lbImg.removeAttribute("src");
+    document.body.style.overflow = "";
+  }
+
+  document.querySelectorAll(".cvl-grid .cvl-thumb[data-cvl-open]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var src = btn.getAttribute("data-cvl-open");
+      var im = btn.querySelector("img");
+      openLightbox(src, im ? im.alt : "");
+    });
+  });
+
+  var mobileOpen = document.getElementById("cvlMobileOpen");
+  if (mobileOpen) {
+    mobileOpen.addEventListener("click", function () {
+      var im = document.getElementById("cvlMobileImg");
+      if (im && im.src) openLightbox(im.src, im.alt);
+    });
+  }
+
+  lb.addEventListener("click", function (e) {
+    if (e.target === lb || e.target === lbInner) closeLightbox();
+  });
+  lbClose.addEventListener("click", function (e) {
+    e.stopPropagation();
+    closeLightbox();
+  });
+  lbInner.addEventListener("click", function (e) {
+    e.stopPropagation();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (!lb.hidden && e.key === "Escape") {
+      closeLightbox();
+    }
+  });
+
   var i = 0;
   var img = document.getElementById("cvlMobileImg");
   var countEl = document.getElementById("cvlCount");
@@ -183,6 +339,7 @@
 
   document.addEventListener("keydown", function (e) {
     if (window.matchMedia("(min-width: 768px)").matches) return;
+    if (!lb.hidden) return;
     if (e.key === "ArrowLeft" && i > 0) {
       i -= 1;
       render();

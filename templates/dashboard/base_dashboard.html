@@ -275,6 +275,10 @@
         right: 10px;
         bottom: 10px;
       }
+      /* Full-width image viewing on Clinical Visual Library — hide floating bot on phones */
+      body.page-clinical-visuals .assistant-bot {
+        display: none !important;
+      }
     }
     .nurseedge-sidebar-brand {
       font-size: 1.2rem !important;
@@ -344,7 +348,7 @@
   {% block dashboard_head %}{% endblock %}
 </head>
 
-<body{% if show_academic_profile_modal %} class="academic-profile-pending"{% endif %}>
+<body class="{% if show_academic_profile_modal %}academic-profile-pending {% endif %}{% block body_extra_class %}{% endblock %}">
   <!-- Layout wrapper -->
   <div class="layout-wrapper layout-content-navbar{% if show_academic_profile_modal %} academic-lock-interaction{% endif %}">
     <div class="layout-container">

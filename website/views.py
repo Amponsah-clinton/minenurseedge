@@ -3378,12 +3378,17 @@ def admin_clinical_visual_gallery(request):
     except Exception:
         rows = []
 
+    gallery_total_count = len(rows)
+    gallery_active_count = sum(1 for r in rows if r.get("is_active"))
+
     context = {
         "full_name": request.session.get("full_name", "Admin"),
         "email": request.session.get("email", ""),
         "role": "admin",
         "active_page": "admin_clinical_visuals",
         "gallery_rows": rows,
+        "gallery_total_count": gallery_total_count,
+        "gallery_active_count": gallery_active_count,
         "success": success,
         "error": error,
     }
