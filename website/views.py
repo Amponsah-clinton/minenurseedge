@@ -1678,6 +1678,8 @@ def signup_page(request):
                 "basic": plans.get("basic", {}),
                 "premium": plans.get("premium", {}),
                 "standard": plans.get("standard", {}),
+                "paystack_pub_key": (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip(),
+                "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
             })
 
         payment_reference = (
@@ -1695,6 +1697,7 @@ def signup_page(request):
                 "premium": plans.get("premium", {}),
                 "standard": plans.get("standard", {}),
                 "paystack_pub_key": paystack_pub,
+                "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
             })
 
         try:
@@ -1772,6 +1775,9 @@ def signup_page(request):
                 }).eq("id", sub_id).execute()
 
             price_val = float(plan.get("price") or 0)
+            paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+            bulkclix_configured = bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip())
+
             if price_val <= 0 and sub_id:
                 _apply_successful_subscription_payment(user_id, sub_id, plan_slug, 0, "complimentary")
                 _create_session(request, user_id, email, full_name, "student")
@@ -1783,24 +1789,8 @@ def signup_page(request):
                 })
                 return redirect("/dashboard/")
 
-            # If a payment reference is provided (Bulkclix flow), activate immediately.
-            # The upstream API returns a transaction reference on successful initiation.
-            if payment_reference and sub_id:
-                _apply_successful_subscription_payment(
-                    user_id, sub_id, plan_slug, price_val, payment_reference
-                )
-                _create_session(request, user_id, email, full_name, "student")
-                request.session["pending_dashboard_disclaimer"] = True
-                _sync_pending_academic_profile(request, {
-                    "programme": programme,
-                    "year_of_study": year_of_study,
-                    "school": institution,
-                })
-                return redirect("/dashboard/")
-
-            # Legacy Paystack verify path (kept for backward compatibility)
-            paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-            if payment_reference and paystack_secret and sub_id:
+            # Paystack: verify server-side before activating (never trust raw reference alone).
+            if payment_reference and sub_id and paystack_secret:
                 import urllib.parse as _up
                 vresp, verr = _paystack_request(
                     "GET", "/transaction/verify/" + _up.quote(payment_reference, safe="")
@@ -1819,6 +1809,20 @@ def signup_page(request):
                         "school": institution,
                     })
                     return redirect("/dashboard/")
+
+            # Bulkclix MoMo: initiation API already charged; reference is from their success response only.
+            if payment_reference and sub_id and bulkclix_configured and not paystack_secret:
+                _apply_successful_subscription_payment(
+                    user_id, sub_id, plan_slug, price_val, payment_reference
+                )
+                _create_session(request, user_id, email, full_name, "student")
+                request.session["pending_dashboard_disclaimer"] = True
+                _sync_pending_academic_profile(request, {
+                    "programme": programme,
+                    "year_of_study": year_of_study,
+                    "school": institution,
+                })
+                return redirect("/dashboard/")
 
             _create_session(request, user_id, email, full_name, "student")
             request.session["pending_dashboard_disclaimer"] = True
@@ -1839,6 +1843,7 @@ def signup_page(request):
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
         "paystack_pub_key": paystack_pub,
+        "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
     })
 
 
@@ -1869,23 +1874,53 @@ def signup_account_exists_api(request):
 
 def signup_initiate_payment_api(request):
     """
-    Start Bulkclix payment for signup and return a transaction reference.
+    Initialize subscription payment for signup: Paystack (preferred) or Bulkclix MoMo.
     """
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
 
+    paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+    paystack_public = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
+
     full_name = (request.POST.get("full_name") or "").strip()
     phone = (request.POST.get("phone") or "").strip()
+    email = (request.POST.get("email") or "").strip().lower()
     amount_raw = (request.POST.get("amount") or "0").strip()
     try:
         amount = float(amount_raw)
     except Exception:
         amount = 0.0
 
-    if not full_name or not phone:
-        return JsonResponse({"ok": False, "error": "Full name and phone are required."}, status=400)
     if amount <= 0:
         return JsonResponse({"ok": False, "error": "Invalid payment amount."}, status=400)
+
+    if paystack_secret:
+        if not email:
+            return JsonResponse({"ok": False, "error": "Email is required for Paystack checkout."}, status=400)
+        origin = _public_site_origin(request)
+        callback_url = origin.rstrip("/") + "/signup/"
+        data, err = _paystack_transaction_initialize(
+            email=email,
+            amount_ghs=amount,
+            callback_url=callback_url,
+            metadata={"signup_email": email, "full_name": (full_name or "")[:200]},
+        )
+        if err or not data:
+            msg = _paystack_api_error_message(err) or str(err or "paystack_init_failed")
+            return JsonResponse({"ok": False, "error": msg}, status=400)
+        return JsonResponse(
+            {
+                "ok": True,
+                "reference": data.get("reference"),
+                "access_code": data.get("access_code"),
+                "authorization_url": data.get("authorization_url"),
+                "public_key": paystack_public,
+                "amount_paid": amount,
+            }
+        )
+
+    if not full_name or not phone:
+        return JsonResponse({"ok": False, "error": "Full name and phone are required."}, status=400)
 
     result, err = _bulkclix_start_subscription_payment(
         full_name=full_name,
@@ -9351,6 +9386,38 @@ def _paystack_request(method, path, body_dict=None):
         return None, str(e)
 
 
+def _paystack_transaction_initialize(*, email, amount_ghs, callback_url, metadata=None):
+    """
+    Start a Paystack hosted checkout. amount_ghs is major units (e.g. 50.00 GHS);
+    Paystack expects amount in pesewas (×100).
+    Returns (data_dict with authorization_url, access_code, reference, or None, error_string).
+    """
+    try:
+        amount_minor = int(round(float(amount_ghs) * 100))
+    except Exception:
+        amount_minor = 0
+    if amount_minor < 1:
+        return None, "invalid_amount"
+    payload = {
+        "email": (email or "customer@example.com").strip()[:120],
+        "amount": amount_minor,
+        "currency": "GHS",
+        "callback_url": (callback_url or "").strip()[:500],
+    }
+    if metadata:
+        payload["metadata"] = {str(k): str(v) for k, v in metadata.items() if v is not None}
+    resp, err = _paystack_request("POST", "/transaction/initialize", payload)
+    if err:
+        return None, err
+    if not resp or not resp.get("status"):
+        msg = (resp.get("message") if isinstance(resp, dict) else None) or "initialize_failed"
+        return None, str(msg)
+    data = resp.get("data") or {}
+    if not data.get("reference"):
+        return None, "paystack_missing_reference"
+    return data, None
+
+
 def _bulkclix_request(method, path, body_dict=None):
     import json
     import urllib.error
@@ -9576,6 +9643,7 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "checkout_row": checkout_row,
         "config_error": config_error,
         "error": error,
+        "using_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
         "using_bulkclix": bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()),
     }
 
@@ -9641,17 +9709,8 @@ def student_subscribe(request):
         return redirect("/subscribe/?error=setup")
 
     if request.method == "POST" and request.POST.get("start_checkout"):
+        paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
         bulkclix_key = (getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()
-        if not bulkclix_key:
-            return render(
-                request,
-                "subscribe.html",
-                _subscribe_ctx(request, user_id, plans, checkout_row,
-                    config_error=(
-                        "Online payments are not configured. "
-                        "Add BULKCLIX_X_API_KEY to your .env and restart the server."
-                    ), error=error),
-            )
 
         plan_slug = checkout_row.get("plan_slug", "standard")
         plan = plans.get(plan_slug, plans.get("standard", {}))
@@ -9661,6 +9720,65 @@ def student_subscribe(request):
                 _subscribe_ctx(request, user_id, plans, checkout_row,
                     config_error="Plan price must be greater than zero. Ask your admin to set it.",
                     error=error))
+
+        if paystack_secret:
+            payer_email = (request.session.get("email") or "").strip()
+            if not payer_email:
+                return render(
+                    request,
+                    "subscribe.html",
+                    _subscribe_ctx(
+                        request, user_id, plans, checkout_row,
+                        config_error="Your account email is missing. Log out and back in, then try again.",
+                        error=error,
+                    ),
+                )
+            origin = _public_site_origin(request)
+            callback_url = origin.rstrip("/") + "/subscribe/success/"
+            meta = {
+                "user_id": str(user_id),
+                "subscription_id": str(checkout_row.get("id")),
+                "plan_slug": plan_slug,
+            }
+            pdata, perr = _paystack_transaction_initialize(
+                email=payer_email,
+                amount_ghs=price,
+                callback_url=callback_url,
+                metadata=meta,
+            )
+            if perr or not pdata:
+                msg = _paystack_api_error_message(perr) or str(perr or "paystack_init_failed")
+                return render(
+                    request,
+                    "subscribe.html",
+                    _subscribe_ctx(request, user_id, plans, checkout_row, config_error=msg, error=error),
+                )
+            auth_url = (pdata.get("authorization_url") or "").strip()
+            if auth_url:
+                return redirect(auth_url)
+            return render(
+                request,
+                "subscribe.html",
+                _subscribe_ctx(
+                    request, user_id, plans, checkout_row,
+                    config_error="Paystack did not return a checkout URL. Check your API keys and try again.",
+                    error=error,
+                ),
+            )
+
+        if not bulkclix_key:
+            return render(
+                request,
+                "subscribe.html",
+                _subscribe_ctx(
+                    request, user_id, plans, checkout_row,
+                    config_error=(
+                        "Online payments are not configured. "
+                        "Add PAYSTACK_SECRET_KEY (and PAYSTACK_PUBLIC_KEY) to your .env, or set BULKCLIX_X_API_KEY for MoMo."
+                    ),
+                    error=error,
+                ),
+            )
 
         try:
             profile_rows = (
@@ -9734,12 +9852,15 @@ def student_subscribe_success(request):
         if data.get("status") != "success":
             return redirect("/subscribe/?error=unpaid")
         meta = data.get("metadata") or {}
-        if str(meta.get("user_id") or "") != user_id:
+        if str(meta.get("user_id") or "").strip() != str(user_id).strip():
             return redirect("/subscribe/?error=forbidden")
-        plan_slug = (meta.get("plan_slug") or "standard").strip()
+        plan_slug = (str(meta.get("plan_slug") or "standard")).strip() or "standard"
         sub_id = meta.get("subscription_id")
         if not sub_id:
             return redirect("/subscribe/?error=missing_subscription")
+        pending = _get_active_subscription(user_id)
+        if not pending or str(pending.get("id")) != str(sub_id).strip():
+            return redirect("/subscribe/?error=forbidden")
         amount_minor = int(data.get("amount") or 0)
         amount_paid = amount_minor / 100.0
         try:

@@ -44,7 +44,7 @@
   {% if request.GET.reason == 'payment_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
     Your subscription is not active yet. Complete payment below to access your dashboard.
-    <div class="small mt-2 mb-0 text-muted">If payment does not start, check your Bulkclix configuration in <code>.env</code> and try again.</div>
+    <div class="small mt-2 mb-0 text-muted">If checkout does not open, confirm <code>PAYSTACK_SECRET_KEY</code> and <code>PUBLIC_SITE_URL</code> in <code>.env</code> and try again.</div>
   </div>
   {% endif %}
   {% if request.GET.reason == 'renewal_required' %}
@@ -81,9 +81,17 @@
         </label>
       </div>
       <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
-        Pay with Bulkclix
+        {% if using_paystack %}Pay with Paystack{% else %}Pay with Bulkclix{% endif %}
       </button>
-      <p class="sub-hint">A mobile money prompt will be initiated via Bulkclix.</p>
+      <p class="sub-hint">
+        {% if using_paystack %}
+        You will be redirected to Paystack to complete payment securely (card, bank, or mobile money where available).
+        {% elif using_bulkclix %}
+        A mobile money prompt will be initiated via Bulkclix.
+        {% else %}
+        Configure Paystack or Bulkclix in your environment to enable payments.
+        {% endif %}
+      </p>
     </div>
   </form>
 

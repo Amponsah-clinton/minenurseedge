@@ -114,7 +114,7 @@ class StudentAcademicProfileSyncMiddleware:
 class StudentSubscriptionGateMiddleware:
     """
     Students must have an active, non-expired subscription to use /dashboard/.
-    Redirects to Stripe checkout entry at /subscribe/ when payment is still required.
+    Redirects to /subscribe/ (Paystack or Bulkclix) when payment is still required.
     """
 
     def __init__(self, get_response):
