@@ -288,7 +288,9 @@
     <div class="modal-content">
       <div class="modal-header flex-column align-items-stretch gap-2 border-0 pb-0">
         <div class="d-flex align-items-center gap-3">
-          <div class="ne-disclaimer-icon flex-shrink-0"><i class="bx bx-info-circle"></i></div>
+          <div class="ne-disclaimer-icon flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
           <div>
             <h5 class="modal-title mb-0" id="nmcDisclaimerModalLabel">Important Disclaimer</h5>
             <p class="text-muted small mb-0 mt-1">Please read before you continue</p>
@@ -727,23 +729,54 @@
 <script>
 (function () {
   var modalEl = document.getElementById("nmcDisclaimerModal");
-  if (!modalEl || typeof bootstrap === "undefined") return;
-  var modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
-  modal.show();
+  if (!modalEl) return;
+
+  function dismissModal() {
+    if (window.bootstrap && window.bootstrap.Modal) {
+      var inst = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
+      inst.hide();
+    } else {
+      // Manual fallback: hide modal and remove backdrop
+      modalEl.classList.remove("show");
+      modalEl.style.display = "none";
+      modalEl.setAttribute("aria-hidden", "true");
+      var backdrop = document.querySelector(".modal-backdrop");
+      if (backdrop) backdrop.remove();
+      document.body.classList.remove("modal-open");
+      document.body.style.overflow = "";
+      document.body.style.paddingRight = "";
+    }
+  }
+
+  function showModal() {
+    if (window.bootstrap && window.bootstrap.Modal) {
+      var modal = new window.bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
+      modal.show();
+    } else {
+      // Manual fallback: show modal
+      modalEl.classList.add("show");
+      modalEl.style.display = "block";
+      modalEl.removeAttribute("aria-hidden");
+      modalEl.setAttribute("aria-modal", "true");
+      var bd = document.createElement("div");
+      bd.className = "modal-backdrop fade show";
+      document.body.appendChild(bd);
+      document.body.classList.add("modal-open");
+    }
+  }
+
   document.getElementById("nmcDisclaimerAckBtn").addEventListener("click", function () {
     var inp = document.querySelector("[name=csrfmiddlewaretoken]");
     var token = inp ? inp.value : "";
     fetch("/dashboard/ack-disclaimer/", {
       method: "POST",
-      headers: {
-        "X-CSRFToken": token,
-        "Content-Type": "application/json",
-      },
+      headers: { "X-CSRFToken": token, "Content-Type": "application/json" },
       body: "{}",
-    }).catch(function () {}).finally(function () {
-      modal.hide();
-    });
+    }).catch(function () {}).finally(function () { dismissModal(); });
   });
+
+  // Show after a brief delay to ensure Bootstrap JS is fully initialised
+  setTimeout(showModal, 120);
 })();
 </script>
 {% endif %}

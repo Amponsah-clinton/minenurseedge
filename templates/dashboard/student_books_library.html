@@ -41,9 +41,24 @@
     color: #fff;
     font-weight: 700;
     font-size: 18px;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+    overflow: hidden;
   }
-  .book-cover--nclex { background: #1f4d9a; }
-  .book-cover--ielts { background: #7a3a00; }
+  .book-cover::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.2));
+  }
+  .book-cover > span {
+    position: relative;
+    z-index: 1;
+  }
+  .book-cover--nclex { background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTVvzk-m6ywybLyVMzX_uzg3t7Y4KNZP52Vuw&s"); }
+  .book-cover--ielts { background-image: url("https://images.seeklogo.com/logo-png/32/2/ielts-logo-png_seeklogo-322547.png"); }
   .book-body { padding: 14px; display: flex; flex-direction: column; flex: 1; }
   .book-title { margin: 0 0 7px; font-size: 16px; font-weight: 700; color: #0f172a; }
   .book-desc { margin: 0 0 12px; color: #546274; font-size: 14px; line-height: 1.6; min-height: 45px; }
@@ -73,7 +88,7 @@
     <div class="book-grid">
       {% for book in nclex_books %}
       <article class="book-card">
-        <div class="book-cover book-cover--nclex">NCLEX</div>
+        <div class="book-cover book-cover--nclex"><span>NCLEX</span></div>
         <div class="book-body">
           <h3 class="book-title">{{ book.title }}</h3>
           <p class="book-desc">{% if book.description %}{{ book.description }}{% else %}Official/curated NCLEX resource book for your prep.{% endif %}</p>
@@ -96,7 +111,7 @@
     <div class="book-grid">
       {% for book in ielts_books %}
       <article class="book-card">
-        <div class="book-cover book-cover--ielts">IELTS</div>
+        <div class="book-cover book-cover--ielts"><span>IELTS</span></div>
         <div class="book-body">
           <h3 class="book-title">{{ book.title }}</h3>
           <p class="book-desc">{% if book.description %}{{ book.description }}{% else %}IELTS prep material for language and test readiness.{% endif %}</p>

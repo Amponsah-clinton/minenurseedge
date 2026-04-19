@@ -324,6 +324,28 @@
   var SIGNUP_USES_PAYSTACK = {{ signup_uses_paystack|yesno:"true,false" }};
   var PAYSTACK_PUBLIC_KEY = "{{ paystack_pub_key|escapejs }}";
 
+  // ── Paystack hosted-checkout return handler ──────────────────────────────
+  // When Paystack redirects back to /signup/?reference=xxx&trxref=xxx
+  // restore saved form fields and auto-submit so the backend can verify.
+  (function handlePaystackReturn() {
+    var params = new URLSearchParams(window.location.search);
+    var ref    = params.get("reference") || params.get("trxref") || "";
+    if (!ref) return;
+    var saved = {};
+    try { saved = JSON.parse(sessionStorage.getItem("ne_signup_draft") || "{}"); } catch (e) {}
+    if (!saved.email) return; // nothing saved — ignore stale URL params
+    var fields = ["fullName","email","phone","yearOfStudy","institution","programme","password","confirmPassword"];
+    fields.forEach(function(name) {
+      var el = form.querySelector('[name="' + name + '"]');
+      if (el && saved[name] != null) el.value = saved[name];
+    });
+    document.getElementById("payment_reference").value = ref;
+    sessionStorage.removeItem("ne_signup_draft");
+    btn.disabled = true;
+    btn.textContent = "Finalising account…";
+    form.submit();
+  })();
+
   // Password strength rules
   var rules = {
     "hint-len":     function(v){ return v.length >= 8; },
@@ -423,37 +445,21 @@
         });
     })
     .then(function (data) {
-      if (data.authorization_url && (!data.access_code || !PAYSTACK_PUBLIC_KEY)) {
-        window.location.href = data.authorization_url;
-        return null;
-      }
       if (!data.reference) {
         throw new Error("paystack_missing_reference");
       }
-      return loadPaystackInlineScript().then(function () {
-        if (!window.PaystackPop) {
-          throw new Error("Paystack Inline did not load.");
-        }
-        var handler = window.PaystackPop.setup({
-          key: PAYSTACK_PUBLIC_KEY,
-          email: email,
-          amount: Math.round(amountGhs * 100),
-          currency: "GHS",
-          ref: data.reference,
-          access_code: data.access_code || undefined,
-          callback: function (response) {
-            document.getElementById("payment_reference").value = response.reference || data.reference;
-            btn.textContent = "Finalizing account...";
-            form.submit();
-          },
-          onClose: function () {
-            btn.disabled = false;
-            btn.textContent = "Create Account & Suscribe \u2192";
-          }
+      if (data.authorization_url) {
+        // Save form data so we can restore it when Paystack redirects back
+        var draft = {};
+        ["fullName","email","phone","yearOfStudy","institution","programme","password","confirmPassword"].forEach(function(name) {
+          var el = form.querySelector('[name="' + name + '"]');
+          if (el) draft[name] = el.value;
         });
-        handler.openIframe();
+        try { sessionStorage.setItem("ne_signup_draft", JSON.stringify(draft)); } catch(e) {}
+        window.location.href = data.authorization_url;
         return null;
-      });
+      }
+      throw new Error("Paystack did not return a checkout URL. Please try again.");
     });
   }
 
@@ -524,11 +530,21 @@
       .catch(function (err) {
         btn.disabled = false;
         btn.textContent = "Create Account & Suscribe \u2192";
+        var rawMsg = String(err && err.message || "").trim();
+        var normalizedMsg = rawMsg.toLowerCase();
+        if (
+          normalizedMsg === "failed to fetch" ||
+          normalizedMsg.indexOf("networkerror") !== -1 ||
+          normalizedMsg.indexOf("load failed") !== -1
+        ) {
+          alert("Could not reach the server. Please ensure Django is running and try again.");
+          return;
+        }
         if (String(err && err.message || "").indexOf("precheck_failed") !== -1) {
           alert("We could not confirm your account status. Please try again.");
           return;
         }
-        var msg = String(err && err.message || "").trim();
+        var msg = rawMsg;
         if (!msg) {
           msg = "Payment start failed. Please try again.";
         }
