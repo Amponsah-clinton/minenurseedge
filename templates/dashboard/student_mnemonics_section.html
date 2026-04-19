@@ -140,6 +140,40 @@
     color: #5a6475;
     margin-top: 10px;
   }
+  .ms-body--rich {
+    padding: 12px 14px 16px;
+    font-size: 13px;
+    color: #1f2937;
+    line-height: 1.6;
+  }
+  .ms-body--rich .anat-rich { max-width: 100%; }
+  .anat-steps { margin: 0 0 14px; padding-left: 1.1rem; }
+  .anat-step { margin-bottom: 8px; }
+  .anat-step--danger strong { color: #b91c1c; }
+  .anat-step--primary strong { color: #1d4ed8; }
+  .anat-step--success strong { color: #047857; }
+  .anat-step--warning strong { color: #c2410c; }
+  .anat-step--dark strong { color: #111827; }
+  .anat-mono { font-family: ui-monospace, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+  .anat-sub { color: #64748b; font-style: italic; }
+  .anat-figure { margin: 0 0 12px; text-align: center; }
+  .anat-figure figcaption { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .anat-figure__img { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc; }
+  .anat-table-scroll { overflow-x: auto; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; }
+  .anat-grid { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 12px; text-align: center; }
+  .anat-grid th { padding: 8px 4px; background: #f1f5f9; border: 1px solid #cbd5e1; font-weight: 800; }
+  .anat-hdr--g { color: #1d4ed8; }
+  .anat-hdr--r { color: #b91c1c; }
+  .anat-grid td { padding: 8px 4px; border: 1px solid #e2e8f0; font-weight: 700; }
+  .anat-cell--ph { background: #ecfdf5; color: #047857; }
+  .anat-cell--go { background: #fff7ed; color: #c2410c; }
+  .anat-cell--k { background: #f8fafc; color: #0f172a; }
+  .anat-cell--empty { background: #f8fafc; }
+  .anat-legend { margin: 10px 0 0; font-size: 11px; color: #64748b; }
+  .anat-leg { font-weight: 700; }
+  .anat-leg--ph { color: #047857; }
+  .anat-leg--go { color: #c2410c; }
+  .anat-leg--k { color: #0f172a; }
   @media (max-width: 900px) { .ms-code { max-width: 60%; } }
   @media (max-width: 640px) {
     .ms-shell { padding: 0 4px; }
@@ -172,11 +206,16 @@
 
   <section class="ms-grid" id="sectionMnemonicGrid">
     {% for item in section.mnemonics %}
-    <article class="ms-card" data-search="{{ item.title|lower }} {{ item.code|lower }} {% for row in item.items %} {{ row|lower }} {% endfor %}">
+    <article class="ms-card" data-search="{{ item.title|lower }} {{ item.code|lower }} {% if item.extra_search %}{{ item.extra_search|lower }} {% endif %}{% for row in item.rows %} {{ row.letter|lower }} {{ row.meaning|lower }} {{ row.explanation|lower }} {% endfor %}">
       <div class="ms-head">
         <h5 class="ms-title">{{ item.title }}</h5>
         <div class="ms-code">{{ item.code }}</div>
       </div>
+      {% if item.body_html %}
+      <div class="ms-body ms-body--rich">
+        {{ item.body_html|safe }}
+      </div>
+      {% else %}
       <div class="ms-body">
         <div class="ms-table-wrap">
           <table class="ms-table">
@@ -202,6 +241,7 @@
         </div>
         <span class="ms-tip"><i class="bx bx-bulb"></i> NMC quick recall format</span>
       </div>
+      {% endif %}
     </article>
     {% endfor %}
   </section>

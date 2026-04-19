@@ -20,6 +20,7 @@ from supabase import create_client
 from supabase.lib.client_options import SyncClientOptions
 from supabase_auth import SyncSupportedStorage
 
+from website.mnemonic_anatomy import ANATOMY_MNEMONICS_SECTION
 from website.site_maintenance import get_active_site_maintenance, invalidate_site_maintenance_cache
 
 EMPTY_QUESTION_FORM = {
@@ -6153,10 +6154,11 @@ def _student_mnemonic_sections():
             "icon": "bx bx-brain",
             "mnemonics": psychiatric,
         },
+        ANATOMY_MNEMONICS_SECTION,
     ]
     for section in sections:
         for mnemonic in section.get("mnemonics") or []:
-            if mnemonic.get("rows"):
+            if mnemonic.get("rows") or mnemonic.get("body_html"):
                 continue
             mnemonic["rows"] = _build_mnemonic_rows(mnemonic.get("items") or [])
     return sections
