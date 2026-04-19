@@ -2577,8 +2577,6 @@ def student_nmc_mastery(request):
         return redirect("/admin-panel/dashboard/")
 
     user_id = request.session.get("user_id")
-    fundamentals_mnemonics = mnemonics[:10]
-    clinical_mnemonics = mnemonics[10:]
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
