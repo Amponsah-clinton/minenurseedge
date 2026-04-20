@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import django; import sys; sys.path.insert\\(0, 'c:/Users/USER/Desktop/minenurseedge'\\); import os; os.environ['DJANGO_SETTINGS_MODULE'] = 'publishing_company.settings'; django.setup\\(\\); from django.apps import apps; [print\\(m.__module__, m.__name__\\) for m in apps.get_models\\(\\)]\")",
+      "Bash(python -c \"import django; import sys; sys.path.insert\\(0, 'c:/Users/USER/Desktop/minenursesedge'\\); import os; os.environ['DJANGO_SETTINGS_MODULE'] = 'publishing_company.settings'; django.setup\\(\\); from django.apps import apps; [print\\(m.__module__, m.__name__\\) for m in apps.get_models\\(\\)]\")",
       "Bash(python -c ':*)",
       "Bash(python -c \"import website.context_processors\")",
       "Bash(python manage.py shell -c \"from django.core.mail import send_mail; from django.conf import settings; send_mail\\('Test', 'Working!', settings.DEFAULT_FROM_EMAIL, [settings.EMAIL_HOST_USER], fail_silently=False\\); print\\('SENT OK'\\)\")"
