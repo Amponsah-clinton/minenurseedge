@@ -44,7 +44,7 @@
   {% if request.GET.reason == 'payment_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
     Your subscription is not active yet. Complete payment below to access your dashboard.
-    <div class="small mt-2 mb-0 text-muted">If checkout does not open, confirm <code>PAYSTACK_SECRET_KEY</code> and <code>PUBLIC_SITE_URL</code> in <code>.env</code> and try again.</div>
+    <!-- <div class="small mt-2 mb-0 text-muted">If checkout does not open, confirm <code>PAYSTACK_SECRET_KEY</code> and <code>PUBLIC_SITE_URL</code> in <code>.env</code> and try again.</div> -->
   </div>
   {% endif %}
   {% if request.GET.reason == 'renewal_required' %}
