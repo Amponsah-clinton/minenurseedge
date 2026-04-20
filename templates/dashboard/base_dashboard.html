@@ -8,7 +8,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-  <title>{% block title %}Dashboard - NurseEdge{% endblock %}</title>
+  <title>{% block title %}Dashboard - NursesEdge{% endblock %}</title>
   <meta name="description" content="" />
 
   <!-- Favicon -->
@@ -361,9 +361,9 @@
           <a href="/" class="app-brand-link">
             <span class="app-brand-logo demo">
               <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png"
-                   alt="NurseEdge" style="height:28px;width:auto;" />
+                   alt="NursesEdge" style="height:28px;width:auto;" />
             </span>
-            <span class="app-brand-text menu-text fw-bolder ms-2 nursesedge-sidebar-brand">NurseEdge</span>
+            <span class="app-brand-text menu-text fw-bolder ms-2 nursesedge-sidebar-brand">NursesEdge</span>
           </a>
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
@@ -738,10 +738,10 @@
             </a>
           </div>
 
-          <a href="/" class="nursesedge-top-brand d-flex align-items-center text-body text-decoration-none me-2 me-md-3 flex-shrink-0 py-0" title="NurseEdge">
+          <a href="/" class="nursesedge-top-brand d-flex align-items-center text-body text-decoration-none me-2 me-md-3 flex-shrink-0 py-0" title="NursesEdge">
             <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png"
-                 alt="NurseEdge" width="28" height="28" class="flex-shrink-0" style="height:28px;width:auto;" />
-            <span class="nursesedge-top-brand-text fw-bold mb-0 ms-2">NurseEdge</span>
+                 alt="NursesEdge" width="28" height="28" class="flex-shrink-0" style="height:28px;width:auto;" />
+            <span class="nursesedge-top-brand-text fw-bold mb-0 ms-2">NursesEdge</span>
           </a>
 
           <div class="navbar-nav-right d-flex align-items-center flex-grow-1" id="navbar-collapse">
@@ -812,7 +812,7 @@
           <footer class="content-footer footer bg-footer-theme">
             <div class="container-xxl d-flex flex-wrap justify-content-between py-2 flex-md-row flex-column">
               <div class="mb-2 mb-md-0">
-                &copy; <span id="footer-year"></span> All rights reserved NurseEdge.
+                &copy; <span id="footer-year"></span> All rights reserved NursesEdge.
               </div>
             </div>
           </footer>
@@ -869,7 +869,7 @@
     <div class="assistant-bot__head">
       <span class="assistant-bot__robot" aria-hidden="true"><i class="bx bx-bot"></i></span>
       <div class="assistant-bot__head-main">
-        <p class="assistant-bot__title">NurseEdge AI Assistant</p>
+        <p class="assistant-bot__title">NursesEdge AI Assistant</p>
         <p class="assistant-bot__sub">Your study robot helper</p>
         <span class="assistant-bot__status">
           <span class="assistant-bot__status-dot"></span>
@@ -1031,7 +1031,7 @@
 
       // Simple replies for greetings / non-nursing input so BERT isn't called needlessly.
       var GREETINGS = {
-        "hi": "Hello! I'm the NurseEdge AI Assistant. Ask me any nursing question — medications, procedures, diseases, mock exam topics, or dosage calculations.",
+        "hi": "Hello! I'm the NursesEdge AI Assistant. Ask me any nursing question — medications, procedures, diseases, mock exam topics, or dosage calculations.",
         "hello": "Hello! Ready to help with your nursing studies. What would you like to know?",
         "hey": "Hey! Ask me anything about nursing — pharmacology, anatomy, clinical procedures, or exam strategy.",
         "good morning": "Good morning! Ready to study? Ask me any nursing question.",
@@ -1131,7 +1131,7 @@
       // Never invents answers — only returns text that exists here.
       var NURSING_CONTEXT =
         // Platform
-        "NurseEdge is an exam preparation platform for nursing students in Ghana preparing for the NMC licensure exam. " +
+        "NursesEdge is an exam preparation platform for nursing students in Ghana preparing for the NMC licensure exam. " +
         "Programmes include Registered General Nursing (RGN), Registered Midwifery (RM), Nurse Assistant Clinical (NAC/NAP), Registered Mental Health Nursing (RMHN), and Registered Public Health Nursing (RPHN). " +
         // Disease
         "A disease is a condition that impairs the normal functioning of the body or mind and has a specific cause and characteristic symptoms. " +
@@ -1286,7 +1286,7 @@
         } catch (e) {
           var msg = (e && e.message) ? e.message : String(e);
           thinkingBubble.textContent = 'Sorry, I could not get an answer right now. Please try again.';
-          try { console.error('[NurseEdge Bot]', msg); } catch (_) {}
+          try { console.error('[NursesEdge Bot]', msg); } catch (_) {}
         } finally {
           sendBtn.disabled = false;
           inputEl.disabled = false;
