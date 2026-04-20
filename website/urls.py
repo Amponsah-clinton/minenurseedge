@@ -1,9 +1,21 @@
+from django.http import HttpResponse
 from django.urls import path
 from django.views.generic import RedirectView
 
 from . import views
 
+
+def _google_site_verification(request):
+    return HttpResponse(
+        "google-site-verification: googlecb6f25f469c80e2a.html",
+        content_type="text/html; charset=utf-8",
+    )
+
+
 urlpatterns = [
+    # Google Search Console verification
+    path("googlecb6f25f469c80e2a.html", _google_site_verification),
+
     # Public
     path("", views.home, name="home"),
     path("about/", views.about, name="about"),
