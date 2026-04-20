@@ -1695,10 +1695,13 @@ def google_oauth_start(request):
     if not getattr(settings, "SUPABASE_URL", None) or not getattr(settings, "SUPABASE_KEY", None):
         return render(request, "login.html", {"error": "Google sign-in is not configured."})
     try:
+        # In this Django app, auth code exchange is handled server-side in
+        # google_oauth_callback(), so OAuth must return to that callback URL.
+        callback = _google_oauth_callback_url(request)
         client = _supabase_oauth_client(request)
         oauth = client.auth.sign_in_with_oauth({
             "provider": "google",
-            "options": {"redirect_to": "https://nursesedge.online"},
+            "options": {"redirect_to": callback},
         })
         return HttpResponseRedirect(oauth.url)
     except Exception:
