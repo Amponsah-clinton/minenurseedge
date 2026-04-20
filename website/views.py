@@ -1719,12 +1719,10 @@ def google_oauth_callback(request):
     if not code:
         return render(request, "login.html", {"error": "Missing authorization code. Please try Google sign-in again."})
 
-    callback = _google_oauth_callback_url(request)
     try:
         client = _supabase_oauth_client(request)
         auth_resp = client.auth.exchange_code_for_session({
             "auth_code": code,
-            "redirect_to": callback,
         })
     except Exception:
         logging.getLogger(__name__).exception("Google OAuth callback exchange failed")
