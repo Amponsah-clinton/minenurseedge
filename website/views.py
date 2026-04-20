@@ -1695,11 +1695,10 @@ def google_oauth_start(request):
     if not getattr(settings, "SUPABASE_URL", None) or not getattr(settings, "SUPABASE_KEY", None):
         return render(request, "login.html", {"error": "Google sign-in is not configured."})
     try:
-        callback = _google_oauth_callback_url(request)
         client = _supabase_oauth_client(request)
         oauth = client.auth.sign_in_with_oauth({
             "provider": "google",
-            "options": {"redirect_to": callback},
+            "options": {"redirect_to": "https://nursesedge.online"},
         })
         return HttpResponseRedirect(oauth.url)
     except Exception:
