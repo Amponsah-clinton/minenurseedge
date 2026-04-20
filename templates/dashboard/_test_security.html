@@ -1,6 +1,6 @@
 {% comment %}
 ============================================================================
-nursesedge  Test Security Layer — include inside the template content block.
+NursesEdge  Test Security Layer — include inside the template content block.
 Provides:
   • Text-selection / drag / copy / right-click / print prevention
   • selectstart + touchstart long-press text selection block
@@ -195,7 +195,7 @@ body.ne-protected select {
     <div class="ne-disabled-msg">
       Your account has been disabled because a screenshot attempt<br>
       was detected for the second time.<br><br>
-      Please contact nursesedge  support to restore access.
+      Please contact NursesEdge  support to restore access.
     </div>
     <div class="ne-disabled-dots">● ● ●</div>
   </div>
@@ -242,7 +242,7 @@ body.ne-protected select {
   /* can be traced back to the account owner. The watermark re-generates every */
   /* 60 s so timestamps vary, making composite editing harder.                 */
   (function buildWatermark() {
-    var userName = '{{ full_name|default:"nursesedge  Student"|escapejs }}';
+    var userName = '{{ full_name|default:"NursesEdge  Student"|escapejs }}';
     var wm = document.getElementById('ne-watermark');
     if (!wm) return;
 
@@ -250,7 +250,7 @@ body.ne-protected select {
       var canvas = document.createElement('canvas');
       var ts = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       var line1 = userName;
-      var line2 = 'nursesedge  \u00b7 ' + ts;
+      var line2 = 'NursesEdge  \u00b7 ' + ts;
 
       canvas.width  = 320;
       canvas.height = 180;
