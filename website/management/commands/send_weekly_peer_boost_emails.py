@@ -61,7 +61,7 @@ class Command(BaseCommand):
                 "dashboard_url": dashboard_url,
             }
             subject = (
-                f"NurseEdge Weekly Insight: You are top {comparison['top_percent']}% in "
+                f"nursesedge  Weekly Insight: You are top {comparison['top_percent']}% in "
                 f"{comparison['subject_label']}"
             )
             text_body = (

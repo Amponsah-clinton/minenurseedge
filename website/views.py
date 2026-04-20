@@ -2238,15 +2238,15 @@ def forgot_password_page(request):
             full_name = (meta.get("full_name") or "").strip() or "Student"
             mail_to = (auth_user.get("email") or email).strip().lower()
 
-        subject = "NurseEdge — Your password reset code"
+        subject = "nursesedge  — Your password reset code"
         body = (
             f"Hi {full_name},\n\n"
-            f"You requested a password reset for your NurseEdge account.\n\n"
+            f"You requested a password reset for your nursesedge  account.\n\n"
             f"Your 6-digit reset code is:\n\n"
             f"    {code}\n\n"
             f"This code expires in 15 minutes.\n"
             f"If you did not request this, you can safely ignore this email.\n\n"
-            f"— The NurseEdge Team"
+            f"— The nursesedge  Team"
         )
         try:
             send_mail(
@@ -2609,7 +2609,7 @@ def user_dashboard(request):
 
     # Subscription info for dashboard cards
     subscription = _get_active_subscription(user_id)
-    plan_name = "NurseEdge Access"
+    plan_name = "nursesedge  Access"
     plan_slug = "standard"
     sub_status = "pending_payment"
     sub_expires = None
@@ -9496,7 +9496,7 @@ def _ensure_plan_defaults():
         if "standard" not in em:
             db.table("subscription_plans").insert({
                 "slug": "standard", "name": "Annual Access",
-                "tagline": "Full access to all NurseEdge features",
+                "tagline": "Full access to all nursesedge  features",
                 "price": 50.0, "currency": "GHS", "duration_days": 365,
                 "is_active": True, "features": [], "payment_instructions": "",
                 "updated_at": now,
@@ -9519,7 +9519,7 @@ def _get_plans():
             **base,
             "slug": "standard",
             "name": base.get("name") or "Annual Access",
-            "tagline": base.get("tagline") or "Full access to all NurseEdge features",
+            "tagline": base.get("tagline") or "Full access to all nursesedge  features",
             "price": float(base.get("price") or 50.0),
             "currency": base.get("currency") or "GHS",
             "duration_days": int(base.get("duration_days") or 365),
@@ -9539,7 +9539,7 @@ def _get_plans():
     except Exception:
         standard = {
             "slug": "standard", "name": "Annual Access", "price": 50, "currency": "GHS",
-            "tagline": "Full access to all NurseEdge features",
+            "tagline": "Full access to all nursesedge  features",
             "features": ["Competitive Quizzes"], "payment_instructions": "", "duration_days": 365,
         }
         return {"standard": standard, "basic": standard, "premium": standard}
@@ -9548,7 +9548,7 @@ def _get_plans():
 # Legacy MTN boilerplate saved in Supabase (any amount) — strip from student /payment/ only.
 _LEGACY_MOMO_INSTRUCTION_RE = re.compile(
     r"Pay\s+GHS\s+[\d.]+\s+via\s+MTN\s+Mobile\s+Money\s+to\s+024\s+000\s+0000\s*"
-    r"\(Account\s+name:\s*NurseEdge\)\.\s*"
+    r"\(Account\s+name:\s*nursesedge \)\.\s*"
     r"Use\s+your\s+registered\s+email\s+address\s+as\s+the\s+payment\s+reference\.",
     re.IGNORECASE | re.MULTILINE,
 )
@@ -9783,7 +9783,7 @@ def _paystack_request(method, path, body_dict=None):
     # Paystack is behind Cloudflare; default User-Agent "Python-urllib/…" is often blocked with HTTP 403.
     _paystack_ua = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 NurseEdge/1.0"
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 nursesedge /1.0"
     )
 
     url = "https://api.paystack.co" + path

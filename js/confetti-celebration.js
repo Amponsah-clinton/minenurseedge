@@ -78,5 +78,5 @@
     }, duration);
   }
 
-  window.NurseEdgeConfetti = { start: start };
+  window.nursesedgeConfetti = { start: start };
 })();

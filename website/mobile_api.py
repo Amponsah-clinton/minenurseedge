@@ -314,7 +314,7 @@ def mobile_dashboard(request):
         pass
 
     subscription = V._get_active_subscription(user_id)
-    plan_name = "NurseEdge Access"
+    plan_name = "NursesEdge Access"
     plan_slug = "standard"
     sub_status = "pending_payment"
     sub_expires = None

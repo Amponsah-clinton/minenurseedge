@@ -1,5 +1,5 @@
 """
-Management command to seed the NurseEdge admin account in Supabase.
+Management command to seed the nursesedge  admin account in Supabase.
 
 Usage:
     python manage.py create_admin
@@ -15,7 +15,7 @@ ADMIN_NAME = "Clinton Amponsah"
 
 
 class Command(BaseCommand):
-    help = "Create the NurseEdge admin account in Supabase (safe to run multiple times)"
+    help = "Create the nursesedge  admin account in Supabase (safe to run multiple times)"
 
     def handle(self, *args, **options):
         admin_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)

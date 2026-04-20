@@ -1,5 +1,5 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}Contact Messages - NurseEdge Admin{% endblock %}
+{% block title %}Contact Messages - nursesedge  Admin{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -145,7 +145,7 @@
       recipientInput.value = email ? (name + " <" + email + ">") : name;
       idInput.value = messageId;
       if (!subjectInput.value) {
-        subjectInput.value = originalSubject ? ("Re: " + originalSubject) : "Re: Your message to NurseEdge";
+        subjectInput.value = originalSubject ? ("Re: " + originalSubject) : "Re: Your message to nursesedge ";
       }
       if (!bodyInput.value) {
         bodyInput.value = "Hello " + name + ",\n\n";
