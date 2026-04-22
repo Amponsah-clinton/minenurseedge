@@ -1071,6 +1071,10 @@ def mobile_contact(request):
         V._supabase_admin().table("contact_messages").insert(
             {"name": name, "email": email, "phone": phone, "subject": subject, "message": message}
         ).execute()
+        try:
+            V._notify_admin_new_contact_message(name, email, phone, subject, message)
+        except Exception:
+            logger.exception("Failed to send new contact message alert email from mobile API.")
     except Exception:
         return JsonResponse({"ok": False, "error": "insert_failed"}, status=500)
     return JsonResponse({"ok": True})

@@ -11,6 +11,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.mail import send_mail
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.html import escape
@@ -2360,6 +2361,30 @@ def reset_password_page(request):
 # Contact
 # ---------------------------------------------------------------------------
 
+def _notify_admin_new_contact_message(name, email, phone, subject, message):
+    """Email admin mailbox when a new contact form message is received."""
+    recipient = (getattr(settings, "CONTACT_ALERT_EMAIL", "") or "").strip()
+    if not recipient:
+        return
+    subject_text = f"New mail from NursesEdge: {subject or 'Contact form message'}"
+    body = (
+        "A new contact message was submitted on NursesEdge.\n\n"
+        f"Name: {name}\n"
+        f"Email: {email}\n"
+        f"Phone: {phone}\n"
+        f"Subject: {subject or '-'}\n\n"
+        "Message:\n"
+        f"{message}\n"
+    )
+    send_mail(
+        subject_text,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient],
+        fail_silently=False,
+    )
+
+
 def contact_page(request):
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
@@ -2379,6 +2404,10 @@ def contact_page(request):
                 "subject": subject,
                 "message": message,
             }).execute()
+            try:
+                _notify_admin_new_contact_message(name, email, phone, subject, message)
+            except Exception:
+                logger.exception("Failed to send new contact message alert email.")
             return render(request, "contact.html", {"success": "Your message has been sent. We'll get back to you shortly."})
         except Exception:
             return render(request, "contact.html", {"error": "Failed to send message. Please try again."})
@@ -3595,8 +3624,6 @@ def admin_messages(request):
                 if not recipient:
                     raise ValueError("Recipient email is missing for this message.")
 
-                from django.core.mail import send_mail
-
                 send_mail(
                     reply_subject,
                     reply_body,
@@ -3609,6 +3636,12 @@ def admin_messages(request):
                 except Exception:
                     pass
                 context["success"] = f"Reply sent to {recipient}."
+            elif action == "mark_contact_message_read":
+                message_id = request.POST.get("message_id", "").strip()
+                if not message_id:
+                    raise ValueError("Message ID is required.")
+                admin.table("contact_messages").update({"is_read": True}).eq("id", message_id).execute()
+                context["success"] = "Message marked as read."
             elif action:
                 raise ValueError("Invalid action.")
 

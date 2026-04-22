@@ -195,6 +195,7 @@ EMAIL_HOST_USER = (os.getenv("EMAIL_HOST_USER") or "").strip()
 EMAIL_HOST_PASSWORD = (os.getenv("EMAIL_HOST_PASSWORD") or "").replace(" ", "").strip()
 DEFAULT_FROM_EMAIL = (os.getenv("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "no-reply@example.com").strip()
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "25"))
+CONTACT_ALERT_EMAIL = (os.getenv("CONTACT_ALERT_EMAIL") or "amponsahc306@gmail.com").strip()
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 IDENTIFIER_RESOLVER_DOMAIN = os.getenv("IDENTIFIER_RESOLVER_DOMAIN", "scholarindexing.academicdigital.space")

@@ -46,10 +46,10 @@
             <td>{{ msg.name }}</td>
             <td>{{ msg.email }}</td>
             <td>{{ msg.subject|default:"—" }}</td>
-            <td style="max-width:260px;">
-              <span title="{{ msg.message }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">
+            <td style="max-width:420px;">
+              <div style="white-space:pre-wrap;word-break:break-word;max-width:420px;">
                 {{ msg.message }}
-              </span>
+              </div>
             </td>
             <td style="font-size:13px;white-space:nowrap;">
               <div>{{ msg.created_at|slice:":10" }}</div>
@@ -61,6 +61,12 @@
                   <span class="badge" style="background-color:#71dd37;background-image:none;">Read</span>
                 {% else %}
                   <span class="badge" style="background-color:#ffab00;background-image:none;color:#fff;">Unread</span>
+                  <form method="post" class="m-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="mark_contact_message_read" />
+                    <input type="hidden" name="message_id" value="{{ msg.id }}" />
+                    <button type="submit" class="btn btn-sm btn-outline-success">Mark as read</button>
+                  </form>
                 {% endif %}
                 <button
                   type="button"
