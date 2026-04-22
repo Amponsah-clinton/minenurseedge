@@ -46,9 +46,24 @@
             <td>{{ msg.name }}</td>
             <td>{{ msg.email }}</td>
             <td>{{ msg.subject|default:"—" }}</td>
-            <td style="max-width:420px;">
-              <div style="white-space:pre-wrap;word-break:break-word;max-width:420px;">
-                {{ msg.message }}
+            <td style="max-width:260px;">
+              <div class="d-flex flex-column gap-1 align-items-start">
+                <span title="{{ msg.message }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">
+                  {{ msg.message }}
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-info open-message-modal"
+                  data-message-subject="{{ msg.subject|default:'—' }}"
+                  data-message-sender-name="{{ msg.name|default:'—' }}"
+                  data-message-sender-email="{{ msg.email|default:'—' }}"
+                  data-message-created-at="{{ msg.created_at }}"
+                  data-message-body="{{ msg.message }}"
+                  data-bs-toggle="modal"
+                  data-bs-target="#viewMessageModal"
+                >
+                  View full message
+                </button>
               </div>
             </td>
             <td style="font-size:13px;white-space:nowrap;">
@@ -97,6 +112,26 @@
   </div>
 </div>
 
+<div class="modal fade" id="viewMessageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Contact Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2"><strong>From:</strong> <span id="viewMessageSender"></span></div>
+        <div class="mb-2"><strong>Subject:</strong> <span id="viewMessageSubject"></span></div>
+        <div class="mb-3"><strong>Received:</strong> <span id="viewMessageDate"></span></div>
+        <div class="border rounded p-3" style="white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow:auto;" id="viewMessageBody"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="replyMessageModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -135,6 +170,26 @@
 {% block scripts %}
 <script>
   (function () {
+    function setViewModalFromBtn(btn) {
+      if (!btn) return;
+      var senderName = btn.getAttribute("data-message-sender-name") || "—";
+      var senderEmail = btn.getAttribute("data-message-sender-email") || "";
+      var subject = btn.getAttribute("data-message-subject") || "—";
+      var createdAt = btn.getAttribute("data-message-created-at") || "—";
+      var body = btn.getAttribute("data-message-body") || "";
+
+      var senderEl = document.getElementById("viewMessageSender");
+      var subjectEl = document.getElementById("viewMessageSubject");
+      var dateEl = document.getElementById("viewMessageDate");
+      var bodyEl = document.getElementById("viewMessageBody");
+      if (!senderEl || !subjectEl || !dateEl || !bodyEl) return;
+
+      senderEl.textContent = senderEmail ? (senderName + " <" + senderEmail + ">") : senderName;
+      subjectEl.textContent = subject;
+      dateEl.textContent = createdAt;
+      bodyEl.textContent = body;
+    }
+
     function setReplyModalFromBtn(btn) {
       if (!btn) return;
       var messageId = btn.getAttribute("data-message-id") || "";
@@ -159,9 +214,19 @@
     }
 
     document.addEventListener("click", function (e) {
+      var viewBtn = e.target.closest(".open-message-modal");
+      if (viewBtn) setViewModalFromBtn(viewBtn);
       var btn = e.target.closest(".open-reply-modal");
       if (btn) setReplyModalFromBtn(btn);
     });
+
+    var viewModalEl = document.getElementById("viewMessageModal");
+    if (viewModalEl) {
+      viewModalEl.addEventListener("show.bs.modal", function (e) {
+        var btn = e.relatedTarget;
+        if (btn && btn.classList.contains("open-message-modal")) setViewModalFromBtn(btn);
+      });
+    }
 
     var modalEl = document.getElementById("replyMessageModal");
     if (modalEl) {
