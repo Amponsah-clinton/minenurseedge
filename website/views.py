@@ -2959,10 +2959,23 @@ def admin_broadcast_messages(request):
         "active_page": "broadcast_messages",
         "recent_broadcasts": [],
         "form_data": {"title": "", "message_body": ""},
+        "available_students": [],
+        "selected_student_ids": [],
     }
 
     admin = _supabase_admin()
     try:
+        students = (
+            admin.table("profiles")
+            .select("id, full_name, email, created_at")
+            .eq("role", "student")
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+        context["available_students"] = students
+
         if request.method == "POST":
             action = request.POST.get("action", "send").strip()
             if action == "delete":
@@ -2974,16 +2987,17 @@ def admin_broadcast_messages(request):
             else:
                 title = request.POST.get("title", "").strip()
                 message_body = request.POST.get("message_body", "").strip()
+                selected_student_ids = [sid.strip() for sid in request.POST.getlist("selected_student_ids") if sid.strip()]
+                context["selected_student_ids"] = selected_student_ids
                 if not title or not message_body:
                     raise ValueError("Title and message body are required.")
+                if not selected_student_ids:
+                    raise ValueError("Select at least one registered student.")
 
-                students = (
-                    admin.table("profiles").select("id").eq("role", "student").execute().data
-                    or []
-                )
-                student_ids = [s.get("id") for s in students if s.get("id")]
+                allowed_ids = {str(s.get("id")) for s in students if s.get("id")}
+                student_ids = [sid for sid in selected_student_ids if sid in allowed_ids]
                 if not student_ids:
-                    raise ValueError("No students found to receive this message.")
+                    raise ValueError("Selected recipients are invalid. Please choose registered students.")
 
                 rows = [
                     {
@@ -2998,6 +3012,7 @@ def admin_broadcast_messages(request):
                 admin.table("student_notifications").insert(rows).execute()
                 context["success"] = f"Message sent to {len(rows)} student(s)."
                 context["form_data"] = {"title": "", "message_body": ""}
+                context["selected_student_ids"] = []
 
         broadcasts = (
             admin.table("student_notifications")
@@ -3016,6 +3031,7 @@ def admin_broadcast_messages(request):
                 "title": request.POST.get("title", ""),
                 "message_body": request.POST.get("message_body", ""),
             }
+            context["selected_student_ids"] = [sid.strip() for sid in request.POST.getlist("selected_student_ids") if sid.strip()]
 
     return render(request, "dashboard/admin_broadcast_messages.html", context)
 

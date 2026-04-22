@@ -7,7 +7,7 @@
     <div class="card">
       <div class="card-body">
         <h4 class="mb-1">Broadcast Messages</h4>
-        <p class="text-muted mb-0">Send announcements to all students. Unread messages appear in student sidebar badges.</p>
+        <p class="text-muted mb-0">Send announcements to selected registered students only. Unread messages appear in student sidebar badges.</p>
       </div>
     </div>
   </div>
@@ -34,7 +34,43 @@
             <label class="form-label">Message</label>
             <textarea name="message_body" rows="5" class="form-control" required>{{ form_data.message_body }}</textarea>
           </div>
-          <button type="submit" class="btn btn-primary">Send to All Students</button>
+          <div class="mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2 gap-2 flex-wrap">
+              <label class="form-label mb-0">Recipients (registered students)</label>
+              <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllRecipients">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllRecipients">Clear</button>
+              </div>
+            </div>
+            <input
+              type="text"
+              class="form-control form-control-sm mb-2"
+              id="recipientSearchInput"
+              placeholder="Search name or email"
+            />
+            <div class="border rounded p-2" style="max-height:260px;overflow:auto;">
+              {% if available_students %}
+                {% for student in available_students %}
+                <label class="d-flex align-items-start gap-2 py-1 recipient-option">
+                  <input
+                    class="form-check-input mt-1 recipient-checkbox"
+                    type="checkbox"
+                    name="selected_student_ids"
+                    value="{{ student.id }}"
+                    {% if student.id in selected_student_ids %}checked{% endif %}
+                  />
+                  <span>
+                    <strong class="recipient-name">{{ student.full_name|default:"Unnamed Student" }}</strong><br />
+                    <small class="text-muted recipient-email">{{ student.email|default:"No email" }}</small>
+                  </span>
+                </label>
+                {% endfor %}
+              {% else %}
+                <p class="text-muted mb-0">No registered students found.</p>
+              {% endif %}
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Send to Selected Students</button>
         </form>
       </div>
     </div>
@@ -73,4 +109,55 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var searchInput = document.getElementById("recipientSearchInput");
+    var selectAllBtn = document.getElementById("selectAllRecipients");
+    var clearAllBtn = document.getElementById("clearAllRecipients");
+    var optionRows = Array.prototype.slice.call(document.querySelectorAll(".recipient-option"));
+    var checkboxes = Array.prototype.slice.call(document.querySelectorAll(".recipient-checkbox"));
+
+    function normalizedText(text) {
+      return (text || "").toLowerCase().trim();
+    }
+
+    function applySearchFilter() {
+      var query = normalizedText(searchInput && searchInput.value);
+      optionRows.forEach(function (row) {
+        var nameEl = row.querySelector(".recipient-name");
+        var emailEl = row.querySelector(".recipient-email");
+        var name = normalizedText(nameEl ? nameEl.textContent : "");
+        var email = normalizedText(emailEl ? emailEl.textContent : "");
+        row.style.display = !query || name.indexOf(query) !== -1 || email.indexOf(query) !== -1 ? "" : "none";
+      });
+    }
+
+    function setVisibleChecked(checked) {
+      checkboxes.forEach(function (checkbox) {
+        var row = checkbox.closest(".recipient-option");
+        if (!row || row.style.display === "none") return;
+        checkbox.checked = checked;
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", applySearchFilter);
+    }
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener("click", function () {
+        setVisibleChecked(true);
+      });
+    }
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener("click", function () {
+        checkboxes.forEach(function (checkbox) {
+          checkbox.checked = false;
+        });
+      });
+    }
+  })();
+</script>
 {% endblock %}
