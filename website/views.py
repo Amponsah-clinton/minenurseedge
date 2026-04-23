@@ -2957,7 +2957,6 @@ def admin_broadcast_messages(request):
         "email": request.session.get("email", ""),
         "role": "admin",
         "active_page": "broadcast_messages",
-        "recent_broadcasts": [],
         "form_data": {"title": "", "message_body": ""},
         "available_students": [],
         "selected_student_ids": [],
@@ -3014,16 +3013,6 @@ def admin_broadcast_messages(request):
                 context["form_data"] = {"title": "", "message_body": ""}
                 context["selected_student_ids"] = []
 
-        broadcasts = (
-            admin.table("student_notifications")
-            .select("id, title, message_body, created_at")
-            .order("created_at", desc=True)
-            .limit(10)
-            .execute()
-            .data
-            or []
-        )
-        context["recent_broadcasts"] = broadcasts
     except Exception as exc:
         context["error"] = str(exc)
         if request.method == "POST":

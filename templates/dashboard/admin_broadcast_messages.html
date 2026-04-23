@@ -82,29 +82,7 @@
         <h5 class="card-title mb-2">Recent Broadcasts</h5>
       </div>
       <div class="card-body">
-        {% if recent_broadcasts %}
-          <div class="d-flex flex-column gap-3">
-            {% for item in recent_broadcasts %}
-            <div class="border rounded p-3">
-              <div class="d-flex align-items-center justify-content-between mb-1">
-                <h6 class="mb-0">{{ item.title }}</h6>
-                <div class="d-flex align-items-center gap-2">
-                  <small class="text-muted">{{ item.created_at|slice:":16"|cut:"T" }}</small>
-                  <form method="post" onsubmit="return confirm('Delete this broadcast message?');">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="delete" />
-                    <input type="hidden" name="notification_id" value="{{ item.id }}" />
-                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2">Delete</button>
-                  </form>
-                </div>
-              </div>
-              <p class="mb-0 text-muted">{{ item.message_body|truncatechars:160 }}</p>
-            </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="text-muted mb-0">No broadcasts yet.</p>
-        {% endif %}
+        <p class="text-muted mb-0">Sent broadcasts are hidden on this page.</p>
       </div>
     </div>
   </div>
