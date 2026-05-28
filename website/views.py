@@ -6517,7 +6517,19 @@ def student_general_test_attempt(request, attempt_id):
     if attempt.get("submitted_at"):
         return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/result/")
 
-    # If paused, show the paused landing screen
+    # Resume must run before the paused GET screen (that screen only POSTs resume).
+    if (
+        request.method == "POST"
+        and request.POST.get("action", "").strip() == "resume"
+        and attempt.get("status") == "paused"
+    ):
+        admin.table("general_test_attempts").update({
+            "status": "in_progress",
+            "resumed_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", str(attempt_id)).execute()
+        return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/")
+
+    # If paused, show the paused landing screen (GET only)
     if attempt.get("status") == "paused":
         return render(request, "dashboard/student_general_test_paused.html", {
             "full_name": request.session.get("full_name", "Student"),
@@ -6610,14 +6622,6 @@ def student_general_test_attempt(request, attempt_id):
             }).eq("id", str(attempt_id)).execute()
             return redirect("/dashboard/general-tests/")
 
-        # ---- Resume (POST from paused screen) ----
-        if action == "resume":
-            admin.table("general_test_attempts").update({
-                "status": "in_progress",
-                "resumed_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", str(attempt_id)).execute()
-            return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/")
-
         # ---- Normal answer save ----
         target = next((q for q in questions if q["id"] == qid), None)
         if target:
@@ -6703,10 +6707,13 @@ def student_general_test_attempt(request, attempt_id):
         }).eq("id", str(attempt_id)).execute()
         return redirect(f"/dashboard/general-tests/attempt/{attempt_id}/result/")
 
-    # Restore last saved question index when coming back after a pause (GET)
+    # Restore question index once after resume (then clear so refresh won't reset)
     if request.method == "GET" and attempt.get("paused_at_index"):
         current_index = int(attempt["paused_at_index"])
         current_index = max(1, min(current_index, len(questions)))
+        admin.table("general_test_attempts").update({
+            "paused_at_index": None,
+        }).eq("id", str(attempt_id)).execute()
 
     current_question = questions[current_index - 1]
     current_answer = answer_map.get(current_question["id"], {})
