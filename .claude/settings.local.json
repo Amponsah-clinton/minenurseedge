@@ -18,7 +18,8 @@
       "Bash(xargs grep -l \"class.*User\\\\|class.*Subscription\\\\|class.*Payment\")",
       "Bash(python -c \"import django; django.setup\\(\\); from website import views, middleware; print\\('OK'\\)\")",
       "Bash(python -m py_compile website/views.py)",
-      "Bash(python -m py_compile website/middleware.py)"
+      "Bash(python -m py_compile website/middleware.py)",
+      "Bash(python -c ' *)"
     ]
   }
 }
