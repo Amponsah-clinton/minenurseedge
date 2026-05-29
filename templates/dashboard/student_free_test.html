@@ -1,0 +1,213 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Free Test - NursesEdge {% endblock %}
+
+{% block content %}
+<style>
+  .gen-tests-page {
+    --gt-border: #e4e8f0;
+    --gt-muted: #6c7a89;
+    --gt-surface: #ffffff;
+    --gt-subtle: #f6f7fa;
+    --gt-shadow: 0 1px 2px rgba(28,43,68,.06),0 4px 12px rgba(28,43,68,.04);
+    --gt-shadow-hover: 0 2px 6px rgba(28,43,68,.08),0 8px 24px rgba(28,43,68,.06);
+  }
+  .gen-tests-hero {
+    background: var(--gt-surface); border:1px solid var(--gt-border);
+    border-radius:14px; box-shadow:var(--gt-shadow); padding:1.35rem 1.5rem;
+  }
+  .gen-test-card {
+    background:var(--gt-surface); border:1px solid var(--gt-border);
+    border-radius:12px; box-shadow:var(--gt-shadow); height:100%;
+    display:flex; flex-direction:column;
+    transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  .gen-test-card:hover { border-color:#cfd6e4; box-shadow:var(--gt-shadow-hover); }
+  .gen-test-card__body { padding:1.15rem 1.25rem 1rem; flex:1; display:flex; flex-direction:column; }
+  .gen-test-card__icon {
+    width:40px; height:40px; border-radius:10px;
+    background:#eef9f0; border:1px solid #c8e6d0;
+    display:flex; align-items:center; justify-content:center;
+    color:#2d6a3e; font-size:1.25rem; margin-bottom:.85rem;
+  }
+  .gen-test-card__icon--locked { background:#fef3f2; border-color:#fbc5be; color:#c0392b; }
+  .gen-test-card__label {
+    font-size:.6875rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:var(--gt-muted); margin-bottom:.25rem;
+  }
+  .gen-test-card__title { font-size:1.05rem; font-weight:700; color:#2c3544; line-height:1.35; margin-bottom:.75rem; }
+  .gen-test-card__meta {
+    display:flex; flex-wrap:wrap; gap:.5rem 1rem;
+    margin-top:auto; padding-top:.75rem; border-top:1px solid #eef0f5;
+  }
+  .gen-test-card__meta-item { display:inline-flex; align-items:center; gap:.35rem; font-size:.8125rem; color:var(--gt-muted); }
+  .gen-test-card__footer {
+    padding:.85rem 1.25rem 1.1rem; background:var(--gt-subtle);
+    border-top:1px solid var(--gt-border);
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.65rem;
+  }
+  .gen-test-card__status {
+    font-size:.75rem; font-weight:600; padding:.25rem .6rem;
+    border-radius:6px; border:1px solid transparent;
+  }
+  .gen-test-card__status--paused  { color:#8a6d1d; background:#faf6eb; border-color:#e8dcc4; }
+  .gen-test-card__status--progress { color:#1e4fad; background:#eef3fc; border-color:#c8d8f4; }
+  .gen-test-card__status--new     { color:#5a6570; background:#fff; border-color:var(--gt-border); }
+  .gen-test-card__status--done    { color:#236b3e; background:#edf8f1; border-color:#b8ddc8; }
+  .gen-test-card .btn-gen-action {
+    font-weight:600; font-size:.8125rem; padding:.45rem 1rem; border-radius:8px;
+    border:1px solid #2d6a3e; background:#34804a; color:#fff;
+    text-decoration:none; display:inline-flex; align-items:center; gap:.35rem;
+  }
+  .gen-test-card .btn-gen-action:hover { background:#2a6b3d; border-color:#245f35; color:#fff; }
+  .gen-test-card .btn-gen-action--warn { border-color:#a67c00; background:#b8890f; }
+  .gen-test-card .btn-gen-action--disabled { opacity:.55; pointer-events:none; border-color:#adb5bd; background:#adb5bd; }
+  .gen-test-card .btn-gen-action--subscribe { border-color:#c0392b; background:#e84c3d; }
+  .gen-test-card .btn-gen-action--subscribe:hover { background:#c0392b; border-color:#a93226; }
+
+  /* Premium upsell card */
+  .premium-upsell-card {
+    background:#fff; border:1.5px solid #f0c27b; border-radius:14px;
+    box-shadow:0 2px 10px rgba(200,130,30,.12); overflow:hidden;
+  }
+  .premium-upsell-card__header {
+    background:linear-gradient(135deg,#1a1a2e 0%,#2e3e6e 100%);
+    padding:1.25rem 1.5rem; color:#fff;
+  }
+  .premium-upsell-card__header h5 { font-weight:800; margin:0 0 4px; font-size:1.1rem; }
+  .premium-upsell-card__header p  { margin:0; font-size:.85rem; opacity:.8; }
+  .premium-upsell-card__body { padding:1.25rem 1.5rem; }
+  .premium-feature-list { list-style:none; padding:0; margin:0 0 1.25rem; display:flex; flex-direction:column; gap:.55rem; }
+  .premium-feature-list li { display:flex; align-items:center; gap:.6rem; font-size:.875rem; color:#2c3544; }
+  .premium-feature-list li .feat-icon { font-size:1rem; flex-shrink:0; width:1.4rem; text-align:center; }
+  .btn-subscribe-full {
+    display:flex; align-items:center; justify-content:center; gap:.5rem;
+    width:100%; padding:.75rem 1rem; border-radius:10px; font-weight:700; font-size:.925rem;
+    background:linear-gradient(135deg,#e84c3d,#c0392b); color:#fff;
+    border:none; text-decoration:none; cursor:pointer;
+    box-shadow:0 3px 12px rgba(192,57,43,.3); transition:opacity .15s;
+  }
+  .btn-subscribe-full:hover { opacity:.9; color:#fff; text-decoration:none; }
+  .premium-price-hint { font-size:.78rem; color:#7b8599; text-align:center; margin-top:.65rem; }
+</style>
+
+<div class="row g-4 gen-tests-page">
+  <div class="col-12">
+    <div class="gen-tests-hero d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div>
+        <h4 class="mb-1">Free Test</h4>
+        <p class="text-muted mb-0" style="max-width:40rem;">
+          A full <strong>{{ test.target_count }}-question</strong> practice exam with the same
+          <strong>NMC Countdown</strong> interface as General Tests — available at no cost.
+          No subscription required.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-8 col-lg-6">
+    {% if test.can_start or test.attempt_id %}
+    {# ── Normal test card (can start / in-progress / paused) ── #}
+    <article class="gen-test-card">
+      <div class="gen-test-card__body">
+        <div class="gen-test-card__icon"><i class="bx bx-gift"></i></div>
+        <div class="gen-test-card__label">Free practice · NMC Countdown</div>
+        <h3 class="gen-test-card__title">{{ test.title }}</h3>
+        <div class="gen-test-card__meta">
+          <span class="gen-test-card__meta-item"><i class="bx bx-list-ul"></i>{{ test.question_count }} questions</span>
+          <span class="gen-test-card__meta-item"><i class="bx bx-time"></i>{{ test.duration_minutes }} min</span>
+        </div>
+      </div>
+      <div class="gen-test-card__footer">
+        {% if test.attempt_status == "paused" %}
+          <span class="gen-test-card__status gen-test-card__status--paused"><i class="bx bx-pause me-1"></i>Paused</span>
+        {% elif test.attempt_status == "in_progress" %}
+          <span class="gen-test-card__status gen-test-card__status--progress"><i class="bx bx-play me-1"></i>In progress</span>
+        {% else %}
+          <span class="gen-test-card__status gen-test-card__status--new">Not started</span>
+        {% endif %}
+        {% if test.attempt_id %}
+          <a href="/dashboard/free-test/attempt/{{ test.attempt_id }}/"
+             class="btn-gen-action {% if test.attempt_status == 'paused' %}btn-gen-action--warn{% endif %}">
+            {% if test.attempt_status == "paused" %}<i class="bx bx-play-circle"></i>Resume
+            {% else %}<i class="bx bx-right-arrow-circle"></i>Continue{% endif %}
+          </a>
+        {% else %}
+          <a href="/dashboard/free-test/start/" class="btn-gen-action">
+            <i class="bx bx-play"></i>Start free test
+          </a>
+        {% endif %}
+      </div>
+    </article>
+
+    {% elif has_completed_free_test and not is_subscribed %}
+    {# ── Locked card: user finished the free test and hasn't subscribed ── #}
+    <article class="gen-test-card" style="border-color:#fbc5be;">
+      <div class="gen-test-card__body">
+        <div class="gen-test-card__icon gen-test-card__icon--locked"><i class="bx bx-lock-alt"></i></div>
+        <div class="gen-test-card__label">Free test · completed</div>
+        <h3 class="gen-test-card__title">{{ test.title }}</h3>
+        <p class="text-muted" style="font-size:.875rem; margin-top:.25rem;">
+          You've already used your free test.
+          Subscribe to unlock unlimited practice, general tests, mock exams, and more.
+        </p>
+        <div class="gen-test-card__meta">
+          <span class="gen-test-card__meta-item"><i class="bx bx-list-ul"></i>{{ test.question_count }} questions</span>
+          <span class="gen-test-card__meta-item"><i class="bx bx-time"></i>{{ test.duration_minutes }} min</span>
+        </div>
+      </div>
+      <div class="gen-test-card__footer">
+        <span class="gen-test-card__status gen-test-card__status--done"><i class="bx bx-check me-1"></i>Completed</span>
+        {% if test.completed_attempt_id %}
+        <a href="/dashboard/free-test/attempt/{{ test.completed_attempt_id }}/result/" class="btn-gen-action" style="background:#5a6570;border-color:#5a6570;">
+          <i class="bx bx-bar-chart-alt-2"></i>View Result
+        </a>
+        {% endif %}
+        <a href="/subscribe/" class="btn-gen-action btn-gen-action--subscribe">
+          <i class="bx bx-crown"></i>Subscribe to Unlock
+        </a>
+      </div>
+    </article>
+
+    {% elif not test.can_start %}
+    <div class="alert alert-warning mb-0">
+      <strong>No questions yet.</strong> An administrator must upload the free test bank from
+      <a href="/admin-panel/upload-questions/#free-test-upload">Upload Questions → Free Test</a>.
+      Target size: {{ test.target_count }} questions.
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Premium upsell sidebar (shown to unsubscribed + completed users) ── #}
+  {% if has_completed_free_test and not is_subscribed %}
+  <div class="col-12 col-md-10 col-lg-6">
+    <div class="premium-upsell-card">
+      <div class="premium-upsell-card__header">
+        <h5><i class="bx bx-crown me-2"></i>Upgrade to Full Access</h5>
+        <p>You've experienced the NMC Countdown. Now unlock everything to maximise your preparation.</p>
+      </div>
+      <div class="premium-upsell-card__body">
+        <ul class="premium-feature-list">
+          <li><span class="feat-icon">📝</span> Unlimited General Tests (Paper 1, 2, 3 &amp; 4)</li>
+          <li><span class="feat-icon">🏆</span> Full Mock Exams — NMC format, timed</li>
+          <li><span class="feat-icon">🎯</span> NMC Mastery — topic-by-topic gap analysis</li>
+          <li><span class="feat-icon">📚</span> Lecture Notes organised by year &amp; topic</li>
+          <li><span class="feat-icon">💊</span> Drug Cards &amp; Dosage Calculator</li>
+          <li><span class="feat-icon">🖼️</span> Clinical Visual Library</li>
+          <li><span class="feat-icon">🃏</span> Flashcards &amp; Spaced Repetition</li>
+          <li><span class="feat-icon">📊</span> Detailed Performance Analytics</li>
+          <li><span class="feat-icon">🎓</span> NCLEX Practice Questions &amp; Guide</li>
+          <li><span class="feat-icon">🤝</span> Student Community Forums</li>
+          <li><span class="feat-icon">🤖</span> AI Study Assistant (24/7)</li>
+          <li><span class="feat-icon">🔖</span> Bookmarks, Flags &amp; Progress Review</li>
+        </ul>
+        <a href="/subscribe/" class="btn-subscribe-full">
+          <i class="bx bx-credit-card"></i>
+          Subscribe — GHS {{ standard_plan.price|default:"50" }} / {{ standard_plan.duration_days|default:365 }} days
+        </a>
+        <p class="premium-price-hint">One-time annual fee · Instant access · Cancel anytime</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

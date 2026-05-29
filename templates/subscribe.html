@@ -37,19 +37,18 @@
 
 <div class="sub-wrap">
   <div class="sub-head">
-    <h4>Complete your annual subscription</h4>
-    <p>One account type for all users (including Google sign-in). Current amount: GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days. You must complete this payment before the dashboard unlocks.</p>
+    <h4>Unlock Full Access</h4>
+    <p>Get unlimited General Tests, Mock Exams, Lecture Notes, Flashcards, Drug Cards, NCLEX Questions, and the AI Study Assistant — everything you need to ace the NMC Licensure Exam. GHS {{ standard.price|default:"50" }} / {{ standard.duration_days|default:365 }} days.</p>
   </div>
 
   {% if request.GET.reason == 'payment_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
-    Your subscription is not active yet. Complete payment below to access your dashboard.
-    <!-- <div class="small mt-2 mb-0 text-muted">If checkout does not open, confirm <code>PAYSTACK_SECRET_KEY</code> and <code>PUBLIC_SITE_URL</code> in <code>.env</code> and try again.</div> -->
+    <strong>Premium feature.</strong> This page requires an active subscription. Complete payment below to unlock it instantly.
   </div>
   {% endif %}
   {% if request.GET.reason == 'renewal_required' %}
   <div class="alert alert-warning mb-3" style="border-radius:10px;">
-    Your annual subscription has expired. Renew now to restore dashboard access.
+    Your annual subscription has expired. Renew now to restore full dashboard access.
   </div>
   {% endif %}
   {% if request.GET.reason == 'cancelled' %}

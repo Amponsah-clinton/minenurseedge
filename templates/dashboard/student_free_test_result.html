@@ -1,0 +1,150 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Free Test Result{% endblock %}
+
+{% block dashboard_head %}
+<link rel="stylesheet" href="/css/confetti-celebration.css" />
+<style>
+  /* ── upsell modal ── */
+  #upsellModal .modal-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2e3e6e 100%);
+    color: #fff; border-radius: 12px 12px 0 0;
+  }
+  #upsellModal .modal-title { font-weight: 800; font-size: 1.1rem; }
+  #upsellModal .btn-close { filter: invert(1); }
+  .upsell-feature-list { list-style: none; padding: 0; margin: 0 0 1.2rem; display: flex; flex-direction: column; gap: .5rem; }
+  .upsell-feature-list li { display: flex; align-items: center; gap: .6rem; font-size: .875rem; color: #2c3544; }
+  .upsell-feature-list li .feat-icon { font-size: 1rem; flex-shrink: 0; width: 1.4rem; text-align: center; }
+  .btn-subscribe-modal {
+    display: flex; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; padding: .75rem 1rem; border-radius: 10px;
+    font-weight: 700; font-size: .925rem;
+    background: linear-gradient(135deg, #e84c3d, #c0392b); color: #fff;
+    border: none; text-decoration: none; cursor: pointer;
+    box-shadow: 0 3px 12px rgba(192,57,43,.3); transition: opacity .15s;
+  }
+  .btn-subscribe-modal:hover { opacity: .9; color: #fff; text-decoration: none; }
+  .upsell-price-hint { font-size: .78rem; color: #7b8599; text-align: center; margin-top: .65rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="card">
+      <div class="card-body text-center py-5">
+        <h3 class="mb-1">{{ attempt.paper_title }} Completed</h3>
+        <p class="text-muted mb-4">Your result is ready.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#resultModal">View Score</button>
+        <a href="/dashboard/free-test/" class="btn btn-outline-secondary ms-2">Back to Free Test</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Result modal ── #}
+<div class="modal fade" id="resultModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Free Test Result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <h1 class="text-primary">{{ attempt.percentage|floatformat:0 }}%</h1>
+        <p class="mb-1"><strong>{{ attempt.score }}</strong> / {{ attempt.total_questions }} correct</p>
+        <div class="alert alert-success mb-0">{{ encouragement }}</div>
+      </div>
+      <div class="modal-footer border-0 justify-content-center gap-2">
+        <a href="/dashboard/performance/" class="btn btn-outline-primary btn-sm">View Performance</a>
+        {% if not is_subscribed %}
+        <button type="button" class="btn btn-primary btn-sm"
+                data-bs-dismiss="modal"
+                onclick="setTimeout(function(){ new bootstrap.Modal(document.getElementById('upsellModal')).show(); }, 400)">
+          Practice More <i class="bx bx-right-arrow-alt ms-1"></i>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Upsell modal (shown to unsubscribed users) ── #}
+{% if not is_subscribed %}
+<div class="modal fade" id="upsellModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bx bx-crown me-2"></i>Want to practice more?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 py-4">
+        <p class="mb-3" style="font-size: .9rem; color: #4a5268;">
+          Great effort on the Free Test! Subscribe now to unlock the complete NursesEdge platform
+          and give yourself the best chance at passing the NMC Licensure Exam.
+        </p>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <ul class="upsell-feature-list">
+              <li><span class="feat-icon">📝</span> Unlimited General Tests (Papers 1–4)</li>
+              <li><span class="feat-icon">🏆</span> Full Mock Exams — NMC format, timed</li>
+              <li><span class="feat-icon">🎯</span> NMC Mastery — topic gap analysis</li>
+              <li><span class="feat-icon">📚</span> Lecture Notes by year &amp; topic</li>
+              <li><span class="feat-icon">💊</span> Drug Cards &amp; Dosage Calculator</li>
+              <li><span class="feat-icon">🖼️</span> Clinical Visual Library</li>
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <ul class="upsell-feature-list">
+              <li><span class="feat-icon">🃏</span> Flashcards &amp; Spaced Repetition</li>
+              <li><span class="feat-icon">📊</span> Detailed Performance Analytics</li>
+              <li><span class="feat-icon">🎓</span> NCLEX Practice Questions &amp; Guide</li>
+              <li><span class="feat-icon">🤝</span> Student Community Forums</li>
+              <li><span class="feat-icon">🤖</span> AI Study Assistant (24/7)</li>
+              <li><span class="feat-icon">🔖</span> Bookmarks, Flags &amp; Progress Review</li>
+            </ul>
+          </div>
+        </div>
+        <a href="/subscribe/" class="btn-subscribe-modal">
+          <i class="bx bx-credit-card"></i>
+          Subscribe Now — GHS {{ standard_plan.price|default:"50" }} / {{ standard_plan.duration_days|default:365 }} days
+        </a>
+        <p class="upsell-price-hint">One-time annual fee · Instant full access · Cancel anytime</p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Maybe later</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="/js/confetti-celebration.js"></script>
+<script>
+  (function () {
+    if (window.NursesEdgeConfetti) {
+      window.NursesEdgeConfetti.start({ duration: 5200 });
+    }
+
+    // Show result modal immediately.
+    var resultEl = document.getElementById("resultModal");
+    if (resultEl) {
+      var resultModal = new bootstrap.Modal(resultEl);
+      resultModal.show();
+
+      {% if not is_subscribed %}
+      // After result modal closes, auto-show upsell modal.
+      resultEl.addEventListener("hidden.bs.modal", function () {
+        var upsellEl = document.getElementById("upsellModal");
+        if (upsellEl) {
+          setTimeout(function () {
+            new bootstrap.Modal(upsellEl).show();
+          }, 500);
+        }
+      });
+      {% endif %}
+    }
+  })();
+</script>
+{% endblock %}

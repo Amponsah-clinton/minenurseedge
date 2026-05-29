@@ -121,6 +121,72 @@
   </div>
 </div>
 
+<div class="row" id="free-test-upload">
+  <div class="col-12 mb-4">
+    <div class="card border-success">
+      <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+          <h5 class="mb-1">Free Test Question Bank</h5>
+          <p class="text-muted mb-0">
+            Upload the {{ free_test_target_count }}-question free practice exam (JSON).
+            Currently <strong>{{ free_test_question_count }}</strong> / {{ free_test_target_count }} in the bank.
+          </p>
+        </div>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#freeTestUploadModal">
+          <i class="bx bx-upload me-1"></i>Upload Free Test JSON
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="freeTestUploadModal" tabindex="-1" aria-labelledby="freeTestUploadModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="upload_mode" value="free_test_json" />
+        <div class="modal-header">
+          <h5 class="modal-title" id="freeTestUploadModalLabel">Upload Free Test Questions (JSON)</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small">
+            Paste a JSON object with a <code>questions</code> array (or a raw array).
+            Each item needs <code>question</code>, <code>options</code> (A/B/C), and <code>correct_option</code>.
+            <code>programme</code> and <code>paper_title</code> are optional labels for your records.
+          </p>
+          <label class="form-label">JSON payload</label>
+          <textarea name="free_test_json_payload" class="form-control font-monospace" rows="14" placeholder='{ "questions": [ ... ] }'>{{ form_data.free_test_json_payload }}</textarea>
+          <details class="mt-3">
+            <summary class="small text-primary" style="cursor:pointer;">Show example JSON</summary>
+            <pre class="small mt-2 mb-0 p-2 bg-light rounded" style="white-space:pre-wrap;">{
+  "questions": [
+    {
+      "programme": "Registered General Nursing (RGN)",
+      "paper_title": "Medicine and Medical Nursing",
+      "question": "Which organ primarily filters blood to produce urine?",
+      "options": {
+        "A": "Liver",
+        "B": "Kidney",
+        "C": "Spleen"
+      },
+      "correct_option": "B",
+      "explanation": "Kidneys filter blood and form urine."
+    }
+  ]
+}</pre>
+          </details>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Save to Free Test Bank</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="row">
   <div class="col-12 mb-4">
     <div class="card">
@@ -237,6 +303,16 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  (function () {
+    if (window.location.hash === "#free-test-upload") {
+      var modalEl = document.getElementById("freeTestUploadModal");
+      if (modalEl && window.bootstrap) {
+        new bootstrap.Modal(modalEl).show();
+      }
+    }
+  })();
+</script>
 <script>
   (function () {
     const programmePapers = JSON.parse('{{ programme_papers_json|escapejs }}');

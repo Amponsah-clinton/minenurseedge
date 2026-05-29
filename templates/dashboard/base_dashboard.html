@@ -431,6 +431,9 @@
               <li class="menu-item {% if active_page == 'upload_questions' %}active{% endif %}">
                 <a href="/admin-panel/upload-questions/" class="menu-link"><div data-i18n="Upload Questions">Upload Questions</div></a>
               </li>
+              <li class="menu-item">
+                <a href="/admin-panel/upload-questions/#free-test-upload" class="menu-link"><div>Free Test Questions</div></a>
+              </li>
               <li class="menu-item {% if active_page == 'manage_questions' %}active{% endif %}">
                 <a href="/admin-panel/manage-questions/" class="menu-link"><div data-i18n="Manage Questions">Manage Questions</div></a>
               </li>
@@ -610,6 +613,12 @@
             <a href="/dashboard/general-tests/" class="menu-link">
               <i class="menu-icon tf-icons bx bx-question-mark"></i>
               <div>General Tests</div>
+            </a>
+          </li>
+          <li class="menu-item {% if active_page == 'free_test' %}active{% endif %}">
+            <a href="/dashboard/free-test/" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-gift"></i>
+              <div>Free Test</div>
             </a>
           </li>
           <li class="menu-item {% if active_page == 'student_nclex' %}active{% endif %}">

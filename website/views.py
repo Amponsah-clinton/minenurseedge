@@ -873,6 +873,94 @@ def _normalize_question_payload(item):
     }
 
 
+def _normalize_free_test_payload(item):
+    """Free test JSON: question + options required; programme/paper optional metadata."""
+    if not isinstance(item, dict):
+        raise ValueError("Each JSON item must be an object.")
+
+    programme = (item.get("programme") or "").strip()
+    paper_title = (item.get("paper_title") or "").strip()
+    question_text = (item.get("question") or item.get("question_text") or "").strip()
+    explanation = (item.get("explanation") or "").strip()
+    correct_option = (item.get("correct_option") or "").strip().upper()
+
+    options = item.get("options") or {}
+    if not isinstance(options, dict):
+        raise ValueError("The 'options' field must be an object with A/B/C keys.")
+
+    cleaned_options = {}
+    for key, value in options.items():
+        clean_key = str(key).strip().upper()
+        if clean_key in {"A", "B", "C"} and str(value).strip():
+            cleaned_options[clean_key] = str(value).strip()
+
+    if not question_text:
+        raise ValueError("Question text is required.")
+    if len(cleaned_options) < 2:
+        raise ValueError("At least 2 options are required.")
+    if correct_option not in cleaned_options:
+        raise ValueError("Correct option must match one of the provided options.")
+
+    return {
+        "programme": programme,
+        "paper_title": paper_title,
+        "question_text": question_text,
+        "options": cleaned_options,
+        "correct_option": correct_option,
+        "explanation": explanation,
+    }
+
+
+def _filter_duplicate_free_test_questions(db, rows):
+    """Skip rows whose question_text already exists in free_test_questions."""
+    if not rows:
+        return [], []
+    existing = set()
+    try:
+        offset = 0
+        while True:
+            chunk = (
+                db.table("free_test_questions")
+                .select("question_text")
+                .order("created_at", desc=False)
+                .range(offset, offset + POSTGREST_LIST_CHUNK - 1)
+                .execute()
+                .data
+                or []
+            )
+            for row in chunk:
+                text = (row.get("question_text") or "").strip().lower()
+                if text:
+                    existing.add(text)
+            if len(chunk) < POSTGREST_LIST_CHUNK:
+                break
+            offset += POSTGREST_LIST_CHUNK
+    except Exception:
+        pass
+
+    unique_rows = []
+    skipped = []
+    seen_batch = set()
+    for row in rows:
+        key = (row.get("question_text") or "").strip().lower()
+        if not key:
+            continue
+        if key in existing or key in seen_batch:
+            skipped.append((row.get("question_text") or "", "duplicate"))
+            continue
+        seen_batch.add(key)
+        unique_rows.append(row)
+    return unique_rows, skipped
+
+
+def _free_test_question_count(db):
+    try:
+        rows = db.table("free_test_questions").select("id", count="exact", head=True).execute()
+        return int(rows.count or 0)
+    except Exception:
+        return 0
+
+
 MOCK_QUESTION_BATCH_SIZE = 60
 MOCK_DURATION_MINUTES = 30
 GLOBAL_MOCK_PROGRAMME = "All Programmes"
@@ -883,6 +971,17 @@ MOCK_GENERAL_PAPER_POOL_CAP = 120
 # Admin-created free accounts: subscriptions row uses this reference; also used when profiles.is_free_access is missing.
 FREE_ACCESS_PAYMENT_REFERENCE = "free_access"
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
+
+FREE_TEST_TITLE = "Free Test"
+FREE_TEST_QUESTION_COUNT = 100
+FREE_TEST_DURATION_MINUTES = 90
+
+
+def _free_test_duration_for_count(question_count):
+    """Scale the 90-minute / 100-question limit to the actual attempt size."""
+    if question_count <= 0:
+        return FREE_TEST_DURATION_MINUTES
+    return max(1, round(FREE_TEST_DURATION_MINUTES * question_count / FREE_TEST_QUESTION_COUNT))
 
 # PostgREST / Supabase often caps each response (~1000 rows). Use range() chunks.
 POSTGREST_LIST_CHUNK = 1000
@@ -1880,8 +1979,11 @@ def complete_academic_profile(request):
 
 
 def signup_page(request):
-    plans = _get_plans()
-
+    """
+    Free registration — no payment required at sign-up.
+    Users register for free and land on the Free Test page.
+    Payment is collected later via /subscribe/ when they want full access.
+    """
     if request.method == "POST":
         full_name        = request.POST.get("fullName", "").strip()
         email            = request.POST.get("email", "").strip().lower()
@@ -1900,7 +2002,6 @@ def signup_page(request):
             "yearOfStudy": year_of_study,
             "institution": institution,
             "programme": programme,
-            "plan_slug": plan_slug,
         }
 
         errors = []
@@ -1917,39 +2018,14 @@ def signup_page(request):
         errors.extend(_validate_password(password))
 
         if errors:
-            return render(request, "signup.html", {
-                "errors": errors,
-                "form_data": form_data,
-                "plans": plans,
-                "basic": plans.get("basic", {}),
-                "premium": plans.get("premium", {}),
-                "standard": plans.get("standard", {}),
-                "paystack_pub_key": (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip(),
-                "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
-            })
-
-        payment_reference = (
-            request.POST.get("payment_reference", "").strip()
-            or request.POST.get("paystack_reference", "").strip()
-        )
-        paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
+            return render(request, "signup.html", {"errors": errors, "form_data": form_data})
 
         def _signup_err(msg):
-            return render(request, "signup.html", {
-                "errors": [msg],
-                "form_data": form_data,
-                "plans": plans,
-                "basic": plans.get("basic", {}),
-                "premium": plans.get("premium", {}),
-                "standard": plans.get("standard", {}),
-                "paystack_pub_key": paystack_pub,
-                "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
-            })
+            return render(request, "signup.html", {"errors": [msg], "form_data": form_data})
 
         try:
             admin = _supabase_admin()
 
-            # Check Supabase profiles table only
             existing = admin.table("profiles").select("id").eq("email", email).limit(1).execute()
             if existing.data:
                 return _signup_err("This email is already registered. Please log in instead.")
@@ -1967,7 +2043,6 @@ def signup_page(request):
             except Exception as auth_exc:
                 emsg = str(auth_exc).lower()
                 if "already" in emsg or "registered" in emsg or "exists" in emsg:
-                    # Orphaned auth user (no profile row) — recover it
                     orphan = _find_auth_user_by_email(email)
                     if not orphan:
                         return _signup_err(
@@ -1975,7 +2050,6 @@ def signup_page(request):
                             "Please contact support or try a different email."
                         )
                     user_id = str(orphan["id"])
-                    # Update password so new credentials work
                     try:
                         admin.auth.admin.update_user_by_id(
                             user_id,
@@ -1985,9 +2059,9 @@ def signup_page(request):
                         pass
                 else:
                     return _signup_err(f"Registration failed: {auth_exc}")
-            plan    = plans.get(plan_slug, {})
 
-            # Upsert profile with plan info
+            plan = _get_plans().get(plan_slug, {})
+
             admin.table("profiles").upsert({
                 "id": user_id,
                 "email": email,
@@ -2001,8 +2075,8 @@ def signup_page(request):
                 "subscription_status": "pending_payment",
             }).execute()
 
-            # Create pending subscription record and capture its id
-            sub_resp = admin.table("subscriptions").insert({
+            # Create a pending subscription row so /subscribe/ can activate it later.
+            admin.table("subscriptions").insert({
                 "user_id": user_id,
                 "user_email": email,
                 "user_name": full_name,
@@ -2011,64 +2085,6 @@ def signup_page(request):
                 "currency": plan.get("currency", "GHS"),
                 "status": "pending_payment",
             }).execute()
-            sub_id = (sub_resp.data or [{}])[0].get("id")
-
-            # Keep Paystack reference on the row even if server-side verify fails (wrong key, 403, etc.)
-            # so login /subscribe/ can retry verification without asking the user to pay again.
-            if payment_reference and sub_id:
-                admin.table("subscriptions").update({
-                    "payment_reference": payment_reference,
-                }).eq("id", sub_id).execute()
-
-            price_val = float(plan.get("price") or 0)
-            paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-            bulkclix_configured = bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip())
-
-            if price_val <= 0 and sub_id:
-                _apply_successful_subscription_payment(user_id, sub_id, plan_slug, 0, "complimentary")
-                _create_session(request, user_id, email, full_name, "student")
-                request.session["pending_dashboard_disclaimer"] = True
-                _sync_pending_academic_profile(request, {
-                    "programme": programme,
-                    "year_of_study": year_of_study,
-                    "school": institution,
-                })
-                return redirect("/dashboard/")
-
-            # Paystack: verify server-side before activating (never trust raw reference alone).
-            if payment_reference and sub_id and paystack_secret:
-                import urllib.parse as _up
-                vresp, verr = _paystack_request(
-                    "GET", "/transaction/verify/" + _up.quote(payment_reference, safe="")
-                )
-                if (vresp and vresp.get("status")
-                        and (vresp.get("data") or {}).get("status") == "success"):
-                    amount_paid = float((vresp["data"].get("amount") or 0)) / 100
-                    _apply_successful_subscription_payment(
-                        user_id, sub_id, plan_slug, amount_paid, payment_reference
-                    )
-                    _create_session(request, user_id, email, full_name, "student")
-                    request.session["pending_dashboard_disclaimer"] = True
-                    _sync_pending_academic_profile(request, {
-                        "programme": programme,
-                        "year_of_study": year_of_study,
-                        "school": institution,
-                    })
-                    return redirect("/dashboard/")
-
-            # Bulkclix MoMo: initiation API already charged; reference is from their success response only.
-            if payment_reference and sub_id and bulkclix_configured and not paystack_secret:
-                _apply_successful_subscription_payment(
-                    user_id, sub_id, plan_slug, price_val, payment_reference
-                )
-                _create_session(request, user_id, email, full_name, "student")
-                request.session["pending_dashboard_disclaimer"] = True
-                _sync_pending_academic_profile(request, {
-                    "programme": programme,
-                    "year_of_study": year_of_study,
-                    "school": institution,
-                })
-                return redirect("/dashboard/")
 
             _create_session(request, user_id, email, full_name, "student")
             request.session["pending_dashboard_disclaimer"] = True
@@ -2077,20 +2093,13 @@ def signup_page(request):
                 "year_of_study": year_of_study,
                 "school": institution,
             })
-            return redirect("/subscribe/")
+            # Send free users straight to the Free Test — no payment wall at registration.
+            return redirect("/dashboard/free-test/")
 
         except Exception as exc:
             return _signup_err(f"Registration failed: {exc}")
 
-    paystack_pub = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
-    return render(request, "signup.html", {
-        "plans": plans,
-        "standard": plans.get("standard", {}),
-        "basic": plans.get("basic", {}),
-        "premium": plans.get("premium", {}),
-        "paystack_pub_key": paystack_pub,
-        "signup_uses_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
-    })
+    return render(request, "signup.html", {})
 
 
 def signup_account_exists_api(request):
@@ -2557,13 +2566,6 @@ def user_dashboard(request):
         return guard
 
     user_id = request.session.get("user_id")
-
-    # Mid-session expiry check — catches subscriptions that expired while the
-    # user was already logged in (login only checks at login time).
-    if request.session.get("role") == "student":
-        allowed, reason = _subscription_access_state(user_id)
-        if not allowed:
-            return redirect(f"/subscribe/?reason={reason}")
     unread_count = _student_unread_count(user_id)
     mock_exam_count = 0
     best_mock_percentage = 0
@@ -3670,6 +3672,7 @@ def admin_upload_questions(request):
     if guard:
         return guard
 
+    db = _supabase_admin()
     context = {
         "full_name": request.session.get("full_name", "Admin"),
         "email": request.session.get("email", ""),
@@ -3680,6 +3683,8 @@ def admin_upload_questions(request):
         "programmes": PROGRAMME_NAMES,
         "all_papers": ALL_PAPERS,
         "form_data": EMPTY_QUESTION_FORM.copy(),
+        "free_test_question_count": _free_test_question_count(db),
+        "free_test_target_count": FREE_TEST_QUESTION_COUNT,
     }
 
     if request.method != "POST":
@@ -3755,10 +3760,62 @@ def admin_upload_questions(request):
                         "uploaded_by": request.session.get("user_id"),
                         "source_type": "json",
                     })
+
+        elif upload_mode == "free_test_json":
+            json_payload = request.POST.get("free_test_json_payload", "").strip()
+            if not json_payload:
+                raise ValueError("JSON payload is required for free test upload.")
+
+            parsed = json.loads(json_payload)
+            if isinstance(parsed, dict):
+                parsed_items = parsed.get("questions")
+            else:
+                parsed_items = parsed
+
+            if not isinstance(parsed_items, list) or not parsed_items:
+                raise ValueError("JSON must be an array of question objects or an object with a 'questions' array.")
+
+            for index, item in enumerate(parsed_items, start=1):
+                try:
+                    normalized = _normalize_free_test_payload(item)
+                except ValueError as exc:
+                    raise ValueError(f"Question #{index}: {exc}") from exc
+
+                rows_to_insert.append({
+                    "question_text": normalized["question_text"],
+                    "options": normalized["options"],
+                    "correct_option": normalized["correct_option"],
+                    "explanation": normalized["explanation"],
+                    "programme": normalized["programme"],
+                    "paper_title": normalized["paper_title"],
+                    "uploaded_by": request.session.get("user_id"),
+                })
+
+            unique_rows, skipped_texts = _filter_duplicate_free_test_questions(db, rows_to_insert)
+            if skipped_texts:
+                skip_summary = "; ".join(
+                    f'"{s[:60]}…" ({reason})' if len(s) > 60 else f'"{s}" ({reason})'
+                    for s, reason in skipped_texts
+                )
+                context["warning"] = (
+                    f"Skipped {len(skipped_texts)} duplicate free test question(s): {skip_summary}"
+                )
+            if not unique_rows:
+                raise ValueError(
+                    "No new free test questions to save — all submitted question(s) are duplicates."
+                )
+            db.table("free_test_questions").insert(unique_rows).execute()
+            saved_msg = f"Free test upload successful. Saved {len(unique_rows)} question(s)."
+            if skipped_texts:
+                saved_msg += f" ({len(skipped_texts)} duplicate(s) skipped.)"
+            context["success"] = saved_msg
+            context["free_test_question_count"] = _free_test_question_count(db)
+            context["form_data"] = {**EMPTY_QUESTION_FORM, "free_test_json_payload": json_payload}
+            return render(request, "dashboard/admin_upload_questions.html", context)
+
         else:
             raise ValueError("Invalid upload mode selected.")
 
-        db = _supabase_admin()
         unique_rows, skipped_texts = _filter_duplicate_questions(db, rows_to_insert)
 
         if skipped_texts:
@@ -3784,6 +3841,7 @@ def admin_upload_questions(request):
     except Exception as exc:
         context["error"] = str(exc)
         context["form_data"] = {**EMPTY_QUESTION_FORM, **request.POST.dict()}
+        context["free_test_question_count"] = _free_test_question_count(db)
 
     return render(request, "dashboard/admin_upload_questions.html", context)
 
@@ -6720,7 +6778,8 @@ def student_general_test_attempt(request, attempt_id):
     for q in questions:
         _ans = answer_map.get(q["id"], {})
         q["nav_flagged"] = bool(_ans.get("is_flagged"))
-    answered_count = sum(1 for q in questions if q["id"] in answer_map and (answer_map[q["id"]].get("selected_option") or ""))
+        q["nav_unanswered"] = not bool((_ans.get("selected_option") or "").strip())
+    answered_count = sum(1 for q in questions if not q.get("nav_unanswered"))
     bookmarked_count = sum(1 for a in answer_map.values() if a.get("is_bookmarked"))
     flagged_count = sum(1 for a in answer_map.values() if a.get("is_flagged"))
 
@@ -6780,6 +6839,480 @@ def student_general_test_result(request, attempt_id):
         "encouragement": _score_message(float(attempt.get("percentage") or 0)),
     }
     return render(request, "dashboard/student_general_test_result.html", context)
+
+
+def student_free_test(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    pool_count = _free_test_question_count(admin)
+    target = FREE_TEST_QUESTION_COUNT
+    question_count = min(pool_count, target) if pool_count > 0 else 0
+    duration_minutes = _free_test_duration_for_count(question_count) if question_count else FREE_TEST_DURATION_MINUTES
+
+    is_subscribed = subscription_allows_dashboard(user_id)
+
+    # Check for an active (unsubmitted) attempt.
+    active_attempt = None
+    try:
+        active_rows = (
+            admin.table("free_test_attempts")
+            .select("id, status, paused_remaining_seconds")
+            .eq("student_id", user_id)
+            .eq("paper_title", FREE_TEST_TITLE)
+            .is_("submitted_at", "null")
+            .order("started_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if active_rows:
+            active_attempt = active_rows[0]
+    except Exception:
+        pass
+
+    # Check if the user has already completed (submitted) the free test.
+    has_completed_free_test = False
+    completed_attempt_id = None
+    try:
+        completed_rows = (
+            admin.table("free_test_attempts")
+            .select("id, percentage, score, total_questions")
+            .eq("student_id", user_id)
+            .eq("paper_title", FREE_TEST_TITLE)
+            .not_.is_("submitted_at", "null")
+            .order("submitted_at", desc=True)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if completed_rows:
+            has_completed_free_test = True
+            completed_attempt_id = completed_rows[0].get("id")
+    except Exception:
+        pass
+
+    # Free users who have completed the test cannot restart — they must subscribe.
+    can_start = pool_count > 0 and (is_subscribed or not has_completed_free_test)
+
+    test = {
+        "title": FREE_TEST_TITLE,
+        "question_count": question_count,
+        "target_count": target,
+        "duration_minutes": duration_minutes,
+        "pool_count": pool_count,
+        "ready": pool_count >= target,
+        "can_start": can_start,
+        "attempt_id": active_attempt["id"] if active_attempt else None,
+        "attempt_status": active_attempt.get("status") if active_attempt else None,
+        "completed_attempt_id": completed_attempt_id,
+    }
+
+    plans = _get_plans()
+    standard_plan = plans.get("standard", {})
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "free_test",
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "test": test,
+        "is_subscribed": is_subscribed,
+        "has_completed_free_test": has_completed_free_test,
+        "standard_plan": standard_plan,
+    }
+    return render(request, "dashboard/student_free_test.html", context)
+
+
+def student_free_test_start(request):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/dashboard/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+
+    # Resume an existing active attempt.
+    existing = (
+        admin.table("free_test_attempts")
+        .select("id")
+        .eq("student_id", user_id)
+        .eq("paper_title", FREE_TEST_TITLE)
+        .is_("submitted_at", "null")
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if existing:
+        return redirect(f"/dashboard/free-test/attempt/{existing[0]['id']}/")
+
+    # Unsubscribed users who already completed the free test cannot take another attempt.
+    if not subscription_allows_dashboard(user_id):
+        completed = (
+            admin.table("free_test_attempts")
+            .select("id")
+            .eq("student_id", user_id)
+            .eq("paper_title", FREE_TEST_TITLE)
+            .not_.is_("submitted_at", "null")
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if completed:
+            return redirect("/dashboard/free-test/?locked=1")
+
+    pool_count = _free_test_question_count(admin)
+    if pool_count < 1:
+        return redirect("/dashboard/free-test/")
+
+    profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
+    programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
+
+    use_count = min(pool_count, FREE_TEST_QUESTION_COUNT)
+    rows = (
+        admin.table("free_test_questions")
+        .select("id")
+        .order("created_at", desc=False)
+        .limit(use_count)
+        .execute()
+        .data
+        or []
+    )
+    batch_ids = [r.get("id") for r in rows if r.get("id")]
+    if not batch_ids:
+        return redirect("/dashboard/free-test/")
+
+    attempt_insert = (
+        admin.table("free_test_attempts")
+        .insert({
+            "student_id": user_id,
+            "programme": programme,
+            "paper_title": FREE_TEST_TITLE,
+            "time_limit_minutes": _free_test_duration_for_count(len(batch_ids)),
+            "total_questions": len(batch_ids),
+            "status": "in_progress",
+        })
+        .execute()
+    )
+    attempt = attempt_insert.data[0]
+    links = [
+        {"attempt_id": attempt["id"], "question_id": qid, "question_order": idx}
+        for idx, qid in enumerate(batch_ids, start=1)
+    ]
+    admin.table("free_test_attempt_questions").insert(links).execute()
+    return redirect(f"/dashboard/free-test/attempt/{attempt['id']}/")
+
+
+def student_free_test_attempt(request, attempt_id):
+    guard = _require_login(request)
+    if guard:
+        return guard
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+    list_url = "/dashboard/free-test/"
+    attempt_url = f"/dashboard/free-test/attempt/{attempt_id}/"
+    result_url = f"/dashboard/free-test/attempt/{attempt_id}/result/"
+
+    attempt_rows = (
+        admin.table("free_test_attempts")
+        .select("*")
+        .eq("id", str(attempt_id))
+        .eq("student_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not attempt_rows:
+        return redirect(list_url)
+    attempt = attempt_rows[0]
+
+    if attempt.get("submitted_at"):
+        return redirect(result_url)
+
+    if (
+        request.method == "POST"
+        and request.POST.get("action", "").strip() == "resume"
+        and attempt.get("status") == "paused"
+    ):
+        admin.table("free_test_attempts").update({
+            "status": "in_progress",
+            "resumed_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("id", str(attempt_id)).execute()
+        return redirect(attempt_url)
+
+    if attempt.get("status") == "paused":
+        return render(request, "dashboard/student_free_test_paused.html", {
+            "full_name": request.session.get("full_name", "Student"),
+            "email": request.session.get("email", ""),
+            "role": "student",
+            "active_page": "free_test",
+            "student_unread_notifications": unread_count,
+            "has_unread_notifications": unread_count > 0,
+            "attempt": attempt,
+            "paused_remaining_seconds": attempt.get("paused_remaining_seconds") or 0,
+        })
+
+    links = (
+        admin.table("free_test_attempt_questions")
+        .select(
+            "question_order, question_id, "
+            "free_test_questions(id, question_text, options, correct_option, explanation)"
+        )
+        .eq("attempt_id", str(attempt_id))
+        .order("question_order", desc=False)
+        .execute()
+        .data
+        or []
+    )
+    questions = []
+    for row in links:
+        qb = row.get("free_test_questions")
+        if qb:
+            questions.append({
+                "order": row.get("question_order"),
+                "id": qb.get("id"),
+                "question_text": qb.get("question_text"),
+                "options": qb.get("options") or {},
+                "correct_option": qb.get("correct_option"),
+            })
+    if not questions:
+        return redirect(list_url)
+
+    answers = (
+        admin.table("free_test_attempt_answers")
+        .select("*")
+        .eq("attempt_id", str(attempt_id))
+        .execute()
+        .data
+        or []
+    )
+    answer_map = {a["question_id"]: a for a in answers}
+
+    action = request.POST.get("action", "").strip()
+    current_index = int(request.POST.get("current_index", "1") or "1")
+    current_index = max(1, min(current_index, len(questions)))
+
+    if request.method == "POST":
+        qid = request.POST.get("question_id", "").strip()
+        selected_option = request.POST.get("selected_option", "").strip().upper()
+        is_bookmarked = request.POST.get("is_bookmarked") == "1"
+        is_flagged = request.POST.get("is_flagged") == "1"
+
+        now_utc = datetime.now(timezone.utc)
+        if attempt.get("resumed_at"):
+            resumed_at = datetime.fromisoformat(attempt["resumed_at"].replace("Z", "+00:00"))
+            remaining_secs_db = int(attempt.get("paused_remaining_seconds") or 0)
+            end_time = resumed_at + timedelta(seconds=remaining_secs_db)
+        else:
+            started_at = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+            end_time = started_at + timedelta(minutes=int(attempt.get("time_limit_minutes") or FREE_TEST_DURATION_MINUTES))
+        remaining_now = max(0, int((end_time - now_utc).total_seconds()))
+
+        if action == "pause":
+            target = next((q for q in questions if q["id"] == qid), None)
+            if target:
+                payload = {
+                    "attempt_id": str(attempt_id),
+                    "question_id": qid,
+                    "selected_option": selected_option or None,
+                    "is_correct": bool(selected_option and selected_option == (target.get("correct_option") or "").upper()),
+                    "is_bookmarked": is_bookmarked,
+                    "is_flagged": is_flagged,
+                    "answered_at": datetime.now(timezone.utc).isoformat(),
+                }
+                existing_ans = answer_map.get(qid)
+                if existing_ans:
+                    admin.table("free_test_attempt_answers").update(payload).eq("id", existing_ans["id"]).execute()
+                else:
+                    admin.table("free_test_attempt_answers").insert(payload).execute()
+
+            admin.table("free_test_attempts").update({
+                "status": "paused",
+                "paused_remaining_seconds": remaining_now,
+                "paused_at_index": current_index,
+            }).eq("id", str(attempt_id)).execute()
+            return redirect(list_url)
+
+        target = next((q for q in questions if q["id"] == qid), None)
+        if target:
+            payload = {
+                "attempt_id": str(attempt_id),
+                "question_id": qid,
+                "selected_option": selected_option or None,
+                "is_correct": bool(selected_option and selected_option == (target.get("correct_option") or "").upper()),
+                "is_bookmarked": is_bookmarked,
+                "is_flagged": is_flagged,
+                "answered_at": datetime.now(timezone.utc).isoformat(),
+            }
+            existing_ans = answer_map.get(qid)
+            if existing_ans:
+                admin.table("free_test_attempt_answers").update(payload).eq("id", existing_ans["id"]).execute()
+            else:
+                admin.table("free_test_attempt_answers").insert(payload).execute()
+
+        if action == "prev":
+            current_index = max(1, current_index - 1)
+        elif action == "next":
+            current_index = min(len(questions), current_index + 1)
+        elif action == "submit":
+            final_answers = (
+                admin.table("free_test_attempt_answers")
+                .select("*")
+                .eq("attempt_id", str(attempt_id))
+                .execute()
+                .data
+                or []
+            )
+            total_questions = len(questions)
+            correct_answers = sum(1 for x in final_answers if x.get("is_correct"))
+            percentage = round((correct_answers / total_questions) * 100, 2) if total_questions else 0.0
+            admin.table("free_test_attempts").update({
+                "submitted_at": datetime.now(timezone.utc).isoformat(),
+                "score": correct_answers,
+                "correct_answers": correct_answers,
+                "percentage": percentage,
+                "status": "submitted",
+            }).eq("id", str(attempt_id)).execute()
+            return redirect(result_url)
+
+        answers = (
+            admin.table("free_test_attempt_answers")
+            .select("*")
+            .eq("attempt_id", str(attempt_id))
+            .execute()
+            .data
+            or []
+        )
+        answer_map = {a["question_id"]: a for a in answers}
+
+    now_utc = datetime.now(timezone.utc)
+    if attempt.get("resumed_at"):
+        resumed_at = datetime.fromisoformat(attempt["resumed_at"].replace("Z", "+00:00"))
+        remaining_secs_db = int(attempt.get("paused_remaining_seconds") or 0)
+        end_time = resumed_at + timedelta(seconds=remaining_secs_db)
+    else:
+        started_at = datetime.fromisoformat(attempt["started_at"].replace("Z", "+00:00"))
+        end_time = started_at + timedelta(minutes=int(attempt.get("time_limit_minutes") or FREE_TEST_DURATION_MINUTES))
+    remaining = max(0, int((end_time - now_utc).total_seconds()))
+
+    if remaining == 0:
+        final_answers = (
+            admin.table("free_test_attempt_answers")
+            .select("*")
+            .eq("attempt_id", str(attempt_id))
+            .execute()
+            .data
+            or []
+        )
+        total_questions = len(questions)
+        correct_answers = sum(1 for x in final_answers if x.get("is_correct"))
+        percentage = round((correct_answers / total_questions) * 100, 2) if total_questions else 0.0
+        admin.table("free_test_attempts").update({
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+            "score": correct_answers,
+            "correct_answers": correct_answers,
+            "percentage": percentage,
+            "status": "submitted",
+        }).eq("id", str(attempt_id)).execute()
+        return redirect(result_url)
+
+    if request.method == "GET" and attempt.get("paused_at_index"):
+        current_index = int(attempt["paused_at_index"])
+        current_index = max(1, min(current_index, len(questions)))
+        admin.table("free_test_attempts").update({
+            "paused_at_index": None,
+        }).eq("id", str(attempt_id)).execute()
+
+    current_question = questions[current_index - 1]
+    current_answer = answer_map.get(current_question["id"], {})
+    for q in questions:
+        _ans = answer_map.get(q["id"], {})
+        q["nav_flagged"] = bool(_ans.get("is_flagged"))
+        q["nav_unanswered"] = not bool((_ans.get("selected_option") or "").strip())
+    answered_count = sum(1 for q in questions if not q.get("nav_unanswered"))
+    bookmarked_count = sum(1 for a in answer_map.values() if a.get("is_bookmarked"))
+    flagged_count = sum(1 for a in answer_map.values() if a.get("is_flagged"))
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "free_test",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "attempt": attempt,
+        "questions": questions,
+        "current_question": current_question,
+        "current_index": current_index,
+        "current_answer": current_answer,
+        "remaining_seconds": remaining,
+        "answered_count": answered_count,
+        "bookmarked_count": bookmarked_count,
+        "flagged_count": flagged_count,
+    }
+    return render(request, "dashboard/student_free_test_attempt.html", context)
+
+
+def student_free_test_result(request, attempt_id):
+    guard = _require_login(request)
+    if guard:
+        return guard
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+    admin = _supabase_admin()
+
+    rows = (
+        admin.table("free_test_attempts")
+        .select("*")
+        .eq("id", str(attempt_id))
+        .eq("student_id", user_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return redirect("/dashboard/free-test/")
+    attempt = rows[0]
+    if not attempt.get("submitted_at"):
+        return redirect(f"/dashboard/free-test/attempt/{attempt_id}/")
+
+    is_subscribed = subscription_allows_dashboard(user_id)
+    plans = _get_plans()
+    standard_plan = plans.get("standard", {})
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "free_test",
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "attempt": attempt,
+        "encouragement": _score_message(float(attempt.get("percentage") or 0)),
+        "is_subscribed": is_subscribed,
+        "standard_plan": standard_plan,
+    }
+    return render(request, "dashboard/student_free_test_result.html", context)
 
 
 def admin_quizzes(request):

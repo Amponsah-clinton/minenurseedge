@@ -6,19 +6,6 @@
   .auth-page { min-height:calc(100vh - 170px); display:flex; align-items:flex-start; justify-content:center; padding:36px 16px 48px; }
   .auth-card { width:100%; max-width:600px; }
 
-  /* ── Step labels ── */
-  .step-row { display:flex; align-items:center; gap:0; margin-bottom:28px; }
-  .step-item { display:flex; align-items:center; gap:8px; }
-  .step-num {
-    width:28px; height:28px; border-radius:50%;
-    background:#1a1a2e; color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; font-weight:700; flex-shrink:0;
-  }
-  .step-num.done { background:#3ea76a; }
-  .step-label { font-size:12px; font-weight:700; color:#5a6070; white-space:nowrap; }
-  .step-line  { flex:1; height:1px; background:#dde1ec; margin:0 10px; }
-
   /* ── Card sections ── */
   .auth-section {
     background:#fff; border:1px solid #e4e8f0; border-radius:12px;
@@ -54,50 +41,6 @@
   .pw-hint.ok   { color:#27ae60; background:#eafaf1; }
   .pw-hint.fail { color:#e74c3c; background:#fff0f0; }
 
-  /* ── Plan picker ── */
-  .plan-grid { display:grid; grid-template-columns:1fr; gap:12px; }
-
-  .plan-card {
-    position:relative; border:2px solid #e4e8f0; border-radius:10px;
-    padding:18px 16px; cursor:pointer; transition:border-color 0.18s, box-shadow 0.18s;
-    background:#fff;
-  }
-  .plan-card:hover { border-color:#1a1a2e; }
-  .plan-card input[type="radio"] { position:absolute; opacity:0; width:0; height:0; }
-  .plan-card.selected { border-color:#1a1a2e; box-shadow:0 0 0 3px rgba(26,26,46,.08); }
-  .plan-card.selected .plan-radio-dot { background:#1a1a2e; border-color:#1a1a2e; }
-
-  .plan-card-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
-  .plan-radio-dot {
-    width:18px; height:18px; border-radius:50%;
-    border:2px solid #c8cdd8; background:#fff;
-    display:flex; align-items:center; justify-content:center;
-    flex-shrink:0; transition:all 0.15s;
-  }
-  .plan-radio-dot::after {
-    content:''; width:8px; height:8px; border-radius:50%;
-    background:#fff; display:block;
-  }
-  .plan-card.selected .plan-radio-dot::after { background:#fff; }
-  .plan-card.selected .plan-radio-dot { background:#1a1a2e; }
-
-  .plan-badge {
-    font-size:0.67rem; font-weight:700; border-radius:999px;
-    padding:2px 9px; text-transform:uppercase; letter-spacing:0.3px;
-  }
-  .plan-badge-standard { background:#1a1a2e; color:#fff; }
-
-  .plan-name  { font-size:1.05rem; font-weight:800; color:#1f2d40; margin:0 0 2px; }
-  .plan-price { font-size:1.6rem; font-weight:800; color:#1a1a2e; line-height:1; }
-  .plan-price span { font-size:0.8rem; font-weight:400; color:#7b8599; }
-  .plan-tagline { font-size:0.78rem; color:#7b8599; margin:6px 0 10px; }
-  .plan-features { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
-  .plan-features li { font-size:0.78rem; color:#4a5268; display:flex; align-items:flex-start; gap:6px; }
-  .plan-features li::before {
-    content:'✓'; font-size:11px; font-weight:700;
-    color:#3ea76a; flex-shrink:0; margin-top:1px;
-  }
-
   /* ── Checkbox ── */
   .auth-checkbox { display:flex; align-items:center; gap:10px; margin:12px 0 18px; font-size:13px; color:#333; }
   .auth-checkbox input { width:16px; height:16px; margin:0; flex-shrink:0; accent-color:#1a1a2e; }
@@ -109,6 +52,7 @@
     cursor:pointer; letter-spacing:0.2px; transition:background 0.15s;
   }
   .auth-submit:hover { background:#2a2a4e; }
+  .auth-submit:disabled { opacity:.6; cursor:not-allowed; }
 
   /* ── Alerts ── */
   .alert-error { background:#fff0f0; border:1px solid #f5c2c2; color:#c0392b; padding:12px 16px; border-radius:8px; margin-bottom:16px; font-size:13.5px; }
@@ -131,6 +75,12 @@
     margin-bottom:18px;
   }
   .btn-google:hover { background:#fafbff; border-color:#c8cdd8; }
+
+  /* ── Free badge ── */
+  .free-badge {
+    display:inline-flex; align-items:center; gap:6px; background:#edf8f1; border:1px solid #b8ddc8;
+    border-radius:20px; padding:5px 14px; font-size:.82rem; font-weight:700; color:#236b3e; margin-bottom:18px;
+  }
 </style>
 {% endblock %}
 
@@ -141,23 +91,7 @@
     <h1 class="auth-page-title">Create your account</h1>
     <p class="auth-page-sub">Join thousands of nursing students preparing for the NMC Licensure Exam.</p>
 
-    <!-- Step indicator -->
-    <div class="step-row">
-      <div class="step-item">
-        <div class="step-num">1</div>
-        <span class="step-label">Your Details</span>
-      </div>
-      <div class="step-line"></div>
-      <div class="step-item">
-        <div class="step-num">2</div>
-        <span class="step-label">Subscription</span>
-      </div>
-      <div class="step-line"></div>
-      <div class="step-item">
-        <div class="step-num">3</div>
-        <span class="step-label">Payment</span>
-      </div>
-    </div>
+    <div class="free-badge"><i class="bx bx-gift"></i> Free registration — no payment required</div>
 
     {% if errors %}
     <div class="alert-error">
@@ -262,44 +196,14 @@
         </div>
       </div>
 
-      <!-- ── Section 3: Subscription ── -->
-      <div class="auth-section">
-        <p class="auth-section-title">Annual Subscription</p>
-        <div class="plan-grid" id="planGrid">
-          <label class="plan-card selected" id="card-standard" for="plan-standard">
-            <input type="radio" id="plan-standard" name="plan_slug" value="standard" checked>
-            <div class="plan-card-top">
-              <span class="plan-badge plan-badge-standard">Annual Access</span>
-              <div class="plan-radio-dot"></div>
-            </div>
-            <div class="plan-name">{{ standard.name|default:"Annual Access" }}</div>
-            <div class="plan-price">
-              GHS {{ standard.price|default:"50" }}<span> / {{ standard.duration_days|default:"365" }} days</span>
-            </div>
-            <p class="plan-tagline">{{ standard.tagline|default:"Full access to everything" }}</p>
-            <ul class="plan-features">
-              {% for f in standard.features %}
-              <li>{{ f }}</li>
-              {% empty %}
-              <li>All study features included</li>
-              <li>Lecture Notes</li>
-              <li>Mock Exams and General Tests</li>
-              {% endfor %}
-            </ul>
-          </label>
-
-        </div>
-      </div>
-
       <!-- Terms + Submit -->
       <div class="auth-section" style="padding:20px 28px;">
         <label class="auth-checkbox" for="agree">
           <input type="checkbox" id="agree" name="agree" required>
           <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
         </label>
-        <input type="hidden" id="payment_reference" name="payment_reference" value="">
-        <button type="button" class="auth-submit" id="signupBtn">
-          Create Account &amp; Suscribe →
+        <button type="submit" class="auth-submit" id="signupBtn">
+          Create Free Account →
         </button>
       </div>
 
@@ -320,33 +224,6 @@
   var form    = document.getElementById("signupForm");
   var btn     = document.getElementById("signupBtn");
 
-  var PLAN_PRICES = { standard: Number("{{ standard.price|default:'50' }}") };
-  var SIGNUP_USES_PAYSTACK = {{ signup_uses_paystack|yesno:"true,false" }};
-  var PAYSTACK_PUBLIC_KEY = "{{ paystack_pub_key|escapejs }}";
-
-  // ── Paystack hosted-checkout return handler ──────────────────────────────
-  // When Paystack redirects back to /signup/?reference=xxx&trxref=xxx
-  // restore saved form fields and auto-submit so the backend can verify.
-  (function handlePaystackReturn() {
-    var params = new URLSearchParams(window.location.search);
-    var ref    = params.get("reference") || params.get("trxref") || "";
-    if (!ref) return;
-    var saved = {};
-    try { saved = JSON.parse(sessionStorage.getItem("ne_signup_draft") || "{}"); } catch (e) {}
-    if (!saved.email) return; // nothing saved — ignore stale URL params
-    var fields = ["fullName","email","phone","yearOfStudy","institution","programme","password","confirmPassword"];
-    fields.forEach(function(name) {
-      var el = form.querySelector('[name="' + name + '"]');
-      if (el && saved[name] != null) el.value = saved[name];
-    });
-    document.getElementById("payment_reference").value = ref;
-    sessionStorage.removeItem("ne_signup_draft");
-    btn.disabled = true;
-    btn.textContent = "Finalising account…";
-    form.submit();
-  })();
-
-  // Password strength rules
   var rules = {
     "hint-len":     function(v){ return v.length >= 8; },
     "hint-upper":   function(v){ return /[A-Z]/.test(v); },
@@ -369,192 +246,24 @@
     return Object.values(rules).every(function(fn){ return fn(v); });
   }
 
-  function validateForm() {
+  form.addEventListener("submit", function (e) {
     var pw = pwInput.value, cp = cpInput.value;
     if (!passwordStrong(pw)) {
+      e.preventDefault();
       pwInput.setCustomValidity("Password does not meet the requirements.");
-      pwInput.reportValidity(); return false;
+      pwInput.reportValidity();
+      return;
     }
     pwInput.setCustomValidity("");
     if (pw !== cp) {
+      e.preventDefault();
       cpInput.setCustomValidity("Passwords do not match.");
-      cpInput.reportValidity(); return false;
+      cpInput.reportValidity();
+      return;
     }
     cpInput.setCustomValidity("");
-    if (!form.checkValidity()) { form.reportValidity(); return false; }
-    return true;
-  }
-
-  function checkAccountExists(email) {
-    var url = "/api/signup/account-exists/?email=" + encodeURIComponent(email);
-    return fetch(url, {
-      method: "GET",
-      headers: { "X-Requested-With": "XMLHttpRequest" }
-    })
-    .then(function (res) {
-      if (!res.ok) throw new Error("precheck_failed");
-      return res.json();
-    })
-    .then(function (data) {
-      if (!data || data.ok !== true) throw new Error("precheck_failed");
-      return Boolean(data.exists);
-    });
-  }
-
-  function loadPaystackInlineScript() {
-    return new Promise(function (resolve, reject) {
-      if (window.PaystackPop) {
-        resolve();
-        return;
-      }
-      var s = document.createElement("script");
-      s.src = "https://js.paystack.co/v1/inline.js";
-      s.async = true;
-      s.onload = function () { resolve(); };
-      s.onerror = function () { reject(new Error("paystack_script_load_failed")); };
-      document.head.appendChild(s);
-    });
-  }
-
-  function initiatePaystackCheckout(email, fullName, phone, amountGhs) {
-    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-    var payload = new URLSearchParams();
-    payload.append("email", email);
-    payload.append("full_name", fullName);
-    payload.append("phone", phone);
-    payload.append("amount", String(amountGhs));
-    return fetch("/api/signup/initiate-payment/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "X-CSRFToken": csrfInput ? csrfInput.value : "",
-        "X-Requested-With": "XMLHttpRequest"
-      },
-      body: payload.toString()
-    })
-    .then(function (res) {
-      return res.json()
-        .catch(function () { return {}; })
-        .then(function (data) {
-          if (!res.ok || !data || data.ok !== true) {
-            var baseErr = (data && data.error) ? data.error : "";
-            var httpErr = "HTTP " + res.status;
-            throw new Error(baseErr || httpErr || "payment_init_failed");
-          }
-          return data;
-        });
-    })
-    .then(function (data) {
-      if (!data.reference) {
-        throw new Error("paystack_missing_reference");
-      }
-      if (data.authorization_url) {
-        // Save form data so we can restore it when Paystack redirects back
-        var draft = {};
-        ["fullName","email","phone","yearOfStudy","institution","programme","password","confirmPassword"].forEach(function(name) {
-          var el = form.querySelector('[name="' + name + '"]');
-          if (el) draft[name] = el.value;
-        });
-        try { sessionStorage.setItem("ne_signup_draft", JSON.stringify(draft)); } catch(e) {}
-        window.location.href = data.authorization_url;
-        return null;
-      }
-      throw new Error("Paystack did not return a checkout URL. Please try again.");
-    });
-  }
-
-  function initiateBulkclixPayment(fullName, phone, amount) {
-    var csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
-    var payload = new URLSearchParams();
-    payload.append("full_name", fullName);
-    payload.append("phone", phone);
-    payload.append("amount", String(amount));
-    return fetch("/api/signup/initiate-payment/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "X-CSRFToken": csrfInput ? csrfInput.value : "",
-        "X-Requested-With": "XMLHttpRequest"
-      },
-      body: payload.toString()
-    })
-    .then(function (res) {
-      return res.json()
-        .catch(function () { return {}; })
-        .then(function (data) {
-          if (!res.ok || !data || data.ok !== true || !data.reference) {
-            var baseErr = (data && data.error) ? data.error : "";
-            var httpErr = "HTTP " + res.status;
-            throw new Error(baseErr || httpErr || "payment_init_failed");
-          }
-          return data;
-        });
-    })
-    .then(function (data) {
-      return data.reference;
-    });
-  }
-
-  btn.addEventListener("click", function () {
-    if (!validateForm()) return;
-
-    var email    = document.getElementById("email").value.trim();
-    var planRadio = document.querySelector('input[name="plan_slug"]:checked');
-    var planSlug = planRadio ? planRadio.value : "standard";
-    var priceGhs = PLAN_PRICES[planSlug] || 0;
-
     btn.disabled = true;
-    btn.textContent = "Checking account...";
-
-    checkAccountExists(email)
-      .then(function (exists) {
-        if (exists) {
-          btn.disabled = false;
-          btn.textContent = "Create Account & Suscribe \u2192";
-          alert("This email is already registered. Please log in instead.");
-          return;
-        }
-        btn.textContent = "Starting payment...";
-        var fullName = document.getElementById("fullName").value.trim();
-        var phone = document.getElementById("phone").value.trim();
-        if (SIGNUP_USES_PAYSTACK) {
-          return initiatePaystackCheckout(email, fullName, phone, priceGhs);
-        }
-        return initiateBulkclixPayment(fullName, phone, priceGhs)
-          .then(function (reference) {
-            document.getElementById("payment_reference").value = reference;
-            btn.textContent = "Finalizing account...";
-            form.submit();
-          });
-      })
-      .catch(function (err) {
-        btn.disabled = false;
-        btn.textContent = "Create Account & Suscribe \u2192";
-        var rawMsg = String(err && err.message || "").trim();
-        var normalizedMsg = rawMsg.toLowerCase();
-        if (
-          normalizedMsg === "failed to fetch" ||
-          normalizedMsg.indexOf("networkerror") !== -1 ||
-          normalizedMsg.indexOf("load failed") !== -1
-        ) {
-          alert("Could not reach the server. Please ensure Django is running and try again.");
-          return;
-        }
-        if (String(err && err.message || "").indexOf("precheck_failed") !== -1) {
-          alert("We could not confirm your account status. Please try again.");
-          return;
-        }
-        var msg = rawMsg;
-        if (!msg) {
-          msg = "Payment start failed. Please try again.";
-        }
-        if (msg.toLowerCase().indexOf("not allowed for momo collection") !== -1) {
-          msg =
-            "Bulkclix is not enabled for MoMo collection on this account. " +
-            "Contact Bulkclix support to enable it, then try again.";
-        }
-        alert(msg);
-      });
+    btn.textContent = "Creating account…";
   });
 
   cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });
@@ -575,8 +284,6 @@
       }
     });
   });
-
-  // Single-plan system: keep selected visual state fixed.
 })();
 </script>
 {% endblock %}
