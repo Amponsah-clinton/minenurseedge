@@ -301,6 +301,22 @@
     .nav-pro-badge .bx {
       font-size: 0.65rem;
     }
+    .nav-free-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #166534;
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      border-radius: 4px;
+      padding: 1px 5px;
+      line-height: 1.5;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
     /* dim the link text slightly for locked items */
     .menu-item--locked > .menu-link {
       opacity: 0.82;
@@ -652,9 +668,10 @@
           </li>
 
           <li class="menu-item {% if active_page == 'free_test' %}active{% endif %}">
-            <a href="/dashboard/free-test/" class="menu-link">
+            <a href="/dashboard/free-test/" class="menu-link d-flex align-items-center">
               <i class="menu-icon tf-icons bx bx-gift"></i>
-              <div>Free Test</div>
+              <div class="flex-grow-1">Free Test</div>
+              <span class="nav-free-badge">FREE</span>
             </a>
           </li>
 
