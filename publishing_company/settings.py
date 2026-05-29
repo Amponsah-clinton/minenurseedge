@@ -97,6 +97,7 @@ TEMPLATES = [
                 "website.context_processors.bytez_key",
                 "website.context_processors.reported_questions_badge",
                 "website.context_processors.academic_profile_gate",
+                "website.context_processors.subscription_status_ctx",
             ],
         },
     },

@@ -19,7 +19,8 @@
       "Bash(python -c \"import django; django.setup\\(\\); from website import views, middleware; print\\('OK'\\)\")",
       "Bash(python -m py_compile website/views.py)",
       "Bash(python -m py_compile website/middleware.py)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)"
     ]
   }
 }

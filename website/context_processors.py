@@ -72,6 +72,38 @@ def academic_profile_gate(request):
     }
 
 
+def subscription_status_ctx(request):
+    """
+    Adds `is_subscribed` to every template context so the sidebar can show
+    premium lock badges on gated items without each view needing to pass it.
+    Only queries Supabase for logged-in students; result is cached in the
+    session for 60 seconds to avoid a DB hit on every request.
+    """
+    import time
+
+    if request.session.get("role") != "student":
+        return {"is_subscribed": True}  # admins see no lock badges
+
+    uid = request.session.get("user_id")
+    if not uid:
+        return {"is_subscribed": False}
+
+    now = time.time()
+    cached_at = request.session.get("_sub_status_ts", 0)
+    if now - cached_at < 60:
+        return {"is_subscribed": bool(request.session.get("_sub_status_val", False))}
+
+    try:
+        from website.views import subscription_allows_dashboard
+        val = subscription_allows_dashboard(uid)
+    except Exception:
+        val = True  # fail open — don't show badges on errors
+
+    request.session["_sub_status_val"] = val
+    request.session["_sub_status_ts"] = now
+    return {"is_subscribed": val}
+
+
 def reported_questions_badge(request):
     """Provides pending report count for the admin sidebar badge.
     Only queries Supabase when the session role is 'admin'."""
