@@ -7,7 +7,7 @@
     <div class="card">
       <div class="card-body">
         <h4 class="mb-1">Broadcast Messages</h4>
-        <p class="text-muted mb-0">Send announcements to selected registered students only. Unread messages appear in student sidebar badges.</p>
+        <p class="text-muted mb-0">Send announcements to selected registered students. Filter by payment group or pick individually.</p>
       </div>
     </div>
   </div>
@@ -17,72 +17,147 @@
 {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
 <div class="row">
-  <div class="col-lg-6 mb-4">
+  <div class="col-lg-7 mb-4">
     <div class="card h-100">
       <div class="card-header pb-0">
         <h5 class="card-title mb-2">Send New Message</h5>
       </div>
       <div class="card-body">
-        <form method="post">
+        <form method="post" id="broadcastForm">
           {% csrf_token %}
           <input type="hidden" name="action" value="send" />
+
           <div class="mb-3">
             <label class="form-label">Title</label>
             <input type="text" name="title" class="form-control" value="{{ form_data.title }}" required />
           </div>
+
           <div class="mb-3">
             <label class="form-label">Message</label>
             <textarea name="message_body" rows="5" class="form-control" required>{{ form_data.message_body }}</textarea>
           </div>
+
+          <!-- Recipients -->
           <div class="mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-2 gap-2 flex-wrap">
-              <label class="form-label mb-0">Recipients (registered students)</label>
-              <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllRecipients">Select all</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAllRecipients">Clear</button>
+            <label class="form-label">Recipients</label>
+
+            <!-- Group select buttons — clicking a group clears current selection and selects that group -->
+            <div class="mb-1">
+              <small class="text-muted d-block mb-1">
+                <i class="bx bx-info-circle me-1"></i>Click a group to select all students in it, or use checkboxes for a custom pick.
+              </small>
+              <div class="btn-group w-100" role="group" id="groupFilterBtns">
+                <button type="button" class="btn btn-sm btn-outline-secondary active" data-group-filter="all">
+                  All&nbsp;<span class="badge bg-secondary">{{ available_students|length }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success" data-group-filter="paid">
+                  <i class="bx bx-check-circle me-1"></i>Paid&nbsp;<span class="badge bg-success">{{ paid_count }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info" data-group-filter="free">
+                  <i class="bx bx-gift me-1"></i>Free&nbsp;<span class="badge bg-info">{{ free_count }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-group-filter="unpaid">
+                  <i class="bx bx-user-x me-1"></i>Unpaid&nbsp;<span class="badge bg-danger">{{ unpaid_count }}</span>
+                </button>
               </div>
             </div>
-            <input
-              type="text"
-              class="form-control form-control-sm mb-2"
-              id="recipientSearchInput"
-              placeholder="Search name or email"
-            />
-            <div class="border rounded p-2" style="max-height:260px;overflow:auto;">
+
+            <!-- Fine-tune row -->
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap mt-2">
+              <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllVisible">
+                <i class="bx bx-check-square me-1"></i>Select visible
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="clearAllRecipients">
+                <i class="bx bx-x me-1"></i>Clear all
+              </button>
+            </div>
+
+            <!-- Search -->
+            <input type="text" class="form-control form-control-sm mb-2"
+                   id="recipientSearchInput" placeholder="Search name or email…" />
+
+            <!-- Recipient list -->
+            <div class="border rounded" style="max-height:280px;overflow-y:auto;">
+              <!-- Selection counter bar -->
+              <div class="px-3 py-2 border-bottom bg-light d-flex align-items-center justify-content-between">
+                <small class="text-muted" id="selectionCounter">0 selected</small>
+                <small class="text-muted" id="visibleCounter">{{ available_students|length }} shown</small>
+              </div>
+
               {% if available_students %}
                 {% for student in available_students %}
-                <label class="d-flex align-items-start gap-2 py-1 recipient-option">
-                  <input
-                    class="form-check-input mt-1 recipient-checkbox"
-                    type="checkbox"
-                    name="selected_student_ids"
-                    value="{{ student.id }}"
-                    {% if student.id in selected_student_ids %}checked{% endif %}
-                  />
-                  <span>
-                    <strong class="recipient-name">{{ student.full_name|default:"Unnamed Student" }}</strong><br />
-                    <small class="text-muted recipient-email">{{ student.email|default:"No email" }}</small>
+                <label class="d-flex align-items-start gap-2 px-3 py-2 recipient-option border-bottom"
+                       data-group="{{ student.group }}"
+                       style="cursor:pointer;margin-bottom:0;">
+                  <input class="form-check-input mt-1 recipient-checkbox flex-shrink-0"
+                         type="checkbox"
+                         name="selected_student_ids"
+                         value="{{ student.id }}"
+                         {% if student.id in selected_student_ids %}checked{% endif %} />
+                  <span class="flex-grow-1 min-width-0">
+                    <strong class="recipient-name d-block text-truncate">{{ student.full_name|default:"Unnamed" }}</strong>
+                    <small class="text-muted recipient-email">{{ student.email|default:"—" }}</small>
                   </span>
+                  {% if student.group == "paid" %}
+                    <span class="badge bg-label-success flex-shrink-0 align-self-center">Paid</span>
+                  {% elif student.group == "free" %}
+                    <span class="badge bg-label-info flex-shrink-0 align-self-center">Free</span>
+                  {% else %}
+                    <span class="badge bg-label-danger flex-shrink-0 align-self-center">Unpaid</span>
+                  {% endif %}
                 </label>
                 {% endfor %}
               {% else %}
-                <p class="text-muted mb-0">No registered students found.</p>
+                <p class="text-muted mb-0 px-3 py-3">No registered students found.</p>
               {% endif %}
             </div>
           </div>
-          <button type="submit" class="btn btn-primary">Send to Selected Students</button>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="bx bx-send me-1"></i>Send to Selected Students
+          </button>
         </form>
       </div>
     </div>
   </div>
 
-  <div class="col-lg-6 mb-4">
+  <div class="col-lg-5 mb-4">
     <div class="card h-100">
       <div class="card-header pb-0">
-        <h5 class="card-title mb-2">Recent Broadcasts</h5>
+        <h5 class="card-title mb-2">Group Summary</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted mb-0">Sent broadcasts are hidden on this page.</p>
+        <div class="d-flex flex-column gap-3">
+          <div class="d-flex align-items-center gap-3 p-3 rounded" style="background:rgba(var(--bs-success-rgb),.08)">
+            <span class="avatar-initial rounded bg-label-success p-2"><i class="bx bx-check-shield fs-5"></i></span>
+            <div>
+              <div class="fw-bold text-success fs-5">{{ paid_count }}</div>
+              <div class="text-muted small">Paid &amp; Registered students</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-3 p-3 rounded" style="background:rgba(var(--bs-info-rgb),.08)">
+            <span class="avatar-initial rounded bg-label-info p-2"><i class="bx bx-gift fs-5"></i></span>
+            <div>
+              <div class="fw-bold text-info fs-5">{{ free_count }}</div>
+              <div class="text-muted small">Free Access students</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-3 p-3 rounded" style="background:rgba(var(--bs-danger-rgb),.08)">
+            <span class="avatar-initial rounded bg-label-danger p-2"><i class="bx bx-user-x fs-5"></i></span>
+            <div>
+              <div class="fw-bold text-danger fs-5">{{ unpaid_count }}</div>
+              <div class="text-muted small">Unpaid / incomplete registration</div>
+            </div>
+          </div>
+          <hr class="my-0" />
+          <div class="d-flex align-items-center gap-3 p-3 rounded" style="background:rgba(var(--bs-primary-rgb),.08)">
+            <span class="avatar-initial rounded bg-label-primary p-2"><i class="bx bx-group fs-5"></i></span>
+            <div>
+              <div class="fw-bold text-primary fs-5">{{ available_students|length }}</div>
+              <div class="text-muted small">Total registered students</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -91,51 +166,108 @@
 
 {% block scripts %}
 <script>
-  (function () {
-    var searchInput = document.getElementById("recipientSearchInput");
-    var selectAllBtn = document.getElementById("selectAllRecipients");
-    var clearAllBtn = document.getElementById("clearAllRecipients");
-    var optionRows = Array.prototype.slice.call(document.querySelectorAll(".recipient-option"));
-    var checkboxes = Array.prototype.slice.call(document.querySelectorAll(".recipient-checkbox"));
+(function () {
+  var searchInput   = document.getElementById("recipientSearchInput");
+  var selectVisible = document.getElementById("selectAllVisible");
+  var clearAll      = document.getElementById("clearAllRecipients");
+  var selCounter    = document.getElementById("selectionCounter");
+  var visCounter    = document.getElementById("visibleCounter");
+  var optionRows    = Array.from(document.querySelectorAll(".recipient-option"));
+  var checkboxes    = Array.from(document.querySelectorAll(".recipient-checkbox"));
+  var currentFilter = "all";
 
-    function normalizedText(text) {
-      return (text || "").toLowerCase().trim();
-    }
+  /* ── helpers ── */
+  function visibleRows() {
+    return optionRows.filter(function (r) { return r.style.display !== "none"; });
+  }
 
-    function applySearchFilter() {
-      var query = normalizedText(searchInput && searchInput.value);
-      optionRows.forEach(function (row) {
-        var nameEl = row.querySelector(".recipient-name");
-        var emailEl = row.querySelector(".recipient-email");
-        var name = normalizedText(nameEl ? nameEl.textContent : "");
-        var email = normalizedText(emailEl ? emailEl.textContent : "");
-        row.style.display = !query || name.indexOf(query) !== -1 || email.indexOf(query) !== -1 ? "" : "none";
-      });
-    }
+  function updateCounters() {
+    var checked = checkboxes.filter(function (c) { return c.checked; }).length;
+    var visible = visibleRows().length;
+    if (selCounter) selCounter.textContent = checked + " selected";
+    if (visCounter) visCounter.textContent = visible + " shown";
+  }
 
-    function setVisibleChecked(checked) {
-      checkboxes.forEach(function (checkbox) {
-        var row = checkbox.closest(".recipient-option");
-        if (!row || row.style.display === "none") return;
-        checkbox.checked = checked;
-      });
-    }
+  function applyFilters() {
+    var query = (searchInput ? searchInput.value : "").toLowerCase().trim();
+    optionRows.forEach(function (row) {
+      var group  = row.getAttribute("data-group") || "";
+      var name   = (row.querySelector(".recipient-name")  || {}).textContent || "";
+      var email  = (row.querySelector(".recipient-email") || {}).textContent || "";
+      var matchG = currentFilter === "all" || group === currentFilter;
+      var matchS = !query || name.toLowerCase().indexOf(query) !== -1 || email.toLowerCase().indexOf(query) !== -1;
+      row.style.display = (matchG && matchS) ? "" : "none";
+    });
+    updateCounters();
+  }
 
-    if (searchInput) {
-      searchInput.addEventListener("input", applySearchFilter);
-    }
-    if (selectAllBtn) {
-      selectAllBtn.addEventListener("click", function () {
-        setVisibleChecked(true);
+  function selectGroup(group) {
+    // Clear everything first, then check the target group
+    checkboxes.forEach(function (cb) { cb.checked = false; });
+    checkboxes.forEach(function (cb) {
+      var row = cb.closest(".recipient-option");
+      if (row && row.getAttribute("data-group") === group) {
+        cb.checked = true;
+      }
+    });
+  }
+
+  /* ── group filter tabs ──
+     Clicking a specific group tab:
+       1. Filters the list to that group
+       2. Clears all checkboxes and selects all in that group
+     Clicking "All" tab:
+       1. Shows everyone
+       2. Does NOT change existing checkbox state
+  */
+  document.querySelectorAll("[data-group-filter]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      currentFilter = this.getAttribute("data-group-filter");
+      document.querySelectorAll("[data-group-filter]").forEach(function (b) {
+        b.classList.remove("active");
       });
-    }
-    if (clearAllBtn) {
-      clearAllBtn.addEventListener("click", function () {
-        checkboxes.forEach(function (checkbox) {
-          checkbox.checked = false;
-        });
+      this.classList.add("active");
+
+      if (currentFilter !== "all") {
+        selectGroup(currentFilter);
+      }
+
+      applyFilters();
+    });
+  });
+
+  /* ── select visible / clear ── */
+  if (selectVisible) {
+    selectVisible.addEventListener("click", function () {
+      visibleRows().forEach(function (row) {
+        var cb = row.querySelector(".recipient-checkbox");
+        if (cb) cb.checked = true;
       });
-    }
-  })();
+      updateCounters();
+    });
+  }
+  if (clearAll) {
+    clearAll.addEventListener("click", function () {
+      checkboxes.forEach(function (cb) { cb.checked = false; });
+      // Also reset filter to All
+      currentFilter = "all";
+      document.querySelectorAll("[data-group-filter]").forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-group-filter") === "all");
+      });
+      applyFilters();
+    });
+  }
+
+  /* ── search ── */
+  if (searchInput) searchInput.addEventListener("input", applyFilters);
+
+  /* ── checkbox change ── */
+  checkboxes.forEach(function (cb) {
+    cb.addEventListener("change", updateCounters);
+  });
+
+  /* ── init ── */
+  updateCounters();
+})();
 </script>
 {% endblock %}
