@@ -190,6 +190,63 @@
     </div>
   </div>
 
+  <!-- Free Test Page Analytics -->
+  <div class="col-12 order-5 mb-4">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="m-0 me-2"><i class="bx bx-test-tube text-warning me-2"></i>Free Test Page Visitors</h5>
+          <small class="text-muted">Traffic to <code>/dashboard/free-test/</code></small>
+        </div>
+        <a href="/dashboard/free-test/" target="_blank" class="btn btn-sm btn-outline-warning">View Page</a>
+      </div>
+      <div class="card-body pt-3">
+        <div class="row g-3">
+
+          <div class="col-sm-4">
+            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-warning-rgb),.08)">
+              <div class="avatar me-3 flex-shrink-0">
+                <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-show fs-4"></i></span>
+              </div>
+              <div>
+                <p class="mb-0 text-muted small fw-semibold">Total Visits</p>
+                <h3 class="mb-0 fw-bold">{{ free_test_visits }}</h3>
+                <small class="text-warning fw-semibold"><i class="bx bx-infinite"></i> All time</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-sm-4">
+            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-info-rgb),.08)">
+              <div class="avatar me-3 flex-shrink-0">
+                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-time-five fs-4"></i></span>
+              </div>
+              <div>
+                <p class="mb-0 text-muted small fw-semibold">Visits (Last 24h)</p>
+                <h3 class="mb-0 fw-bold">{{ free_test_visits_24h }}</h3>
+                <small class="text-info fw-semibold"><i class="bx bx-trending-up"></i> Recent activity</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-sm-4">
+            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-success-rgb),.08)">
+              <div class="avatar me-3 flex-shrink-0">
+                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-user fs-4"></i></span>
+              </div>
+              <div>
+                <p class="mb-0 text-muted small fw-semibold">Unique Visitors</p>
+                <h3 class="mb-0 fw-bold">{{ free_test_unique_visitors }}</h3>
+                <small class="text-success fw-semibold"><i class="bx bx-user-check"></i> By IP address</small>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Quick actions card -->
   <div class="col-md-6 col-lg-8 order-2 order-md-3 order-lg-2 mb-4">
     <div class="card">

@@ -2933,6 +2933,7 @@ def admin_dashboard(request):
         total_students = total_users = unread_messages = 0
 
     total_visits, visits_24h, unique_ips_24h = _get_visit_stats(admin)
+    free_test_visits, free_test_visits_24h, free_test_unique_visitors = _get_free_test_visit_stats(admin)
 
     context = {
         "full_name": request.session.get("full_name", "Admin"),
@@ -2945,6 +2946,9 @@ def admin_dashboard(request):
         "total_visits": total_visits,
         "visits_24h": visits_24h,
         "unique_ips_24h": unique_ips_24h,
+        "free_test_visits": free_test_visits,
+        "free_test_visits_24h": free_test_visits_24h,
+        "free_test_unique_visitors": free_test_unique_visitors,
     }
     return render(request, "dashboard/admin_dashboard.html", context)
 
@@ -3052,6 +3056,45 @@ def _get_visit_stats(admin_client):
         unique_ips_24h = len({r["ip_address"] for r in rows_24h})
 
         return total_visits, visits_24h, unique_ips_24h
+    except Exception:
+        return 0, 0, 0
+
+
+def _get_free_test_visit_stats(admin_client):
+    """Return (total_visits, visits_24h, unique_visitors) for /dashboard/free-test/."""
+    try:
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        path = "/dashboard/free-test/"
+
+        total_resp = (
+            admin_client.table("site_visits")
+            .select("id", count="exact", head=True)
+            .eq("path", path)
+            .execute()
+        )
+        total_visits = total_resp.count or 0
+
+        day_resp = (
+            admin_client.table("site_visits")
+            .select("ip_address", count="exact")
+            .eq("path", path)
+            .gte("visited_at", cutoff)
+            .execute()
+        )
+        visits_24h = day_resp.count or 0
+
+        all_resp = (
+            admin_client.table("site_visits")
+            .select("ip_address")
+            .eq("path", path)
+            .limit(5000)
+            .execute()
+        )
+        rows = all_resp.data or []
+        unique_visitors = len({r["ip_address"] for r in rows})
+
+        return total_visits, visits_24h, unique_visitors
     except Exception:
         return 0, 0, 0
 

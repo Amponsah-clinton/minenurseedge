@@ -20,7 +20,9 @@
       "Bash(python -m py_compile website/views.py)",
       "Bash(python -m py_compile website/middleware.py)",
       "Bash(python -c ' *)",
-      "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)"
+      "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)",
+      "Bash(xargs grep -l \"class.*Model\\\\|models\\\\.py\")",
+      "Bash(grep -E \"\\\\.\\(py|html\\)$\")"
     ]
   }
 }
