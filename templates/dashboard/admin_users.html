@@ -68,127 +68,282 @@
 <div class="row">
   <div class="col-12">
 
+    <!-- Summary stat chips -->
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+      <div class="d-flex align-items-center gap-2 px-3 py-2 rounded" style="background:rgba(var(--bs-success-rgb),.1)">
+        <i class="bx bx-check-shield text-success fs-5"></i>
+        <div>
+          <div class="fw-bold text-success lh-1">{{ paid_users|length }}</div>
+          <small class="text-muted">Paid &amp; Registered</small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2 px-3 py-2 rounded" style="background:rgba(var(--bs-danger-rgb),.1)">
+        <i class="bx bx-error-circle text-danger fs-5"></i>
+        <div>
+          <div class="fw-bold text-danger lh-1">{{ unpaid_users|length }}</div>
+          <small class="text-muted">Unpaid / Incomplete</small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2 px-3 py-2 rounded" style="background:rgba(var(--bs-primary-rgb),.1)">
+        <i class="bx bx-group text-primary fs-5"></i>
+        <div>
+          <div class="fw-bold text-primary lh-1">{{ users|length }}</div>
+          <small class="text-muted">Total Students</small>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header d-flex align-items-center justify-content-between">
         <div>
           <h5 class="card-title m-0 me-2">Registered Users</h5>
-          <small class="text-muted">All student accounts on NursesEdge </small>
+          <small class="text-muted">All student accounts on NursesEdge</small>
         </div>
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#visitStatsModal">
             <i class="bx bx-bar-chart-alt-2 me-1"></i>Visit Stats
           </button>
-          <span class="badge bg-label-primary fs-6 px-3 py-2">
-            {{ users|length }} student{{ users|length|pluralize }}
-          </span>
         </div>
       </div>
 
-      <div class="table-responsive text-nowrap">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Student</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Programme</th>
-              <th>Year of Study</th>
-              <th>School / Institution</th>
-              <th>Registered</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody class="table-border-bottom-0">
-            {% if users %}
-              {% for user in users %}
-              <tr>
-                <td>{{ forloop.counter }}</td>
-                <td>
-                  <div class="d-flex justify-content-start align-items-center user-name">
-                    <div class="avatar-wrapper">
-                      <div class="avatar avatar-sm me-3">
-                        <span class="avatar-initial rounded-circle bg-label-primary">
-                          {{ user.full_name|default:"?"|slice:":1"|upper }}
-                        </span>
-                      </div>
-                    </div>
-                    <div class="d-flex flex-column">
-                      <span class="fw-semibold">{{ user.full_name|default:"—" }}</span>
-                    </div>
-                  </div>
-                </td>
-                <td>{{ user.email }}</td>
-                <td>{{ user.phone_number|default:"—" }}</td>
-                <td>
-                  {% if user.programme %}
-                    <span class="badge bg-label-primary" title="{{ user.programme }}">{{ user.programme_initial }}</span>
-                  {% else %}
-                    <span class="text-muted">—</span>
-                  {% endif %}
-                </td>
-                <td>{{ user.year_of_study|default:"—"|title }}</td>
-                <td>{{ user.school|default:"—" }}</td>
-                <td>{{ user.created_at|slice:":10" }}</td>
-                <td>
-                  {% if user.is_active %}
-                    <span class="badge bg-label-success">Active</span>
-                  {% else %}
-                    <span class="badge bg-label-danger">Disabled</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <div class="d-flex flex-nowrap gap-1">
-                    <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
-                      {% csrf_token %}
-                      {% if user.is_active %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
-                                title="Disable account"
-                                aria-label="Disable account"
-                                onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
-                          <i class="bx bx-block"></i>
-                        </button>
-                      {% else %}
-                        <button type="submit" class="btn btn-sm btn-outline-success btn-icon"
-                                title="Enable account"
-                                aria-label="Enable account"
-                                onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
-                          <i class="bx bx-check-circle"></i>
-                        </button>
-                      {% endif %}
-                    </form>
-                    <form method="POST"
-                          action="/admin-panel/users/{{ user.id }}/delete/"
-                          style="display:inline;"
-                          class="delete-user-form"
-                          data-user-name="{{ user.full_name|default:user.email|escape }}"
-                          data-delete-url="/admin-panel/users/{{ user.id }}/delete/">
-                      {% csrf_token %}
-                      <button type="button" class="btn btn-sm btn-danger btn-icon js-open-delete-modal"
-                              title="Delete account"
-                              aria-label="Delete account">
-                        <i class="bx bx-trash"></i>
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            {% else %}
-              <tr>
-                <td colspan="10" class="text-center py-5">
-                  <div class="d-flex flex-column align-items-center gap-2 text-muted">
-                    <i class="bx bx-user-x" style="font-size:40px;"></i>
-                    <span>No registered students yet.</span>
-                  </div>
-                </td>
-              </tr>
-            {% endif %}
-          </tbody>
-        </table>
+      <!-- Tab navigation -->
+      <div class="border-bottom px-4">
+        <ul class="nav nav-tabs border-0" id="userGroupTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="paid-tab" data-bs-toggle="tab"
+                    data-bs-target="#paid-pane" type="button" role="tab">
+              <i class="bx bx-check-circle text-success me-1"></i>
+              Paid &amp; Registered
+              <span class="badge bg-success ms-1">{{ paid_users|length }}</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="unpaid-tab" data-bs-toggle="tab"
+                    data-bs-target="#unpaid-pane" type="button" role="tab">
+              <i class="bx bx-x-circle text-danger me-1"></i>
+              Unpaid / Incomplete
+              <span class="badge bg-danger ms-1">{{ unpaid_users|length }}</span>
+            </button>
+          </li>
+        </ul>
       </div>
-    </div>
+
+      <div class="tab-content">
+
+        <!-- ── PAID TAB ── -->
+        <div class="tab-pane fade show active" id="paid-pane" role="tabpanel">
+          <div class="table-responsive text-nowrap">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Student</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Programme</th>
+                  <th>Year</th>
+                  <th>School / Institution</th>
+                  <th>Registered</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody class="table-border-bottom-0">
+                {% if paid_users %}
+                  {% for user in paid_users %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                      <div class="d-flex justify-content-start align-items-center">
+                        <div class="avatar avatar-sm me-3">
+                          <span class="avatar-initial rounded-circle bg-label-success">
+                            {{ user.full_name|default:"?"|slice:":1"|upper }}
+                          </span>
+                        </div>
+                        <span class="fw-semibold">{{ user.full_name|default:"—" }}</span>
+                      </div>
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.phone_number|default:"—" }}</td>
+                    <td>
+                      {% if user.programme %}
+                        <span class="badge bg-label-primary" title="{{ user.programme }}">{{ user.programme_initial }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ user.year_of_study|default:"—"|title }}</td>
+                    <td>{{ user.school|default:"—" }}</td>
+                    <td>{{ user.created_at|slice:":10" }}</td>
+                    <td><span class="badge {{ user.payment_badge }}">{{ user.payment_label }}</span></td>
+                    <td>
+                      {% if user.is_active %}
+                        <span class="badge bg-label-success">Active</span>
+                      {% else %}
+                        <span class="badge bg-label-danger">Disabled</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div class="d-flex flex-nowrap gap-1">
+                        <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
+                          {% csrf_token %}
+                          {% if user.is_active %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
+                                    title="Disable account"
+                                    onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
+                              <i class="bx bx-block"></i>
+                            </button>
+                          {% else %}
+                            <button type="submit" class="btn btn-sm btn-outline-success btn-icon"
+                                    title="Enable account"
+                                    onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
+                              <i class="bx bx-check-circle"></i>
+                            </button>
+                          {% endif %}
+                        </form>
+                        <form method="POST"
+                              action="/admin-panel/users/{{ user.id }}/delete/"
+                              style="display:inline;"
+                              class="delete-user-form"
+                              data-user-name="{{ user.full_name|default:user.email|escape }}"
+                              data-delete-url="/admin-panel/users/{{ user.id }}/delete/">
+                          {% csrf_token %}
+                          <button type="button" class="btn btn-sm btn-danger btn-icon js-open-delete-modal"
+                                  title="Delete account">
+                            <i class="bx bx-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="11" class="text-center py-5">
+                      <div class="d-flex flex-column align-items-center gap-2 text-muted">
+                        <i class="bx bx-credit-card-front" style="font-size:40px;"></i>
+                        <span>No paid students yet.</span>
+                      </div>
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── UNPAID TAB ── -->
+        <div class="tab-pane fade" id="unpaid-pane" role="tabpanel">
+          {% if unpaid_users %}
+          <div class="alert alert-warning d-flex align-items-center gap-2 m-3 mb-0 py-2 px-3 rounded">
+            <i class="bx bx-info-circle fs-5"></i>
+            <span class="small">These students have registered but have not completed payment. They cannot access premium content.</span>
+          </div>
+          {% endif %}
+          <div class="table-responsive text-nowrap">
+            <table class="table table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Student</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Programme</th>
+                  <th>Year</th>
+                  <th>School / Institution</th>
+                  <th>Registered</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody class="table-border-bottom-0">
+                {% if unpaid_users %}
+                  {% for user in unpaid_users %}
+                  <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                      <div class="d-flex justify-content-start align-items-center">
+                        <div class="avatar avatar-sm me-3">
+                          <span class="avatar-initial rounded-circle bg-label-danger">
+                            {{ user.full_name|default:"?"|slice:":1"|upper }}
+                          </span>
+                        </div>
+                        <span class="fw-semibold">{{ user.full_name|default:"—" }}</span>
+                      </div>
+                    </td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.phone_number|default:"—" }}</td>
+                    <td>
+                      {% if user.programme %}
+                        <span class="badge bg-label-primary" title="{{ user.programme }}">{{ user.programme_initial }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ user.year_of_study|default:"—"|title }}</td>
+                    <td>{{ user.school|default:"—" }}</td>
+                    <td>{{ user.created_at|slice:":10" }}</td>
+                    <td><span class="badge {{ user.payment_badge }}">{{ user.payment_label }}</span></td>
+                    <td>
+                      {% if user.is_active %}
+                        <span class="badge bg-label-success">Active</span>
+                      {% else %}
+                        <span class="badge bg-label-danger">Disabled</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div class="d-flex flex-nowrap gap-1">
+                        <form method="POST" action="/admin-panel/users/{{ user.id }}/toggle-status/" style="display:inline;">
+                          {% csrf_token %}
+                          {% if user.is_active %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
+                                    title="Disable account"
+                                    onclick="return confirm('Disable {{ user.full_name|default:user.email }}? They will be logged out immediately.');">
+                              <i class="bx bx-block"></i>
+                            </button>
+                          {% else %}
+                            <button type="submit" class="btn btn-sm btn-outline-success btn-icon"
+                                    title="Enable account"
+                                    onclick="return confirm('Re-enable {{ user.full_name|default:user.email }}?');">
+                              <i class="bx bx-check-circle"></i>
+                            </button>
+                          {% endif %}
+                        </form>
+                        <form method="POST"
+                              action="/admin-panel/users/{{ user.id }}/delete/"
+                              style="display:inline;"
+                              class="delete-user-form"
+                              data-user-name="{{ user.full_name|default:user.email|escape }}"
+                              data-delete-url="/admin-panel/users/{{ user.id }}/delete/">
+                          {% csrf_token %}
+                          <button type="button" class="btn btn-sm btn-danger btn-icon js-open-delete-modal"
+                                  title="Delete account">
+                            <i class="bx bx-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="11" class="text-center py-5">
+                      <div class="d-flex flex-column align-items-center gap-2 text-muted">
+                        <i class="bx bx-party" style="font-size:40px;"></i>
+                        <span>All registered students have paid.</span>
+                      </div>
+                    </td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /tab-content -->
+    </div><!-- /card -->
 
   </div>
 </div>

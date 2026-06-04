@@ -21,8 +21,13 @@
       "Bash(python -m py_compile website/middleware.py)",
       "Bash(python -c ' *)",
       "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)",
+<<<<<<< HEAD
       "Bash(python -c \"import ast; ast.parse\\(open\\('website/views.py'\\).read\\(\\)\\); print\\('views.py: OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('website/context_processors.py'\\).read\\(\\)\\); print\\('context_processors.py: OK'\\)\")"
+=======
+      "Bash(xargs grep -l \"class.*Model\\\\|models\\\\.py\")",
+      "Bash(grep -E \"\\\\.\\(py|html\\)$\")"
+>>>>>>> 9676b3f264d292de4ade3f463ac63a3e963e942f
     ]
   }
 }

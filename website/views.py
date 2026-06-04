@@ -3036,6 +3036,7 @@ def admin_dashboard(request):
         total_students = total_users = unread_messages = 0
 
     total_visits, visits_24h, unique_ips_24h = _get_visit_stats(admin)
+    free_test_visits, free_test_visits_24h, free_test_unique_visitors = _get_free_test_visit_stats(admin)
 
     context = {
         "full_name": request.session.get("full_name", "Admin"),
@@ -3048,6 +3049,9 @@ def admin_dashboard(request):
         "total_visits": total_visits,
         "visits_24h": visits_24h,
         "unique_ips_24h": unique_ips_24h,
+        "free_test_visits": free_test_visits,
+        "free_test_visits_24h": free_test_visits_24h,
+        "free_test_unique_visitors": free_test_unique_visitors,
     }
     return render(request, "dashboard/admin_dashboard.html", context)
 
@@ -3071,14 +3075,53 @@ def admin_broadcast_messages(request):
     try:
         students = (
             admin.table("profiles")
-            .select("id, full_name, email, created_at")
+            .select("id, full_name, email, created_at, is_free_access")
             .eq("role", "student")
             .order("created_at", desc=True)
             .execute()
             .data
             or []
         )
+
+        # Classify each student into paid / free / unpaid in one batch
+        try:
+            all_subs = (
+                admin.table("subscriptions")
+                .select("user_id, status, expires_at, payment_reference")
+                .order("created_at", desc=True)
+                .execute()
+                .data or []
+            )
+            latest_subs = {}
+            for row in all_subs:
+                uid = str(row.get("user_id", ""))
+                if uid and uid not in latest_subs:
+                    latest_subs[uid] = row
+        except Exception:
+            latest_subs = {}
+
+        for student in students:
+            uid = str(student.get("id", ""))
+            sub = latest_subs.get(uid)
+            status = (sub or {}).get("status", "")
+            ref = (sub or {}).get("payment_reference", "")
+            expires = (sub or {}).get("expires_at")
+            is_free = student.get("is_free_access") or (
+                ref == FREE_ACCESS_PAYMENT_REFERENCE
+                and status == "active"
+                and _expires_at_still_valid(expires)
+            )
+            if is_free:
+                student["group"] = "free"
+            elif status == "active" and _expires_at_still_valid(expires):
+                student["group"] = "paid"
+            else:
+                student["group"] = "unpaid"
+
         context["available_students"] = students
+        context["paid_count"] = sum(1 for s in students if s.get("group") == "paid")
+        context["free_count"] = sum(1 for s in students if s.get("group") == "free")
+        context["unpaid_count"] = sum(1 for s in students if s.get("group") == "unpaid")
 
         if request.method == "POST":
             action = request.POST.get("action", "send").strip()
@@ -3159,6 +3202,45 @@ def _get_visit_stats(admin_client):
         return 0, 0, 0
 
 
+def _get_free_test_visit_stats(admin_client):
+    """Return (total_visits, visits_24h, unique_visitors) for /dashboard/free-test/."""
+    try:
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        path = "/dashboard/free-test/"
+
+        total_resp = (
+            admin_client.table("site_visits")
+            .select("id", count="exact", head=True)
+            .eq("path", path)
+            .execute()
+        )
+        total_visits = total_resp.count or 0
+
+        day_resp = (
+            admin_client.table("site_visits")
+            .select("ip_address", count="exact")
+            .eq("path", path)
+            .gte("visited_at", cutoff)
+            .execute()
+        )
+        visits_24h = day_resp.count or 0
+
+        all_resp = (
+            admin_client.table("site_visits")
+            .select("ip_address")
+            .eq("path", path)
+            .limit(5000)
+            .execute()
+        )
+        rows = all_resp.data or []
+        unique_visitors = len({r["ip_address"] for r in rows})
+
+        return total_visits, visits_24h, unique_visitors
+    except Exception:
+        return 0, 0, 0
+
+
 def admin_users(request):
     guard = _require_admin(request)
     if guard:
@@ -3173,6 +3255,68 @@ def admin_users(request):
     except Exception:
         users = []
 
+    # Classify users into paid vs unpaid in one batch (no per-user queries)
+    paid_users = []
+    unpaid_users = []
+    try:
+        all_subs = (
+            admin.table("subscriptions")
+            .select("user_id, status, expires_at, payment_reference")
+            .order("created_at", desc=True)
+            .execute()
+            .data or []
+        )
+        # Keep only the most-recent subscription row per user
+        latest_subs = {}
+        for row in all_subs:
+            uid = str(row.get("user_id", ""))
+            if uid and uid not in latest_subs:
+                latest_subs[uid] = row
+
+        for user in users:
+            uid = str(user.get("id", ""))
+            sub = latest_subs.get(uid)
+            status = (sub or {}).get("status", "")
+            ref = (sub or {}).get("payment_reference", "")
+            expires = (sub or {}).get("expires_at")
+
+            is_free = user.get("is_free_access") or (
+                ref == FREE_ACCESS_PAYMENT_REFERENCE
+                and status == "active"
+                and _expires_at_still_valid(expires)
+            )
+
+            if is_free:
+                user["payment_label"] = "Free Access"
+                user["payment_badge"] = "bg-label-info"
+                paid_users.append(user)
+            elif status == "active" and _expires_at_still_valid(expires):
+                user["payment_label"] = "Active"
+                user["payment_badge"] = "bg-label-success"
+                paid_users.append(user)
+            elif status == "active" and not _expires_at_still_valid(expires):
+                user["payment_label"] = "Expired"
+                user["payment_badge"] = "bg-label-warning"
+                unpaid_users.append(user)
+            elif status == "pending_payment":
+                user["payment_label"] = "Pending"
+                user["payment_badge"] = "bg-label-warning"
+                unpaid_users.append(user)
+            elif status == "cancelled":
+                user["payment_label"] = "Cancelled"
+                user["payment_badge"] = "bg-label-danger"
+                unpaid_users.append(user)
+            else:
+                user["payment_label"] = "Not Paid"
+                user["payment_badge"] = "bg-label-danger"
+                unpaid_users.append(user)
+
+    except Exception:
+        for user in users:
+            user["payment_label"] = "Unknown"
+            user["payment_badge"] = "bg-label-secondary"
+        unpaid_users = list(users)
+
     total_visits, visits_24h, unique_ips_24h = _get_visit_stats(admin)
 
     context = {
@@ -3181,6 +3325,8 @@ def admin_users(request):
         "role": "admin",
         "active_page": "users",
         "users": users,
+        "paid_users": paid_users,
+        "unpaid_users": unpaid_users,
         "total_visits": total_visits,
         "visits_24h": visits_24h,
         "unique_ips_24h": unique_ips_24h,
@@ -11055,6 +11201,43 @@ def payment_page(request):
 # Admin: payments management — plan editor + all subscribers
 # ---------------------------------------------------------------------------
 
+def _enrich_subscriber_row(s, profiles_map, now):
+    """Attach computed fields to a subscription row dict in-place."""
+    uid = str(s.get("user_id", ""))
+    profile = profiles_map.get(uid, {})
+    s["phone_number"] = profile.get("phone_number") or ""
+    s["programme"]    = profile.get("programme") or ""
+    s["school"]       = profile.get("school") or ""
+
+    # Days remaining
+    expires_str = s.get("expires_at") or ""
+    s["days_remaining"]   = None
+    s["is_expired"]       = False
+    s["is_expiring_soon"] = False
+    if expires_str and s.get("status") == "active":
+        try:
+            exp = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+            days = (exp - now).days
+            s["days_remaining"]   = days
+            s["is_expired"]       = days < 0
+            s["is_expiring_soon"] = 0 <= days <= 30
+        except Exception:
+            pass
+
+    # Payment gateway (inferred from reference format)
+    ref = s.get("payment_reference") or ""
+    if ref in ("free_access", "complimentary"):
+        s["gateway"] = "Free"
+    elif ref.lower().startswith("cs_"):
+        s["gateway"] = "Stripe"
+    elif ref:
+        s["gateway"] = "Paystack"
+    else:
+        s["gateway"] = "Manual"
+
+
 def admin_payments(request):
     guard = _require_admin(request)
     if guard:
@@ -11065,8 +11248,9 @@ def admin_payments(request):
     error = None
     success = None
 
+    # ── POST: plan edit / activate / cancel ──────────────────────────────
     if request.method == "POST":
-        action   = request.POST.get("action", "")
+        action    = request.POST.get("action", "")
         plan_slug = request.POST.get("plan_slug", "").strip()
 
         if action == "update_plan" and plan_slug in ("standard", "basic", "premium"):
@@ -11078,20 +11262,14 @@ def admin_payments(request):
                 instructions = request.POST.get("payment_instructions", "").strip()[:1000]
                 features_raw = request.POST.get("features", "").strip()
                 features     = [f.strip() for f in features_raw.splitlines() if f.strip()]
-
                 price = round(float(price_raw), 2) if price_raw else 0.0
                 dur   = int(duration_raw) if duration_raw.isdigit() else 365
-
                 db.table("subscription_plans").update({
-                    "name": name,
-                    "tagline": tagline,
-                    "price": price,
-                    "duration_days": dur,
-                    "payment_instructions": instructions,
+                    "name": name, "tagline": tagline, "price": price,
+                    "duration_days": dur, "payment_instructions": instructions,
                     "features": features,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }).eq("slug", "standard").execute()
-
                 plans = _get_plans()
                 success = "Subscription amount and plan details updated successfully."
             except Exception as exc:
@@ -11102,12 +11280,12 @@ def admin_payments(request):
             sub_plan_slug = request.POST.get("sub_plan_slug", "basic").strip()
             plan          = plans.get(sub_plan_slug, {})
             dur           = plan.get("duration_days", 365)
-            now           = datetime.now(timezone.utc)
-            expires       = now + timedelta(days=dur)
+            _now          = datetime.now(timezone.utc)
+            expires       = _now + timedelta(days=dur)
             try:
                 db.table("subscriptions").update({
                     "status": "active",
-                    "started_at": now.isoformat(),
+                    "started_at": _now.isoformat(),
                     "expires_at": expires.isoformat(),
                     "amount_paid": plan.get("price", 0),
                     "activated_by": str(request.session.get("user_id", "")),
@@ -11191,71 +11369,133 @@ def admin_payments(request):
             except Exception as exc:
                 error = f"Cancellation failed: {exc}"
 
-    subscribers = []
-    selected_filter = (request.GET.get("filter", "") or "").strip().lower()
-    counts = {"total": 0, "active": 0, "pending": 0, "standard": 0}
+    # ── Fetch subscriptions ───────────────────────────────────────────────
     try:
-        subscribers = (
+        subscribers_raw = (
             db.table("subscriptions")
             .select("*")
             .order("created_at", desc=True)
-            .limit(300)
+            .limit(500)
             .execute()
             .data or []
         )
-        for s in subscribers:
-            counts["total"] += 1
-            if s.get("status") == "active":
-                counts["active"] += 1
-            if s.get("status") == "pending_payment":
-                counts["pending"] += 1
-            if (s.get("plan_slug") or "").strip() in ("standard", "basic", "premium"):
-                counts["standard"] += 1
+    except Exception:
+        subscribers_raw = []
+
+    # ── Bulk-fetch profiles for enrichment ──────────────────────────────
+    profiles_map = {}
+    try:
+        user_ids = list({str(s.get("user_id", "")) for s in subscribers_raw if s.get("user_id")})
+        all_profiles = []
+        for i in range(0, len(user_ids), 100):
+            chunk = user_ids[i:i + 100]
+            resp = db.table("profiles").select("id, phone_number, programme, school").in_("id", chunk).execute()
+            all_profiles.extend(resp.data or [])
+        profiles_map = {str(p["id"]): p for p in all_profiles}
     except Exception:
         pass
 
-    if selected_filter == "active":
-        filtered_subscribers = [s for s in subscribers if (s.get("status") or "").strip() == "active"]
-    elif selected_filter == "pending":
-        filtered_subscribers = [s for s in subscribers if (s.get("status") or "").strip() == "pending_payment"]
-    else:
-        filtered_subscribers = subscribers
+    # ── Enrich every row ─────────────────────────────────────────────────
+    now = datetime.now(timezone.utc)
+    for s in subscribers_raw:
+        _enrich_subscriber_row(s, profiles_map, now)
 
+    # ── Compute analytics ────────────────────────────────────────────────
+    counts = {"total": 0, "active": 0, "expiring_soon": 0, "expired": 0, "pending": 0, "cancelled": 0}
+    total_revenue    = 0.0
+    rev_this_month   = 0.0
+    current_month    = now.strftime("%Y-%m")
+    monthly_rev      = {}
+
+    for s in subscribers_raw:
+        counts["total"] += 1
+        status = s.get("status") or ""
+        if status == "active":
+            if s.get("is_expired"):
+                counts["expired"] += 1
+            else:
+                counts["active"] += 1
+                if s.get("is_expiring_soon"):
+                    counts["expiring_soon"] += 1
+        elif status == "pending_payment":
+            counts["pending"] += 1
+        elif status == "cancelled":
+            counts["cancelled"] += 1
+
+        amt = float(s.get("amount_paid") or 0)
+        if amt > 0:
+            total_revenue += amt
+            mk = (s.get("started_at") or s.get("created_at") or "")[:7]
+            if mk:
+                monthly_rev[mk] = monthly_rev.get(mk, 0.0) + amt
+                if mk == current_month:
+                    rev_this_month += amt
+
+    paid_rows  = [s for s in subscribers_raw if float(s.get("amount_paid") or 0) > 0]
+    avg_payment = round(total_revenue / len(paid_rows), 2) if paid_rows else 0.0
+
+    # Last 6 months for revenue table
+    from calendar import month_abbr as _month_abbr
+    revenue_by_month = []
+    for mk in sorted(monthly_rev.keys())[-6:]:
+        try:
+            yr, mo = mk.split("-")
+            label = f"{_month_abbr[int(mo)]} {yr}"
+        except Exception:
+            label = mk
+        revenue_by_month.append({"label": label, "revenue": round(monthly_rev[mk], 2)})
+
+    # ── Filter ───────────────────────────────────────────────────────────
+    selected_filter = (request.GET.get("filter", "") or "").strip().lower()
+    if selected_filter == "active":
+        filtered = [s for s in subscribers_raw if s.get("status") == "active" and not s.get("is_expired")]
+    elif selected_filter == "expiring_soon":
+        filtered = [s for s in subscribers_raw if s.get("is_expiring_soon")]
+    elif selected_filter == "expired":
+        filtered = [s for s in subscribers_raw if s.get("is_expired")]
+    elif selected_filter == "pending":
+        filtered = [s for s in subscribers_raw if s.get("status") == "pending_payment"]
+    elif selected_filter == "cancelled":
+        filtered = [s for s in subscribers_raw if s.get("status") == "cancelled"]
+    else:
+        selected_filter = ""
+        filtered = subscribers_raw
+
+    # ── CSV export ───────────────────────────────────────────────────────
     export_type = (request.GET.get("export", "") or "").strip().lower()
     if export_type == "csv":
         out = StringIO()
         writer = csv.writer(out)
         writer.writerow([
-            "Name",
-            "Email",
-            "Plan",
-            "Amount Due (GHS)",
-            "Amount Paid (GHS)",
-            "Payment Reference",
-            "Status",
-            "Start Date",
-            "Expiry Date",
-            "Created At",
+            "Name", "Email", "Phone", "Programme", "School",
+            "Plan", "Amount Due (GHS)", "Amount Paid (GHS)", "Gateway",
+            "Payment Reference", "Status", "Days Remaining",
+            "Start Date", "Expiry Date", "Signed Up",
         ])
-        for s in filtered_subscribers:
+        for s in filtered:
+            dr = s.get("days_remaining")
             writer.writerow([
                 s.get("user_name") or "",
                 s.get("user_email") or "",
+                s.get("phone_number") or "",
+                s.get("programme") or "",
+                s.get("school") or "",
                 s.get("plan_slug") or "",
                 s.get("amount_due") or "",
                 s.get("amount_paid") or "",
+                s.get("gateway") or "",
                 s.get("payment_reference") or "",
                 s.get("status") or "",
-                (s.get("started_at") or "")[:19],
-                (s.get("expires_at") or "")[:19],
-                (s.get("created_at") or "")[:19],
+                dr if dr is not None else "",
+                (s.get("started_at") or "")[:10],
+                (s.get("expires_at") or "")[:10],
+                (s.get("created_at") or "")[:10],
             ])
-
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        suffix = selected_filter if selected_filter in {"active", "pending"} else "all"
-        response = HttpResponse(out.getvalue(), content_type="text/csv")
-        response["Content-Disposition"] = f'attachment; filename="subscribers_{suffix}_{stamp}.csv"'
-        return response
+        stamp  = datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = selected_filter or "all"
+        resp   = HttpResponse(out.getvalue(), content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="subscriptions_{suffix}_{stamp}.csv"'
+        return resp
 
     ctx = {
         "full_name": request.session.get("full_name", "Admin"),
@@ -11268,10 +11508,14 @@ def admin_payments(request):
         "standard": plans.get("standard", {}),
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
-        "subscribers": filtered_subscribers,
-        "all_subscribers_count": len(subscribers),
+        "subscribers": filtered,
+        "all_subscribers_count": len(subscribers_raw),
         "selected_filter": selected_filter,
         "counts": counts,
+        "total_revenue": f"{total_revenue:,.2f}",
+        "rev_this_month": f"{rev_this_month:,.2f}",
+        "avg_payment": f"{avg_payment:,.2f}",
+        "revenue_by_month": revenue_by_month,
         "error": error,
         "success": success,
     }
