@@ -172,6 +172,49 @@ def _google_oauth_callback_url(request):
     return f"{_public_site_origin(request)}/auth/google/callback/"
 
 
+# ---------------------------------------------------------------------------
+# Referral system helpers
+# ---------------------------------------------------------------------------
+
+_REFERRAL_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+
+def _generate_unique_referral_code(admin_client):
+    """Generate a unique 5-char alphanumeric (a-z, A-Z, 0-9) referral code."""
+    for _ in range(30):
+        code = "".join(secrets.choice(_REFERRAL_CHARS) for _ in range(5))
+        existing = (
+            admin_client.table("profiles")
+            .select("id")
+            .eq("referral_code", code)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            return code
+    return None
+
+
+def _assign_referral_code_if_missing(admin_client, user_id):
+    """Ensure user has a referral code; generate and save one if not."""
+    try:
+        row = (
+            admin_client.table("profiles")
+            .select("referral_code")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        if row.data and row.data[0].get("referral_code"):
+            return row.data[0]["referral_code"]
+        code = _generate_unique_referral_code(admin_client)
+        if code:
+            admin_client.table("profiles").update({"referral_code": code}).eq("id", user_id).execute()
+        return code
+    except Exception:
+        return None
+
+
 def _filter_duplicate_questions(supabase_client, rows):
     """
     Remove rows that already exist in question_bank.
@@ -1675,6 +1718,7 @@ def login_page(request):
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
+                request.session["show_referral_prompt"] = True
                 if get_active_site_maintenance():
                     request.session["maintenance_notice_pending"] = True
                     request.session.modified = True
@@ -1902,6 +1946,7 @@ def google_oauth_callback(request):
     if role == "admin":
         return redirect("/admin-panel/dashboard/")
     if role == "student":
+        request.session["show_referral_prompt"] = True
         if get_active_site_maintenance():
             request.session["maintenance_notice_pending"] = True
             request.session.modified = True
@@ -2085,6 +2130,38 @@ def signup_page(request):
                 "currency": plan.get("currency", "GHS"),
                 "status": "pending_payment",
             }).execute()
+
+            # ── Referral: assign unique code to new user ──────────────────
+            try:
+                ref_code = _generate_unique_referral_code(admin)
+                if ref_code:
+                    admin.table("profiles").update({"referral_code": ref_code}).eq("id", user_id).execute()
+            except Exception:
+                pass
+
+            # ── Referral: apply submitted referred-by code ────────────────
+            submitted_ref = (request.POST.get("referral_code") or "").strip()
+            if not submitted_ref:
+                submitted_ref = (request.GET.get("ref") or "").strip()
+            if submitted_ref:
+                try:
+                    ref_check = (
+                        admin.table("profiles")
+                        .select("id")
+                        .eq("referral_code", submitted_ref)
+                        .limit(1)
+                        .execute()
+                    )
+                    if ref_check.data and str(ref_check.data[0]["id"]) != user_id:
+                        admin.table("profiles").update({"referred_by_code": submitted_ref}).eq("id", user_id).execute()
+                        # Code applied — no need for the post-signup modal
+                    else:
+                        request.session["show_referral_modal"] = True
+                except Exception:
+                    request.session["show_referral_modal"] = True
+            else:
+                request.session["show_referral_modal"] = True
+            # ─────────────────────────────────────────────────────────────
 
             _create_session(request, user_id, email, full_name, "student")
             request.session["pending_dashboard_disclaimer"] = True
@@ -2574,7 +2651,7 @@ def user_dashboard(request):
     peer_comparison = None
     try:
         admin = _supabase_admin()
-        profile_rows = admin.table("profiles").select("programme").eq("id", user_id).limit(1).execute().data or []
+        profile_rows = admin.table("profiles").select("programme, referral_code, referred_by_code").eq("id", user_id).limit(1).execute().data or []
         programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
         if programme:
             exam_count_resp = (
@@ -2689,6 +2766,29 @@ def user_dashboard(request):
     # Refresh plan_slug in session — catches upgrades made since last login
     request.session["plan_slug"] = plan_slug
 
+    # Referral data for dashboard card
+    user_referral_code = ""
+    referral_count = 0
+    referral_earnings_total = 0.0
+    try:
+        admin_ref = _supabase_admin()
+        if not (profile_rows and profile_rows[0].get("referral_code")):
+            user_referral_code = _assign_referral_code_if_missing(admin_ref, user_id) or ""
+        else:
+            user_referral_code = profile_rows[0]["referral_code"]
+        # Count successful referrals and earnings
+        ref_earn = (
+            admin_ref.table("referral_earnings")
+            .select("earning_amount, status")
+            .eq("referrer_id", user_id)
+            .execute()
+            .data or []
+        )
+        referral_count = len(ref_earn)
+        referral_earnings_total = round(sum(float(r.get("earning_amount") or 0) for r in ref_earn), 2)
+    except Exception:
+        pass
+
     show_nmc_disclaimer = False
     if request.session.get("role") != "admin":
         show_nmc_disclaimer = _student_needs_dashboard_nmc_disclaimer(request, user_id)
@@ -2732,6 +2832,9 @@ def user_dashboard(request):
         "days_remaining": days_remaining,
         "plan_progress_pct": plan_progress_pct,
         "peer_comparison": peer_comparison,
+        "user_referral_code": user_referral_code,
+        "referral_count": referral_count,
+        "referral_earnings_total": referral_earnings_total,
     }
     return render(request, "dashboard/user_dashboard.html", context)
 
@@ -11010,6 +11113,73 @@ def admin_payments(request):
                     "activated_by": str(request.session.get("user_id", "")),
                 }).eq("id", sub_id).execute()
                 success = "Subscription activated."
+
+                # ── Create referral earning if referred user ──────────────
+                try:
+                    sub_rows = (
+                        db.table("subscriptions")
+                        .select("user_id, user_email, user_name")
+                        .eq("id", sub_id)
+                        .limit(1)
+                        .execute()
+                        .data or []
+                    )
+                    if sub_rows:
+                        sub_row = sub_rows[0]
+                        referred_uid = sub_row.get("user_id")
+                        if referred_uid:
+                            profile_rows = (
+                                db.table("profiles")
+                                .select("referred_by_code, full_name, email")
+                                .eq("id", referred_uid)
+                                .limit(1)
+                                .execute()
+                                .data or []
+                            )
+                            if profile_rows:
+                                profile = profile_rows[0]
+                                by_code = (profile.get("referred_by_code") or "").strip()
+                                if by_code:
+                                    referrer_rows = (
+                                        db.table("profiles")
+                                        .select("id, full_name, email")
+                                        .eq("referral_code", by_code)
+                                        .limit(1)
+                                        .execute()
+                                        .data or []
+                                    )
+                                    if referrer_rows:
+                                        referrer = referrer_rows[0]
+                                        # Avoid duplicate earning record
+                                        existing_earning = (
+                                            db.table("referral_earnings")
+                                            .select("id")
+                                            .eq("referred_id", str(referred_uid))
+                                            .limit(1)
+                                            .execute()
+                                            .data or []
+                                        )
+                                        if not existing_earning:
+                                            sub_amount = float(plan.get("price") or 0)
+                                            earning = round(sub_amount * 0.10, 2)
+                                            db.table("referral_earnings").insert({
+                                                "referrer_id": str(referrer["id"]),
+                                                "referrer_name": referrer.get("full_name") or "",
+                                                "referrer_email": referrer.get("email") or "",
+                                                "referred_id": str(referred_uid),
+                                                "referred_name": profile.get("full_name") or sub_row.get("user_name") or "",
+                                                "referred_email": profile.get("email") or sub_row.get("user_email") or "",
+                                                "referral_code": by_code,
+                                                "subscription_amount": sub_amount,
+                                                "earning_amount": earning,
+                                                "earning_percentage": 10.0,
+                                                "status": "pending",
+                                            }).execute()
+                                            success = f"Subscription activated. Referral earning of GHS {earning:.2f} recorded for {referrer.get('full_name', 'referrer')}."
+                except Exception:
+                    pass
+                # ─────────────────────────────────────────────────────────
+
             except Exception as exc:
                 error = f"Activation failed: {exc}"
 
@@ -11106,3 +11276,200 @@ def admin_payments(request):
         "success": success,
     }
     return render(request, "dashboard/admin_payments.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Referral system — API + admin pages
+# ---------------------------------------------------------------------------
+
+def api_validate_referral_code(request):
+    """AJAX GET: check whether a referral code exists in the system."""
+    if request.method != "GET":
+        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
+    code = (request.GET.get("code") or "").strip()
+    if not code:
+        return JsonResponse({"ok": False, "valid": False, "error": "No code provided."})
+    try:
+        admin = _supabase_admin()
+        result = (
+            admin.table("profiles")
+            .select("id, full_name")
+            .eq("referral_code", code)
+            .limit(1)
+            .execute()
+        )
+        if result.data:
+            name = (result.data[0].get("full_name") or "").split()[0]
+            return JsonResponse({"ok": True, "valid": True, "referrer_name": name})
+        return JsonResponse({"ok": True, "valid": False})
+    except Exception as exc:
+        return JsonResponse({"ok": False, "valid": False, "error": str(exc)}, status=500)
+
+
+@require_POST
+def api_apply_referral_code(request):
+    """POST: apply a referral code to the currently logged-in user (post-signup modal)."""
+    check = _require_login(request)
+    if check:
+        return JsonResponse({"ok": False, "error": "Not logged in."}, status=401)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = {}
+
+    code = (data.get("code") or request.POST.get("code") or "").strip()
+    if not code:
+        return JsonResponse({"ok": False, "error": "No code provided."})
+
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JsonResponse({"ok": False, "error": "Not logged in."}, status=401)
+
+    try:
+        admin = _supabase_admin()
+
+        referrer_rows = (
+            admin.table("profiles")
+            .select("id, full_name, referral_code")
+            .eq("referral_code", code)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if not referrer_rows:
+            return JsonResponse({"ok": False, "error": "Invalid referral code. Please check and try again."})
+
+        referrer_data = referrer_rows[0]
+        if str(referrer_data["id"]) == str(user_id):
+            return JsonResponse({"ok": False, "error": "You cannot use your own referral code."})
+
+        user_profile = (
+            admin.table("profiles")
+            .select("referred_by_code, referral_code")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if user_profile and user_profile[0].get("referred_by_code"):
+            return JsonResponse({"ok": False, "error": "A referral code is already applied to your account."})
+
+        admin.table("profiles").update({"referred_by_code": code}).eq("id", user_id).execute()
+        request.session.pop("show_referral_modal", None)
+
+        first = (referrer_data.get("full_name") or "a friend").split()[0]
+        return JsonResponse({"ok": True, "message": f"Referral code applied! You were referred by {first}."})
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": f"Error: {exc}"}, status=500)
+
+
+def admin_referrals(request):
+    """Admin page: all referral earnings — unpaid first, then paid (crossed out)."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    db = _supabase_admin()
+    success = error = None
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        if action == "mark_paid":
+            earning_id = request.POST.get("earning_id", "").strip()
+            if earning_id:
+                try:
+                    db.table("referral_earnings").update({
+                        "status": "paid",
+                        "paid_at": datetime.now(timezone.utc).isoformat(),
+                        "paid_by_admin": request.session.get("full_name", "Admin"),
+                    }).eq("id", earning_id).execute()
+                    success = "Payment marked as paid."
+                except Exception as exc:
+                    error = f"Failed: {exc}"
+
+    earnings = []
+    try:
+        unpaid = (
+            db.table("referral_earnings")
+            .select("*")
+            .eq("status", "pending")
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+            .data or []
+        )
+        paid = (
+            db.table("referral_earnings")
+            .select("*")
+            .eq("status", "paid")
+            .order("paid_at", desc=True)
+            .limit(500)
+            .execute()
+            .data or []
+        )
+        earnings = unpaid + paid
+    except Exception:
+        pass
+
+    plans = _get_plans()
+    current_price = float(plans.get("standard", {}).get("price") or 0)
+    referral_rate = round(current_price * 0.10, 2)
+
+    total_pending_amt = round(sum(float(e.get("earning_amount") or 0) for e in earnings if e.get("status") == "pending"), 2)
+    total_paid_amt    = round(sum(float(e.get("earning_amount") or 0) for e in earnings if e.get("status") == "paid"),    2)
+    count_pending     = sum(1 for e in earnings if e.get("status") == "pending")
+    count_paid        = sum(1 for e in earnings if e.get("status") == "paid")
+
+    return render(request, "dashboard/admin_referrals.html", {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "referrals",
+        "earnings": earnings,
+        "count_pending": count_pending,
+        "count_paid": count_paid,
+        "total_referrals": len(earnings),
+        "total_pending_amt": total_pending_amt,
+        "total_paid_amt": total_paid_amt,
+        "current_price": current_price,
+        "referral_rate": referral_rate,
+        "success": success,
+        "error": error,
+    })
+
+
+def admin_referral_users(request):
+    """Admin page: all registered users with their referral codes."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    db = _supabase_admin()
+    users = []
+    try:
+        users = (
+            db.table("profiles")
+            .select("id, full_name, email, referral_code, referred_by_code, created_at, subscription_status")
+            .eq("role", "student")
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+            .data or []
+        )
+        # For users without referral codes, assign one
+        for u in users:
+            if not u.get("referral_code"):
+                code = _assign_referral_code_if_missing(db, u["id"])
+                u["referral_code"] = code
+    except Exception:
+        pass
+
+    return render(request, "dashboard/admin_referral_users.html", {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "referrals",
+        "users": users,
+        "total_users": len(users),
+    })

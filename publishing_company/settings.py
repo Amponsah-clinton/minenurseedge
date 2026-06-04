@@ -98,6 +98,7 @@ TEMPLATES = [
                 "website.context_processors.reported_questions_badge",
                 "website.context_processors.academic_profile_gate",
                 "website.context_processors.subscription_status_ctx",
+                "website.context_processors.referral_modal_ctx",
             ],
         },
     },

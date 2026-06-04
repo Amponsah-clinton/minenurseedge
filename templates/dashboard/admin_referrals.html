@@ -1,0 +1,196 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Referral Earnings - Admin{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Stats bar ── */
+  .ref-stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin-bottom:28px; }
+  .ref-stat { background:#fff; border:1px solid #e8eaf0; border-radius:10px; padding:16px 18px; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+  .ref-stat__num   { font-size:1.55rem; font-weight:800; color:#1f2d40; display:block; }
+  .ref-stat__label { font-size:0.74rem; color:#9098b0; font-weight:600; margin-top:2px; }
+
+  /* ── Table card ── */
+  .ref-card { background:#fff; border:1px solid #e8eaf0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.04); overflow:hidden; }
+  .ref-card-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #edf0f7; flex-wrap:wrap; gap:8px; }
+  .ref-card-title  { font-size:1rem; font-weight:700; color:#1f2d40; margin:0; }
+
+  .ref-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .ref-table th { padding:11px 16px; background:#f8f9fc; color:#7b8599; font-weight:600; text-align:left; white-space:nowrap; border-bottom:1px solid #edf0f7; }
+  .ref-table td { padding:12px 16px; color:#4a5268; border-bottom:1px solid #f2f4f8; vertical-align:middle; }
+  .ref-table tr:last-child td { border-bottom:none; }
+  .ref-table tr:hover td { background:#fafbff; }
+
+  /* paid rows — subtle cross-out */
+  .ref-table tr.row-paid td { color:#b0b8c8; text-decoration:line-through; }
+  .ref-table tr.row-paid td .no-strike { text-decoration:none !important; }
+
+  .badge-pending { background:#fff8e6; color:#cc8800; border-radius:999px; padding:2px 9px; font-size:0.68rem; font-weight:700; }
+  .badge-paid    { background:#f0faf4; color:#3ea76a; border-radius:999px; padding:2px 9px; font-size:0.68rem; font-weight:700; }
+
+  /* Pay button */
+  .btn-pay {
+    padding:5px 14px; border:none; border-radius:8px;
+    background:#1a1a2e; color:#fff; font-size:0.78rem; font-weight:700;
+    cursor:pointer; transition:background 0.15s; white-space:nowrap;
+  }
+  .btn-pay:hover { background:#2a2a4e; }
+  .btn-pay-amt { font-size:0.72rem; font-weight:400; opacity:0.8; margin-left:3px; }
+
+  /* Info card — current referral rate */
+  .rate-info {
+    background:#fff; border:1px solid #e8eaf0; border-radius:10px;
+    padding:14px 18px; margin-bottom:22px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .rate-info__icon { width:38px; height:38px; border-radius:9px; background:#f0f2ff; display:flex; align-items:center; justify-content:center; font-size:19px; color:#5a5ce8; flex-shrink:0; }
+  .rate-info__body { flex:1; min-width:0; }
+  .rate-info__label { font-size:0.75rem; font-weight:700; color:#9098b0; text-transform:uppercase; letter-spacing:0.4px; margin:0 0 2px; }
+  .rate-info__value { font-size:1.1rem; font-weight:800; color:#1f2d40; margin:0; }
+  .rate-info__sub   { font-size:0.77rem; color:#7b8599; margin:0; }
+</style>
+
+<!-- Page header -->
+<div class="row mb-4 align-items-center">
+  <div class="col">
+    <h4 class="mb-0">Referral Earnings</h4>
+    <small class="text-muted">Track who referred whom and manage payouts. Unpaid earnings always appear first.</small>
+  </div>
+  <div class="col-auto">
+    <a href="/admin-panel/referral-users/" class="btn btn-sm btn-outline-secondary">
+      <i class="bx bx-user me-1"></i>All Users &amp; Codes
+    </a>
+  </div>
+</div>
+
+{% if success %}
+<div class="alert alert-success d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
+  <i class="bx bx-check-circle fs-5"></i> {{ success }}
+</div>
+{% endif %}
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-4" style="border-radius:10px;">
+  <i class="bx bx-error-circle fs-5"></i> {{ error }}
+</div>
+{% endif %}
+
+<!-- Current rate info -->
+<div class="rate-info">
+  <div class="rate-info__icon"><i class="bx bx-percent"></i></div>
+  <div class="rate-info__body">
+    <p class="rate-info__label">Current Referral Rate</p>
+    <p class="rate-info__value">GHS {{ referral_rate }} per referral</p>
+    <p class="rate-info__sub">10% of the current subscription price (GHS {{ current_price }}). This updates automatically when you change the subscription amount.</p>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="ref-stats">
+  <div class="ref-stat">
+    <span class="ref-stat__num">{{ total_referrals }}</span>
+    <span class="ref-stat__label">Total Referrals</span>
+  </div>
+  <div class="ref-stat">
+    <span class="ref-stat__num" style="color:#cc8800;">{{ count_pending }}</span>
+    <span class="ref-stat__label">Unpaid</span>
+  </div>
+  <div class="ref-stat">
+    <span class="ref-stat__num" style="color:#cc8800;">GHS {{ total_pending_amt }}</span>
+    <span class="ref-stat__label">Outstanding Amount</span>
+  </div>
+  <div class="ref-stat">
+    <span class="ref-stat__num" style="color:#3ea76a;">{{ count_paid }}</span>
+    <span class="ref-stat__label">Paid</span>
+  </div>
+  <div class="ref-stat">
+    <span class="ref-stat__num" style="color:#3ea76a;">GHS {{ total_paid_amt }}</span>
+    <span class="ref-stat__label">Total Paid Out</span>
+  </div>
+</div>
+
+<!-- Earnings table -->
+<div class="ref-card">
+  <div class="ref-card-header">
+    <h5 class="ref-card-title">
+      All Referral Records
+      <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">{{ total_referrals }} record{{ total_referrals|pluralize }}</span>
+    </h5>
+    <span style="font-size:0.76rem;color:#9098b0;">
+      <i class="bx bx-info-circle me-1"></i>Unpaid on top &nbsp;·&nbsp; Paid rows are crossed out
+    </span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="ref-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Referrer</th>
+          <th>Referred User</th>
+          <th>Ref Code</th>
+          <th>Sub Amount</th>
+          <th>Earning (10%)</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Paid At</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in earnings %}
+        <tr class="{% if e.status == 'paid' %}row-paid{% endif %}">
+          <td style="color:#b0b8c8;font-size:0.75rem;">{{ forloop.counter }}</td>
+          <td>
+            <div style="font-weight:700;color:#1f2d40;">{{ e.referrer_name|default:"—" }}</div>
+            <div style="font-size:0.75rem;color:#9098b0;">{{ e.referrer_email|default:"" }}</div>
+          </td>
+          <td>
+            <div style="font-weight:600;">{{ e.referred_name|default:"—" }}</div>
+            <div style="font-size:0.75rem;color:#9098b0;">{{ e.referred_email|default:"" }}</div>
+          </td>
+          <td>
+            <span style="font-family:monospace;font-weight:800;letter-spacing:2px;background:#f4f6fb;padding:2px 8px;border-radius:5px;font-size:0.85rem;">{{ e.referral_code|default:"—" }}</span>
+          </td>
+          <td style="font-weight:600;">GHS {{ e.subscription_amount|default:"0" }}</td>
+          <td style="font-weight:800;color:{% if e.status == 'paid' %}#3ea76a{% else %}#cc8800{% endif %};">
+            GHS {{ e.earning_amount|default:"0" }}
+          </td>
+          <td>
+            {% if e.status == 'paid' %}
+              <span class="badge-paid no-strike">Paid</span>
+            {% else %}
+              <span class="badge-pending">Unpaid</span>
+            {% endif %}
+          </td>
+          <td style="white-space:nowrap;font-size:0.76rem;">{{ e.created_at|slice:":10"|default:"—" }}</td>
+          <td style="white-space:nowrap;font-size:0.76rem;">
+            {% if e.paid_at %}{{ e.paid_at|slice:":10" }}{% else %}—{% endif %}
+          </td>
+          <td class="no-strike">
+            {% if e.status == 'pending' %}
+            <form method="post" action="/admin-panel/referrals/" onsubmit="return confirm('Mark GHS {{ e.earning_amount }} as paid to {{ e.referrer_name }}?')">
+              {% csrf_token %}
+              <input type="hidden" name="action"     value="mark_paid">
+              <input type="hidden" name="earning_id" value="{{ e.id }}">
+              <button type="submit" class="btn-pay">
+                Pay <span class="btn-pay-amt">GHS {{ e.earning_amount }}</span>
+              </button>
+            </form>
+            {% else %}
+            <span style="font-size:0.74rem;color:#9098b0;font-style:italic;">
+              {% if e.paid_by_admin %}by {{ e.paid_by_admin }}{% else %}Done{% endif %}
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" style="text-align:center;padding:40px;color:#9098b0;">
+            <i class="bx bx-gift" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+            No referral earnings recorded yet. They appear here when a referred user's subscription is activated.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Users & Referral Codes - Admin{% endblock %}
+
+{% block content %}
+<style>
+  .ru-card { background:#fff; border:1px solid #e8eaf0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.04); overflow:hidden; }
+  .ru-card-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #edf0f7; flex-wrap:wrap; gap:8px; }
+  .ru-card-title  { font-size:1rem; font-weight:700; color:#1f2d40; margin:0; }
+
+  .ru-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .ru-table th { padding:11px 16px; background:#f8f9fc; color:#7b8599; font-weight:600; text-align:left; white-space:nowrap; border-bottom:1px solid #edf0f7; }
+  .ru-table td { padding:12px 16px; color:#4a5268; border-bottom:1px solid #f2f4f8; vertical-align:middle; }
+  .ru-table tr:last-child td { border-bottom:none; }
+  .ru-table tr:hover td { background:#fafbff; }
+
+  .code-chip {
+    font-family:monospace; font-weight:800; letter-spacing:2px; font-size:0.9rem;
+    background:#f4f6fb; border:1px dashed #c8cdd8; border-radius:6px;
+    padding:3px 10px; color:#1a1a2e; display:inline-block;
+  }
+  .no-code { font-size:0.75rem; color:#c8cdd8; font-style:italic; }
+
+  .sub-badge-active  { background:#eafff2; color:#3ea76a; border-radius:999px; padding:2px 9px; font-size:0.68rem; font-weight:700; }
+  .sub-badge-pending { background:#fff8e6; color:#cc8800; border-radius:999px; padding:2px 9px; font-size:0.68rem; font-weight:700; }
+  .sub-badge-other   { background:#f5f5f5; color:#9098b0; border-radius:999px; padding:2px 9px; font-size:0.68rem; font-weight:700; }
+
+  .copy-btn {
+    width:28px; height:28px; border:1px solid #e0e4ef; border-radius:6px;
+    background:#fff; cursor:pointer; font-size:13px; color:#7b8599;
+    display:inline-flex; align-items:center; justify-content:center;
+    vertical-align:middle; margin-left:4px; transition:all 0.12s;
+  }
+  .copy-btn:hover { background:#f3f4f8; color:#1a1a2e; }
+
+  .search-bar {
+    padding:8px 12px; border:1px solid #dde1ec; border-radius:8px;
+    font-size:0.83rem; color:#2d3a52; background:#fafbff;
+    width:240px; outline:none; transition:border-color 0.15s;
+  }
+  .search-bar:focus { border-color:#1a1a2e; }
+</style>
+
+<!-- Page header -->
+<div class="row mb-4 align-items-center">
+  <div class="col">
+    <h4 class="mb-0">Users &amp; Referral Codes</h4>
+    <small class="text-muted">All registered students and their unique 5-character referral codes.</small>
+  </div>
+  <div class="col-auto">
+    <a href="/admin-panel/referrals/" class="btn btn-sm btn-outline-secondary">
+      <i class="bx bx-gift me-1"></i>Referral Earnings
+    </a>
+  </div>
+</div>
+
+<div class="ru-card">
+  <div class="ru-card-header">
+    <h5 class="ru-card-title">
+      Registered Students
+      <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">{{ total_users }} student{{ total_users|pluralize }}</span>
+    </h5>
+    <input type="text" class="search-bar" id="ruSearch" placeholder="Search name or email…" oninput="filterTable()">
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="ru-table" id="ruTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Referral Code</th>
+          <th>Referred By</th>
+          <th>Sub Status</th>
+          <th>Joined</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td style="color:#b0b8c8;font-size:0.75rem;">{{ forloop.counter }}</td>
+          <td style="font-weight:700;color:#1f2d40;">{{ u.full_name|default:"—" }}</td>
+          <td style="font-size:0.78rem;color:#5a6070;">{{ u.email|default:"—" }}</td>
+          <td>
+            {% if u.referral_code %}
+              <span class="code-chip">{{ u.referral_code }}</span>
+              <button class="copy-btn" onclick="copyText('{{ u.referral_code|escapejs }}', this)" title="Copy code">
+                <i class="bx bx-copy"></i>
+              </button>
+            {% else %}
+              <span class="no-code">Generating…</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.referred_by_code %}
+              <span class="code-chip" style="font-size:0.78rem;">{{ u.referred_by_code }}</span>
+            {% else %}
+              <span style="font-size:0.75rem;color:#c8cdd8;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.subscription_status == 'active' %}
+              <span class="sub-badge-active">Active</span>
+            {% elif u.subscription_status == 'pending_payment' %}
+              <span class="sub-badge-pending">Pending</span>
+            {% else %}
+              <span class="sub-badge-other">{{ u.subscription_status|default:"—"|title }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.76rem;white-space:nowrap;">{{ u.created_at|slice:":10"|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" style="text-align:center;padding:40px;color:#9098b0;">
+            <i class="bx bx-user" style="font-size:2rem;display:block;margin-bottom:8px;"></i>
+            No registered students found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(function () {
+    btn.innerHTML = '<i class="bx bx-check" style="color:#3ea76a;"></i>';
+    setTimeout(function () { btn.innerHTML = '<i class="bx bx-copy"></i>'; }, 1500);
+  }).catch(function () {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+  });
+}
+
+function filterTable() {
+  var q = (document.getElementById("ruSearch").value || "").trim().toLowerCase();
+  var rows = document.querySelectorAll("#ruTable tbody tr");
+  rows.forEach(function (row) {
+    var text = row.textContent.toLowerCase();
+    row.style.display = (!q || text.indexOf(q) >= 0) ? "" : "none";
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}

@@ -142,4 +142,10 @@ urlpatterns = [
 
     # Security APIs
     path("api/screenshot-attempt/", views.screenshot_attempt_api, name="screenshot_attempt_api"),
+
+    # Referral system
+    path("api/validate-referral-code/", views.api_validate_referral_code, name="api_validate_referral_code"),
+    path("api/apply-referral-code/",    views.api_apply_referral_code,    name="api_apply_referral_code"),
+    path("admin-panel/referrals/",      views.admin_referrals,            name="admin_referrals"),
+    path("admin-panel/referral-users/", views.admin_referral_users,       name="admin_referral_users"),
 ]

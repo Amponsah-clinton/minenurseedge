@@ -104,6 +104,20 @@ def subscription_status_ctx(request):
     return {"is_subscribed": val}
 
 
+def referral_modal_ctx(request):
+    """
+    Passes two one-shot flags to every student dashboard template:
+      show_referral_modal  – post-signup "do you have a referral code?" modal
+      show_referral_prompt – post-login "refer a friend" invite modal
+    Both are popped from the session immediately so they display only once per trigger.
+    """
+    if request.session.get("role") != "student":
+        return {"show_referral_modal": False, "show_referral_prompt": False}
+    show_modal  = bool(request.session.pop("show_referral_modal", False))
+    show_prompt = bool(request.session.pop("show_referral_prompt", False))
+    return {"show_referral_modal": show_modal, "show_referral_prompt": show_prompt}
+
+
 def reported_questions_badge(request):
     """Provides pending report count for the admin sidebar badge.
     Only queries Supabase when the session role is 'admin'."""

@@ -194,6 +194,23 @@
         </div>
       </div>
 
+      <!-- ── Section 3: Referral Code (optional) ── -->
+      <div class="auth-section" style="padding:18px 28px;">
+        <p class="auth-section-title" style="margin-bottom:10px;">Referral Code <span style="font-size:0.72rem;font-weight:400;color:#a8b0c0;text-transform:none;letter-spacing:0;">(optional — enter if a friend referred you)</span></p>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="referralCodeInput" name="referral_code" maxlength="5"
+                 value="{{ request.GET.ref|default:'' }}"
+                 placeholder="e.g. aB3xZ"
+                 autocomplete="off" spellcheck="false"
+                 style="flex:1;height:44px;border:1.5px solid #dde1ec;border-radius:8px;padding:0 12px;font-size:15px;font-weight:700;letter-spacing:2px;color:#1f2d40;background:#fafbff;outline:none;box-sizing:border-box;transition:border-color 0.15s;">
+          <button type="button" id="checkRefBtn"
+                  style="height:44px;padding:0 14px;background:#f3f4f8;border:1.5px solid #e0e4ef;border-radius:8px;font-size:0.8rem;font-weight:700;color:#5a6070;cursor:pointer;white-space:nowrap;transition:all 0.15s;">
+            Check
+          </button>
+        </div>
+        <p id="refCheckStatus" style="font-size:0.77rem;margin:6px 0 0;min-height:16px;"></p>
+      </div>
+
       <!-- Terms + Submit -->
       <div class="auth-section" style="padding:20px 28px;">
         <label class="auth-checkbox" for="agree">
@@ -266,6 +283,52 @@
 
   cpInput.addEventListener("input", function () { cpInput.setCustomValidity(""); });
   pwInput.addEventListener("input", function () { pwInput.setCustomValidity(""); });
+
+  // Referral code check
+  var refInp    = document.getElementById("referralCodeInput");
+  var checkRef  = document.getElementById("checkRefBtn");
+  var refStatus = document.getElementById("refCheckStatus");
+
+  function resetRefStatus() {
+    refStatus.textContent = "";
+    if (refInp) refInp.style.borderColor = "#dde1ec";
+  }
+  if (refInp) refInp.addEventListener("input", resetRefStatus);
+
+  if (checkRef) {
+    checkRef.addEventListener("click", function () {
+      var code = (refInp.value || "").trim();
+      if (!code) { refStatus.textContent = "Enter a code first."; refStatus.style.color = "#d93025"; return; }
+      checkRef.textContent = "...";
+      checkRef.disabled = true;
+      fetch("/api/validate-referral-code/?code=" + encodeURIComponent(code))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          checkRef.textContent = "Check";
+          checkRef.disabled = false;
+          if (d.valid) {
+            refInp.style.borderColor = "#3ea76a";
+            refStatus.style.color    = "#3ea76a";
+            refStatus.textContent    = d.referrer_name ? "✓ Valid — referred by " + d.referrer_name : "✓ Valid code";
+          } else {
+            refInp.style.borderColor = "#d93025";
+            refStatus.style.color    = "#d93025";
+            refStatus.textContent    = "✗ Invalid code. Please check and try again.";
+          }
+        })
+        .catch(function () {
+          checkRef.textContent = "Check";
+          checkRef.disabled = false;
+          refStatus.textContent = "Could not verify. You can still sign up.";
+          refStatus.style.color = "#9098b0";
+        });
+    });
+  }
+
+  // Auto-check if pre-filled from URL
+  if (refInp && refInp.value.trim()) {
+    checkRef.click();
+  }
 
   // Password eye toggle
   document.querySelectorAll(".pw-toggle").forEach(function (b) {

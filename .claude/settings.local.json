@@ -20,7 +20,9 @@
       "Bash(python -m py_compile website/views.py)",
       "Bash(python -m py_compile website/middleware.py)",
       "Bash(python -c ' *)",
-      "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)"
+      "Bash(python -m py_compile website/context_processors.py publishing_company/settings.py)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('website/views.py'\\).read\\(\\)\\); print\\('views.py: OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('website/context_processors.py'\\).read\\(\\)\\); print\\('context_processors.py: OK'\\)\")"
     ]
   }
 }

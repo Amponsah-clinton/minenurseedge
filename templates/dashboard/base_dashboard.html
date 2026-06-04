@@ -573,11 +573,19 @@
             </a>
           </li>
 
-          <li class="menu-item">
-            <a href="#" class="menu-link">
+          <li class="menu-item {% if active_page == 'referrals' %}active open{% endif %}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-gift"></i>
-              <div data-i18n="Coupons & Referrals">Coupons &amp; Referrals</div>
+              <div data-i18n="Referrals">Referrals</div>
             </a>
+            <ul class="menu-sub">
+              <li class="menu-item {% if active_page == 'referrals' %}active{% endif %}">
+                <a href="/admin-panel/referrals/" class="menu-link"><div>Referral Earnings</div></a>
+              </li>
+              <li class="menu-item">
+                <a href="/admin-panel/referral-users/" class="menu-link"><div>Users &amp; Codes</div></a>
+              </li>
+            </ul>
           </li>
 
           <!-- Misc -->
@@ -1011,6 +1019,409 @@
       </form>
     </div>
   </div>
+  {% endif %}
+
+  {% if show_referral_modal %}
+  <!-- ── Post-signup referral code modal ── -->
+  <div class="modal fade" id="referralCodeModal" tabindex="-1" aria-labelledby="refModalTitle" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+      <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 20px 50px rgba(0,0,0,.18);">
+        <div class="modal-header" style="border-bottom:1px solid #edf0f7;padding:18px 22px 14px;">
+          <div style="display:flex;align-items:center;gap:11px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:20px;color:#5a5ce8;flex-shrink:0;">
+              <i class="bx bx-gift"></i>
+            </div>
+            <div>
+              <h5 class="modal-title mb-0" id="refModalTitle" style="font-size:1rem;font-weight:800;color:#1f2d40;">Got a referral code?</h5>
+              <p class="mb-0" style="font-size:0.78rem;color:#9098b0;margin-top:2px;">Enter it to credit your friend who invited you.</p>
+            </div>
+          </div>
+          <button type="button" class="btn-close ms-auto" id="refModalCloseBtn" aria-label="Close" style="background:none;border:none;font-size:18px;color:#9098b0;cursor:pointer;padding:0;margin-left:auto;"><i class="bx bx-x"></i></button>
+        </div>
+        <div class="modal-body" style="padding:20px 22px;">
+          <div id="refModalMsg" style="display:none;border-radius:8px;padding:10px 13px;font-size:0.83rem;margin-bottom:14px;"></div>
+          <label style="font-size:0.82rem;font-weight:700;color:#2d3a52;display:block;margin-bottom:6px;">Referral Code</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="refCodeInput" maxlength="5" placeholder="e.g. aB3xZ"
+              style="flex:1;height:44px;border:1.5px solid #dde1ec;border-radius:9px;padding:0 12px;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:none;color:#1f2d40;background:#fafbff;outline:none;transition:border-color 0.15s;"
+              autocomplete="off" spellcheck="false">
+            <button id="refValidateBtn" type="button"
+              style="height:44px;padding:0 16px;background:#f3f4f8;border:1.5px solid #e0e4ef;border-radius:9px;font-size:0.8rem;font-weight:700;color:#5a6070;cursor:pointer;white-space:nowrap;transition:all 0.15s;">
+              Check
+            </button>
+          </div>
+          <p id="refValidStatus" style="font-size:0.77rem;margin:7px 0 0;height:16px;"></p>
+        </div>
+        <div class="modal-footer" style="border-top:1px solid #edf0f7;padding:13px 22px;display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" id="refSkipBtn"
+            style="padding:9px 18px;border:1px solid #dde1ec;border-radius:9px;background:#fff;font-size:0.83rem;font-weight:700;color:#6b7280;cursor:pointer;">
+            Skip
+          </button>
+          <button type="button" id="refApplyBtn" disabled
+            style="padding:9px 22px;border:none;border-radius:9px;background:#1a1a2e;font-size:0.83rem;font-weight:700;color:#fff;cursor:pointer;opacity:0.5;transition:opacity 0.15s;">
+            Apply Code
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var csrfToken = "{{ csrf_token }}";
+    var modalEl   = document.getElementById("referralCodeModal");
+    var inp       = document.getElementById("refCodeInput");
+    var checkBtn  = document.getElementById("refValidateBtn");
+    var applyBtn  = document.getElementById("refApplyBtn");
+    var skipBtn   = document.getElementById("refSkipBtn");
+    var closeBtn  = document.getElementById("refModalCloseBtn");
+    var statusEl  = document.getElementById("refValidStatus");
+    var msgEl     = document.getElementById("refModalMsg");
+
+    var bsModal;
+    function getModal() {
+      if (!bsModal && window.bootstrap && window.bootstrap.Modal) {
+        bsModal = new window.bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
+      }
+      return bsModal;
+    }
+
+    function showModal() {
+      var m = getModal();
+      if (m) m.show();
+      else {
+        modalEl.classList.add("show");
+        modalEl.style.display = "block";
+        document.body.classList.add("modal-open");
+      }
+    }
+    function hideModal() {
+      var m = getModal();
+      if (m) m.hide();
+      else {
+        modalEl.classList.remove("show");
+        modalEl.style.display = "none";
+        document.body.classList.remove("modal-open");
+        var bd = document.querySelector(".modal-backdrop");
+        if (bd) bd.remove();
+      }
+    }
+
+    setTimeout(showModal, 350);
+
+    var validCode = false;
+    function resetValidation() {
+      validCode = false;
+      applyBtn.disabled = true;
+      applyBtn.style.opacity = "0.5";
+      statusEl.textContent = "";
+      inp.style.borderColor = "#dde1ec";
+    }
+
+    inp.addEventListener("input", resetValidation);
+
+    checkBtn.addEventListener("click", function () {
+      var code = (inp.value || "").trim();
+      if (!code) { statusEl.textContent = "Please enter a code."; statusEl.style.color = "#d93025"; return; }
+      checkBtn.textContent = "...";
+      checkBtn.disabled = true;
+      fetch("/api/validate-referral-code/?code=" + encodeURIComponent(code))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          checkBtn.textContent = "Check";
+          checkBtn.disabled = false;
+          if (d.valid) {
+            validCode = true;
+            inp.style.borderColor = "#3ea76a";
+            statusEl.textContent  = d.referrer_name ? "✓ Valid code — referred by " + d.referrer_name : "✓ Valid code";
+            statusEl.style.color  = "#3ea76a";
+            applyBtn.disabled     = false;
+            applyBtn.style.opacity = "1";
+          } else {
+            validCode = false;
+            inp.style.borderColor = "#d93025";
+            statusEl.textContent  = "✗ Invalid code. Please check and try again.";
+            statusEl.style.color  = "#d93025";
+            applyBtn.disabled     = true;
+            applyBtn.style.opacity = "0.5";
+          }
+        })
+        .catch(function () {
+          checkBtn.textContent = "Check";
+          checkBtn.disabled = false;
+          statusEl.textContent = "Could not verify. Please try again.";
+          statusEl.style.color = "#d93025";
+        });
+    });
+
+    applyBtn.addEventListener("click", function () {
+      var code = (inp.value || "").trim();
+      if (!code || !validCode) return;
+      applyBtn.textContent  = "Applying…";
+      applyBtn.disabled     = true;
+      fetch("/api/apply-referral-code/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken },
+        body: JSON.stringify({ code: code }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.ok) {
+            msgEl.textContent = d.message || "Code applied!";
+            msgEl.style.background = "#eafff2";
+            msgEl.style.color = "#3ea76a";
+            msgEl.style.border = "1px solid #b0f0ca";
+            msgEl.style.display = "block";
+            applyBtn.textContent = "Applied!";
+            setTimeout(hideModal, 1800);
+          } else {
+            msgEl.textContent = d.error || "Something went wrong.";
+            msgEl.style.background = "#fff0ef";
+            msgEl.style.color = "#d93025";
+            msgEl.style.border = "1px solid #fccac7";
+            msgEl.style.display = "block";
+            applyBtn.textContent = "Apply Code";
+            applyBtn.disabled = !validCode;
+            applyBtn.style.opacity = validCode ? "1" : "0.5";
+          }
+        })
+        .catch(function () {
+          applyBtn.textContent = "Apply Code";
+          applyBtn.disabled = false;
+        });
+    });
+
+    function dismiss() { hideModal(); }
+    skipBtn.addEventListener("click", dismiss);
+    closeBtn.addEventListener("click", dismiss);
+  })();
+  </script>
+  {% endif %}
+
+  {% if show_referral_prompt %}
+  <!-- ══════════════════════════════════════════════════════════════
+       Post-login Refer-a-Friend Modal
+       Shows once per login session for students who have a referral code.
+       ══════════════════════════════════════════════════════════════ -->
+  <style>
+    #refPromptModal .rp-divider {
+      height: 1px; background: #edf0f7; margin: 18px 0;
+    }
+    #refPromptModal .rp-code-box {
+      background: #f8f9fc;
+      border: 1.5px dashed #c8d0de;
+      border-radius: 11px;
+      padding: 12px 0;
+      text-align: center;
+    }
+    #refPromptModal .rp-code-text {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #1a1a2e;
+      user-select: all;
+    }
+    #refPromptModal .rp-social {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    #refPromptModal .rp-social a {
+      height: 40px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      text-decoration: none;
+      border: 1px solid;
+      transition: opacity 0.15s;
+    }
+    #refPromptModal .rp-social a:hover { opacity: 0.82; }
+    #refPromptModal .rp-share-wa  { color: #128c44; background: #f0fef4; border-color: #d1f5dc; }
+    #refPromptModal .rp-share-fb  { color: #1877F2; background: #f0f5ff; border-color: #c9deff; }
+    #refPromptModal .rp-share-tw  { color: #1DA1F2; background: #f0faff; border-color: #c5e8fb; }
+    #refPromptModal .rp-share-tg  { color: #0088cc; background: #edf8ff; border-color: #b9e3f8; }
+    #refPromptModal .rp-share-li  { color: #0077B5; background: #edf5fa; border-color: #b8d9ed; }
+    #refPromptModal .rp-btn-copy {
+      width: 100%;
+      height: 42px;
+      border: 1.5px solid #dde1ec;
+      border-radius: 9px;
+      background: #fff;
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: #3a4562;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 10px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    #refPromptModal .rp-btn-copy:hover { background: #f8f9fc; border-color: #c0c8d8; }
+    #refPromptModal .rp-stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f4f6fb;
+      border: 1px solid #e4e8f0;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.76rem;
+      color: #5a6070;
+      font-weight: 600;
+    }
+    #refPromptModal .rp-stat-pill strong { color: #1f2d40; }
+  </style>
+  <div class="modal fade" id="refPromptModal" tabindex="-1" aria-labelledby="refPromptTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+      <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 24px 60px rgba(15,23,42,.16);overflow:hidden;">
+
+        <!-- Header -->
+        <div style="background:#1a1a2e;padding:22px 24px 18px;position:relative;">
+          <div style="display:flex;align-items:flex-start;gap:13px;">
+            <div style="width:44px;height:44px;border-radius:11px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;border:1px solid rgba(255,255,255,.12);">
+              <i class="bx bx-award"></i>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <h5 id="refPromptTitle" style="margin:0 0 3px;font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-0.01em;">
+                Refer a Fellow Nursing Student
+              </h5>
+              <p style="margin:0;font-size:0.78rem;color:rgba(255,255,255,.55);line-height:1.5;">
+                Share NursesEdge and earn <strong style="color:rgba(255,255,255,.85);">10% of their subscription fee</strong> — paid directly to you.
+              </p>
+            </div>
+          </div>
+          <button type="button" data-bs-dismiss="modal" aria-label="Close"
+            style="position:absolute;top:14px;right:16px;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">
+            <i class="bx bx-x"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:20px 24px 6px;">
+
+          <!-- How it works — 3 steps -->
+          <p style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9098b0;margin:0 0 10px;">How it works</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px;">
+            <div style="background:#f8f9fc;border:1px solid #edf0f7;border-radius:10px;padding:11px 10px;text-align:center;">
+              <div style="width:28px;height:28px;border-radius:7px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;margin:0 auto 7px;font-size:13px;color:#fff;">
+                <i class="bx bx-share-alt"></i>
+              </div>
+              <p style="margin:0;font-size:0.72rem;font-weight:700;color:#1f2d40;line-height:1.3;">Share your code</p>
+              <p style="margin:3px 0 0;font-size:0.67rem;color:#9098b0;line-height:1.35;">Send it to classmates</p>
+            </div>
+            <div style="background:#f8f9fc;border:1px solid #edf0f7;border-radius:10px;padding:11px 10px;text-align:center;">
+              <div style="width:28px;height:28px;border-radius:7px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;margin:0 auto 7px;font-size:13px;color:#fff;">
+                <i class="bx bx-user-plus"></i>
+              </div>
+              <p style="margin:0;font-size:0.72rem;font-weight:700;color:#1f2d40;line-height:1.3;">They register</p>
+              <p style="margin:3px 0 0;font-size:0.67rem;color:#9098b0;line-height:1.35;">Using your code</p>
+            </div>
+            <div style="background:#f8f9fc;border:1px solid #edf0f7;border-radius:10px;padding:11px 10px;text-align:center;">
+              <div style="width:28px;height:28px;border-radius:7px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;margin:0 auto 7px;font-size:13px;color:#fff;">
+                <i class="bx bx-wallet"></i>
+              </div>
+              <p style="margin:0;font-size:0.72rem;font-weight:700;color:#1f2d40;line-height:1.3;">You earn</p>
+              <p style="margin:3px 0 0;font-size:0.67rem;color:#9098b0;line-height:1.35;">10% on activation</p>
+            </div>
+          </div>
+
+          <!-- Code block -->
+          <p style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9098b0;margin:0 0 8px;">Your referral code</p>
+          <div class="rp-code-box">
+            <span class="rp-code-text" id="rpCodeText">{{ user_referral_code }}</span>
+          </div>
+
+          <!-- Copy link -->
+          <button class="rp-btn-copy" id="rpCopyLinkBtn" onclick="rpCopyLink()">
+            <i class="bx bx-link-alt"></i> Copy Invite Link
+          </button>
+
+          <!-- Social share -->
+          <p style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#9098b0;margin:13px 0 0;">Share via</p>
+          <div class="rp-social">
+            <a id="rpShareWa" href="#" target="_blank" rel="noopener" class="rp-share-wa" title="WhatsApp"><i class="bx bxl-whatsapp"></i></a>
+            <a id="rpShareFb" href="#" target="_blank" rel="noopener" class="rp-share-fb" title="Facebook"><i class="bx bxl-facebook"></i></a>
+            <a id="rpShareTw" href="#" target="_blank" rel="noopener" class="rp-share-tw" title="X / Twitter"><i class="bx bxl-twitter"></i></a>
+            <a id="rpShareTg" href="#" target="_blank" rel="noopener" class="rp-share-tg" title="Telegram"><i class="bx bxl-telegram"></i></a>
+            <a id="rpShareLi" href="#" target="_blank" rel="noopener" class="rp-share-li" title="LinkedIn"><i class="bx bxl-linkedin"></i></a>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:16px 24px 20px;display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+          <span class="rp-stat-pill">
+            <i class="bx bx-info-circle"></i>
+            Earnings tracked in your dashboard
+          </span>
+          <button type="button" data-bs-dismiss="modal"
+            style="padding:9px 22px;border:1.5px solid #1a1a2e;border-radius:9px;background:#1a1a2e;font-size:0.82rem;font-weight:700;color:#fff;cursor:pointer;transition:background 0.15s;">
+            Got it
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var REF_CODE  = "{{ user_referral_code|default:''|escapejs }}";
+    if (!REF_CODE) return;
+
+    var BASE_URL   = window.location.protocol + "//" + window.location.host;
+    var INVITE_URL = BASE_URL + "/signup/?ref=" + encodeURIComponent(REF_CODE);
+    var MSG_TEXT   = "I use NursesEdge to prepare for my NMC Licensing Exam and it has been outstanding. "
+                   + "Use my referral code “" + REF_CODE + "” when you sign up and let’s both benefit. "
+                   + "Register here:";
+
+    function setHref(id, url) {
+      var el = document.getElementById(id);
+      if (el) el.href = url;
+    }
+    setHref("rpShareWa", "https://api.whatsapp.com/send?text=" + encodeURIComponent(MSG_TEXT + " " + INVITE_URL));
+    setHref("rpShareFb", "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
+    setHref("rpShareTw", "https://twitter.com/intent/tweet?text=" + encodeURIComponent(MSG_TEXT) + "&url=" + encodeURIComponent(INVITE_URL));
+    setHref("rpShareTg", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(MSG_TEXT));
+    setHref("rpShareLi", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
+
+    window.rpCopyLink = function () {
+      navigator.clipboard.writeText(INVITE_URL).then(function () {
+        var btn = document.getElementById("rpCopyLinkBtn");
+        if (btn) {
+          btn.innerHTML = '<i class="bx bx-check" style="color:#3ea76a;"></i> Copied to clipboard!';
+          setTimeout(function () { btn.innerHTML = '<i class="bx bx-link-alt"></i> Copy Invite Link'; }, 2000);
+        }
+      }).catch(function () {
+        var ta = document.createElement("textarea");
+        ta.value = INVITE_URL; ta.style.cssText = "position:fixed;opacity:0;";
+        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+      });
+    };
+
+    // Show after 800 ms — allows the page to fully settle
+    var modalEl = document.getElementById("refPromptModal");
+    if (modalEl) {
+      setTimeout(function () {
+        if (window.bootstrap && window.bootstrap.Modal) {
+          new window.bootstrap.Modal(modalEl).show();
+        } else {
+          modalEl.classList.add("show");
+          modalEl.style.display = "block";
+          document.body.classList.add("modal-open");
+          var bd = document.createElement("div");
+          bd.className = "modal-backdrop fade show";
+          document.body.appendChild(bd);
+        }
+      }, 800);
+    }
+  })();
+  </script>
   {% endif %}
 
   <div class="modal fade" id="appMessageModal" tabindex="-1" aria-hidden="true">
