@@ -1281,22 +1281,22 @@
       <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 24px 60px rgba(15,23,42,.16);overflow:hidden;">
 
         <!-- Header -->
-        <div style="background:#1a1a2e;padding:22px 24px 18px;position:relative;">
-          <div style="display:flex;align-items:flex-start;gap:13px;">
-            <div style="width:44px;height:44px;border-radius:11px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;border:1px solid rgba(255,255,255,.12);">
+        <div style="background:#1a1a2e;padding:24px 24px 20px;position:relative;">
+          <div style="display:flex;align-items:flex-start;gap:14px;">
+            <div style="width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff;flex-shrink:0;border:1px solid rgba(255,255,255,.18);">
               <i class="bx bx-award"></i>
             </div>
             <div style="flex:1;min-width:0;">
-              <h5 id="refPromptTitle" style="margin:0 0 3px;font-size:1.05rem;font-weight:800;color:#fff;letter-spacing:-0.01em;">
+              <h5 id="refPromptTitle" style="margin:0 0 6px;font-size:1.15rem;font-weight:900;color:#ffffff;letter-spacing:-0.02em;line-height:1.25;">
                 Refer a Fellow Nursing Student
               </h5>
-              <p style="margin:0;font-size:0.78rem;color:rgba(255,255,255,.55);line-height:1.5;">
-                Share NursesEdge and earn <strong style="color:rgba(255,255,255,.85);">10% of their subscription fee</strong> — paid directly to you.
+              <p style="margin:0;font-size:0.85rem;color:rgba(255,255,255,.92);line-height:1.55;font-weight:400;">
+                Share NursesEdge and earn <strong style="color:#ffffff;font-weight:800;text-decoration:underline;text-decoration-color:rgba(255,255,255,.4);text-underline-offset:2px;">10% of their subscription fee</strong> — paid directly to you.
               </p>
             </div>
           </div>
           <button type="button" data-bs-dismiss="modal" aria-label="Close"
-            style="position:absolute;top:14px;right:16px;width:28px;height:28px;border-radius:7px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">
+            style="position:absolute;top:14px;right:16px;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background 0.15s;">
             <i class="bx bx-x"></i>
           </button>
         </div>
@@ -1371,51 +1371,72 @@
 
   <script>
   (function () {
-    var REF_CODE  = "{{ user_referral_code|default:''|escapejs }}";
-    if (!REF_CODE) return;
+    /* ── Both values rendered server-side — always correct URL ── */
+    var REF_CODE   = “{{ user_referral_code|default:’’|escapejs }}”;
+    var INVITE_URL = “{{ referral_invite_url|default:’’|escapejs }}”;
+    if (!REF_CODE || !INVITE_URL) return;
 
-    var BASE_URL   = window.location.protocol + "//" + window.location.host;
-    var INVITE_URL = BASE_URL + "/signup/?ref=" + encodeURIComponent(REF_CODE);
-    var MSG_TEXT   = "I use NursesEdge to prepare for my NMC Licensing Exam and it has been outstanding. "
-                   + "Use my referral code “" + REF_CODE + "” when you sign up and let’s both benefit. "
-                   + "Register here:";
+    /*
+     * WhatsApp: \n becomes a real line-break inside the app, turning the URL
+     * into a tappable hyperlink. Bold wrapping (*text*) renders bold in WhatsApp.
+     */
+    var WA_MSG = “Hi! I use NursesEdge to prepare for the NMC Nursing Licensure Exam “
+               + “and it has been outstanding for my studies.\n\n”
+               + “Sign up with my referral code *” + REF_CODE + “* and let’s prepare together:\n”
+               + INVITE_URL;
+
+    /* Generic message used by Twitter, Telegram, LinkedIn */
+    var STD_MSG = “Preparing for your NMC Nursing Licensure Exam? “
+                + “Join me on NursesEdge — the dedicated exam prep platform for nursing students in Ghana. “
+                + “Use my referral code “” + REF_CODE + “” when you register:”;
 
     function setHref(id, url) {
       var el = document.getElementById(id);
       if (el) el.href = url;
     }
-    setHref("rpShareWa", "https://api.whatsapp.com/send?text=" + encodeURIComponent(MSG_TEXT + " " + INVITE_URL));
-    setHref("rpShareFb", "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
-    setHref("rpShareTw", "https://twitter.com/intent/tweet?text=" + encodeURIComponent(MSG_TEXT) + "&url=" + encodeURIComponent(INVITE_URL));
-    setHref("rpShareTg", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(MSG_TEXT));
-    setHref("rpShareLi", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
+    setHref(“rpShareWa”, “https://api.whatsapp.com/send?text=” + encodeURIComponent(WA_MSG));
+    setHref(“rpShareFb”, “https://www.facebook.com/sharer/sharer.php?u=” + encodeURIComponent(INVITE_URL));
+    setHref(“rpShareTw”, “https://twitter.com/intent/tweet?text=” + encodeURIComponent(STD_MSG) + “&url=” + encodeURIComponent(INVITE_URL));
+    setHref(“rpShareTg”, “https://t.me/share/url?url=” + encodeURIComponent(INVITE_URL) + “&text=” + encodeURIComponent(STD_MSG));
+    setHref(“rpShareLi”, “https://www.linkedin.com/sharing/share-offsite/?url=” + encodeURIComponent(INVITE_URL));
+
+    function legacyCopy(text) {
+      var ta = document.createElement(“textarea”);
+      ta.value = text;
+      ta.style.cssText = “position:fixed;top:0;left:0;opacity:0;pointer-events:none;”;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand(“copy”); } catch (_) {}
+      document.body.removeChild(ta);
+    }
 
     window.rpCopyLink = function () {
-      navigator.clipboard.writeText(INVITE_URL).then(function () {
-        var btn = document.getElementById("rpCopyLinkBtn");
+      var btn = document.getElementById(“rpCopyLinkBtn”);
+      var done = function () {
         if (btn) {
-          btn.innerHTML = '<i class="bx bx-check" style="color:#3ea76a;"></i> Copied to clipboard!';
-          setTimeout(function () { btn.innerHTML = '<i class="bx bx-link-alt"></i> Copy Invite Link'; }, 2000);
+          btn.innerHTML = ‘<i class=”bx bx-check” style=”color:#3ea76a;”></i> Copied to clipboard!’;
+          setTimeout(function () { btn.innerHTML = ‘<i class=”bx bx-link-alt”></i> Copy Invite Link’; }, 2000);
         }
-      }).catch(function () {
-        var ta = document.createElement("textarea");
-        ta.value = INVITE_URL; ta.style.cssText = "position:fixed;opacity:0;";
-        document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-      });
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(INVITE_URL).then(done).catch(function () { legacyCopy(INVITE_URL); done(); });
+      } else {
+        legacyCopy(INVITE_URL); done();
+      }
     };
 
-    // Show after 800 ms — allows the page to fully settle
-    var modalEl = document.getElementById("refPromptModal");
+    /* Show after 800 ms — allows the page to fully settle first */
+    var modalEl = document.getElementById(“refPromptModal”);
     if (modalEl) {
       setTimeout(function () {
         if (window.bootstrap && window.bootstrap.Modal) {
           new window.bootstrap.Modal(modalEl).show();
         } else {
-          modalEl.classList.add("show");
-          modalEl.style.display = "block";
-          document.body.classList.add("modal-open");
-          var bd = document.createElement("div");
-          bd.className = "modal-backdrop fade show";
+          modalEl.classList.add(“show”);
+          modalEl.style.display = “block”;
+          document.body.classList.add(“modal-open”);
+          var bd = document.createElement(“div”);
+          bd.className = “modal-backdrop fade show”;
           document.body.appendChild(bd);
         }
       }, 800);

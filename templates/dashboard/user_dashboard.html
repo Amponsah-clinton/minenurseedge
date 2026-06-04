@@ -823,42 +823,73 @@
 {% if user_referral_code %}
 <script>
 (function () {
-  var REF_CODE = "{{ user_referral_code|escapejs }}";
-  var BASE_URL = window.location.protocol + "//" + window.location.host;
-  var INVITE_URL = BASE_URL + "/signup/?ref=" + encodeURIComponent(REF_CODE);
-  var SHARE_TEXT = "Join me on NursesEdge — the best NMC Exam prep platform. Use my referral code " + REF_CODE + " when you sign up:";
+  /* ── Server-rendered values — guaranteed correct for every deployment ── */
+  var REF_CODE   = "{{ user_referral_code|escapejs }}";
+  var INVITE_URL = "{{ referral_invite_url|escapejs }}";
 
-  // Wire share links
+  /*
+   * Share messages
+   * WhatsApp renders \n as a real line break, making the URL a tappable link.
+   * Other platforms see a clean sentence + URL pair.
+   */
+  var WA_MSG = "Hi! I use NursesEdge to prepare for the NMC Nursing Licensure Exam "
+             + "and it’s been incredibly helpful for my studies.\n\n"
+             + "Sign up with my referral code *" + REF_CODE + "* and let’s prepare together:\n"
+             + INVITE_URL;
+
+  var STD_MSG = "Preparing for your NMC Nursing Licensure Exam? "
+              + "Join me on NursesEdge — the dedicated exam prep platform for nursing students. "
+              + "Use my referral code “" + REF_CODE + "” when you register:";
+
   function setHref(id, url) {
     var el = document.getElementById(id);
     if (el) el.href = url;
   }
-  setHref("shareWhatsapp",  "https://api.whatsapp.com/send?text=" + encodeURIComponent(SHARE_TEXT + " " + INVITE_URL));
-  setHref("shareFacebook",  "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
-  setHref("shareTwitter",   "https://twitter.com/intent/tweet?text=" + encodeURIComponent(SHARE_TEXT) + "&url=" + encodeURIComponent(INVITE_URL));
-  setHref("shareTelegram",  "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(SHARE_TEXT));
-  setHref("shareLinkedin",  "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
+  setHref("shareWhatsapp", "https://api.whatsapp.com/send?text=" + encodeURIComponent(WA_MSG));
+  setHref("shareFacebook", "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
+  setHref("shareTwitter",  "https://twitter.com/intent/tweet?text=" + encodeURIComponent(STD_MSG) + "&url=" + encodeURIComponent(INVITE_URL));
+  setHref("shareTelegram", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(STD_MSG));
+  setHref("shareLinkedin", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
 
-  // Copy helpers
+  /* Clipboard with legacy fallback */
+  function copyToClipboard(text, btn, doneHTML, resetHTML) {
+    var finish = function () {
+      if (btn) {
+        btn.innerHTML = doneHTML;
+        setTimeout(function () { btn.innerHTML = resetHTML; }, 1800);
+      }
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(finish).catch(function () { legacyCopy(text); finish(); });
+    } else {
+      legacyCopy(text); finish();
+    }
+  }
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none;";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+  }
+
   window.copyRefCode = function () {
-    navigator.clipboard.writeText(REF_CODE).then(function () {
-      var btn = document.getElementById("copyCodeBtn");
-      if (btn) { btn.innerHTML = '<i class="bx bx-check" style="color:#3ea76a;"></i>'; setTimeout(function(){ btn.innerHTML = '<i class="bx bx-copy"></i>'; }, 1500); }
-    }).catch(function () {
-      var ta = document.createElement("textarea");
-      ta.value = REF_CODE; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-    });
+    copyToClipboard(
+      REF_CODE,
+      document.getElementById("copyCodeBtn"),
+      '<i class="bx bx-check" style="color:#3ea76a;font-size:18px;"></i>',
+      '<i class="bx bx-copy"></i>'
+    );
   };
   window.copyRefLink = function () {
-    navigator.clipboard.writeText(INVITE_URL).then(function () {
-      var btn = document.getElementById("copyLinkBtn");
-      if (btn) { btn.innerHTML = '<i class="bx bx-check"></i> Copied!'; setTimeout(function(){ btn.innerHTML = '<i class="bx bx-link"></i> Copy Invite Link'; }, 1800); }
-    }).catch(function () {
-      var ta = document.createElement("textarea");
-      ta.value = INVITE_URL; ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-    });
+    copyToClipboard(
+      INVITE_URL,
+      document.getElementById("copyLinkBtn"),
+      '<i class="bx bx-check"></i> Link copied!',
+      '<i class="bx bx-link-alt" style="font-size:15px;"></i> Copy Full Invite Link'
+    );
   };
 })();
 </script>

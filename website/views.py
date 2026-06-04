@@ -2051,6 +2051,7 @@ def signup_page(request):
             "yearOfStudy": year_of_study,
             "institution": institution,
             "programme": programme,
+            "referral_code": (request.POST.get("referral_code") or request.GET.get("ref") or "").strip(),
         }
 
         errors = []
@@ -2835,6 +2836,10 @@ def user_dashboard(request):
         "plan_progress_pct": plan_progress_pct,
         "peer_comparison": peer_comparison,
         "user_referral_code": user_referral_code,
+        "referral_invite_url": (
+            f"{_public_site_origin(request)}/signup/?ref={user_referral_code}"
+            if user_referral_code else ""
+        ),
         "referral_count": referral_count,
         "referral_earnings_total": referral_earnings_total,
     }

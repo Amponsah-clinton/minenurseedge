@@ -80,6 +80,76 @@
     display:inline-flex; align-items:center; gap:6px; background:#edf8f1; border:1px solid #b8ddc8;
     border-radius:20px; padding:5px 14px; font-size:.82rem; font-weight:700; color:#236b3e; margin-bottom:18px;
   }
+
+  /* ── Referral code section ── */
+  .ref-section-label {
+    font-size:0.78rem; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.6px; color:#8892a4; margin:0 0 4px;
+  }
+  .ref-section-hint {
+    display:block;
+    font-size:0.72rem; font-weight:400; color:#a8b0c0;
+    text-transform:none; letter-spacing:0; margin-bottom:12px; line-height:1.5;
+  }
+  /* The row that holds the input + button together */
+  .ref-code-row {
+    display:flex;
+    gap:8px;
+    align-items:stretch;
+    width:100%;
+  }
+  .ref-code-row .ref-code-input {
+    flex:1 1 0;
+    min-width:0;           /* critical — prevents flex overflow on small screens */
+    height:44px;
+    border:1.5px solid #dde1ec;
+    border-radius:8px;
+    padding:0 12px;
+    font-size:15px;
+    font-weight:700;
+    letter-spacing:2px;
+    color:#1f2d40;
+    background:#fafbff;
+    outline:none;
+    box-sizing:border-box;
+    transition:border-color 0.15s;
+  }
+  .ref-code-row .ref-code-input:focus { border-color:#1a1a2e; }
+  .ref-code-row .ref-check-btn {
+    flex-shrink:0;
+    height:44px;
+    padding:0 18px;
+    background:#f3f4f8;
+    border:1.5px solid #e0e4ef;
+    border-radius:8px;
+    font-size:0.82rem;
+    font-weight:700;
+    color:#5a6070;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all 0.15s;
+    line-height:1;
+  }
+  .ref-check-btn:hover { background:#e8eaf2; border-color:#c8ccd8; color:#1a1a2e; }
+  .ref-code-status {
+    font-size:0.77rem;
+    margin:7px 0 0;
+    min-height:18px;
+    line-height:1.45;
+  }
+
+  /* On very narrow phones stack input and button vertically */
+  @media (max-width:420px) {
+    .auth-section { padding:18px 16px; }
+    .ref-code-row { flex-direction:column; gap:8px; }
+    .ref-code-row .ref-code-input { width:100%; letter-spacing:4px; text-align:center; }
+    .ref-code-row .ref-check-btn  { width:100%; height:44px; }
+  }
+  /* On small-medium phones keep side by side but tighten padding */
+  @media (min-width:421px) and (max-width:540px) {
+    .auth-section { padding:18px 18px; }
+    .ref-code-row .ref-check-btn { padding:0 14px; }
+  }
 </style>
 {% endblock %}
 
@@ -195,24 +265,30 @@
       </div>
 
       <!-- ── Section 3: Referral Code (optional) ── -->
-      <div class="auth-section" style="padding:18px 28px;">
-        <p class="auth-section-title" style="margin-bottom:10px;">Referral Code <span style="font-size:0.72rem;font-weight:400;color:#a8b0c0;text-transform:none;letter-spacing:0;">(optional — enter if a friend referred you)</span></p>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="referralCodeInput" name="referral_code" maxlength="5"
-                 value="{{ request.GET.ref|default:'' }}"
-                 placeholder="e.g. aB3xZ"
-                 autocomplete="off" spellcheck="false"
-                 style="flex:1;height:44px;border:1.5px solid #dde1ec;border-radius:8px;padding:0 12px;font-size:15px;font-weight:700;letter-spacing:2px;color:#1f2d40;background:#fafbff;outline:none;box-sizing:border-box;transition:border-color 0.15s;">
-          <button type="button" id="checkRefBtn"
-                  style="height:44px;padding:0 14px;background:#f3f4f8;border:1.5px solid #e0e4ef;border-radius:8px;font-size:0.8rem;font-weight:700;color:#5a6070;cursor:pointer;white-space:nowrap;transition:all 0.15s;">
+      <div class="auth-section">
+        <p class="ref-section-label">Referral Code</p>
+        <span class="ref-section-hint">Optional — enter a friend's code if someone referred you to NursesEdge.</span>
+        <div class="ref-code-row">
+          <input
+            type="text"
+            id="referralCodeInput"
+            name="referral_code"
+            class="ref-code-input"
+            maxlength="5"
+            value="{{ form_data.referral_code|default:request.GET.ref|default:'' }}"
+            placeholder="e.g. aB3xZ"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <button type="button" id="checkRefBtn" class="ref-check-btn">
             Check
           </button>
         </div>
-        <p id="refCheckStatus" style="font-size:0.77rem;margin:6px 0 0;min-height:16px;"></p>
+        <p id="refCheckStatus" class="ref-code-status"></p>
       </div>
 
       <!-- Terms + Submit -->
-      <div class="auth-section" style="padding:20px 28px;">
+      <div class="auth-section">
         <label class="auth-checkbox" for="agree">
           <input type="checkbox" id="agree" name="agree" required>
           <span>I agree to the Terms &amp; Privacy Policy<span class="required-star">*</span></span>
