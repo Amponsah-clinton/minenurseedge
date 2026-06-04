@@ -275,7 +275,7 @@
             name="referral_code"
             class="ref-code-input"
             maxlength="5"
-            value="{{ form_data.referral_code|default:request.GET.ref|default:'' }}"
+            value="{{ form_data.referral_code|default:ref_code }}"
             placeholder="e.g. aB3xZ"
             autocomplete="off"
             spellcheck="false"

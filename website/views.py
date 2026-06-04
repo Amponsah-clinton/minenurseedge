@@ -2174,7 +2174,9 @@ def signup_page(request):
         except Exception as exc:
             return _signup_err(f"Registration failed: {exc}")
 
-    return render(request, "signup.html", {})
+    return render(request, "signup.html", {
+        "ref_code": request.GET.get("ref", ""),
+    })
 
 
 def signup_account_exists_api(request):
