@@ -2798,21 +2798,17 @@ def user_dashboard(request):
     if request.session.get("role") != "admin":
         show_nmc_disclaimer = _student_needs_dashboard_nmc_disclaimer(request, user_id)
 
-    # Subscription countdown ─────────────────────────────────────────────────
-    days_remaining    = None   # None = unknown / no expiry (free access)
-    plan_progress_pct = 100    # bar width % (100 = full / just activated)
-    sub_expires_display = ""   # human-readable date string
+    days_remaining = None   # None = unknown / no expiry (free access)
+    sub_expires_display = ""
     from datetime import date as _date
     _sub_expires_str = (sub_expires or "")[:10]
     if _sub_expires_str and sub_status == "active":
         try:
-            expiry_date      = _date.fromisoformat(_sub_expires_str)
-            days_remaining   = (expiry_date - _date.today()).days
-            plan_progress_pct = max(0, min(100, round(max(days_remaining, 0) / 365 * 100)))
+            expiry_date = _date.fromisoformat(_sub_expires_str)
+            days_remaining = (expiry_date - _date.today()).days
             sub_expires_display = "{} {} {}".format(expiry_date.day, expiry_date.strftime("%b"), expiry_date.year)
         except Exception:
             pass
-    # ─────────────────────────────────────────────────────────────────────────
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
@@ -2835,7 +2831,6 @@ def user_dashboard(request):
         "sub_expires": _sub_expires_str,
         "sub_expires_display": sub_expires_display,
         "days_remaining": days_remaining,
-        "plan_progress_pct": plan_progress_pct,
         "peer_comparison": peer_comparison,
         "user_referral_code": user_referral_code,
         "referral_invite_url": (
