@@ -1718,7 +1718,9 @@ def login_page(request):
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
-                request.session["show_referral_prompt"] = True
+                # Only show the Refer-a-Friend modal to users who have paid
+                if profile.get("subscription_status") == "active":
+                    request.session["show_referral_prompt"] = True
                 if get_active_site_maintenance():
                     request.session["maintenance_notice_pending"] = True
                     request.session.modified = True
@@ -1946,7 +1948,9 @@ def google_oauth_callback(request):
     if role == "admin":
         return redirect("/admin-panel/dashboard/")
     if role == "student":
-        request.session["show_referral_prompt"] = True
+        # Only show the Refer-a-Friend modal to users who have paid
+        if profile.get("subscription_status") == "active":
+            request.session["show_referral_prompt"] = True
         if get_active_site_maintenance():
             request.session["maintenance_notice_pending"] = True
             request.session.modified = True
@@ -2131,15 +2135,8 @@ def signup_page(request):
                 "status": "pending_payment",
             }).execute()
 
-            # ── Referral: assign unique code to new user ──────────────────
-            try:
-                ref_code = _generate_unique_referral_code(admin)
-                if ref_code:
-                    admin.table("profiles").update({"referral_code": ref_code}).eq("id", user_id).execute()
-            except Exception:
-                pass
-
-            # ── Referral: apply submitted referred-by code ────────────────
+            # ── Referral: record who referred this new user (no code assigned yet — ──
+            # ── codes are only granted once the subscription is activated/paid)   ──
             submitted_ref = (request.POST.get("referral_code") or "").strip()
             if not submitted_ref:
                 submitted_ref = (request.GET.get("ref") or "").strip()
@@ -2766,28 +2763,33 @@ def user_dashboard(request):
     # Refresh plan_slug in session — catches upgrades made since last login
     request.session["plan_slug"] = plan_slug
 
-    # Referral data for dashboard card
+    # Referral data — only for fully paid (active) subscribers
+    # Codes are never created here; they are assigned when payment is confirmed.
     user_referral_code = ""
     referral_count = 0
     referral_earnings_total = 0.0
-    try:
-        admin_ref = _supabase_admin()
-        if not (profile_rows and profile_rows[0].get("referral_code")):
-            user_referral_code = _assign_referral_code_if_missing(admin_ref, user_id) or ""
-        else:
-            user_referral_code = profile_rows[0]["referral_code"]
-        # Count successful referrals and earnings
-        ref_earn = (
-            admin_ref.table("referral_earnings")
-            .select("earning_amount, status")
-            .eq("referrer_id", user_id)
-            .execute()
-            .data or []
-        )
-        referral_count = len(ref_earn)
-        referral_earnings_total = round(sum(float(r.get("earning_amount") or 0) for r in ref_earn), 2)
-    except Exception:
-        pass
+    if sub_status == "active":
+        try:
+            admin_ref = _supabase_admin()
+            # Read whatever code Supabase already has — do NOT create one here
+            user_referral_code = (
+                (profile_rows[0].get("referral_code") or "") if profile_rows else ""
+            )
+            # Count successful referrals and earnings
+            if user_referral_code:
+                ref_earn = (
+                    admin_ref.table("referral_earnings")
+                    .select("earning_amount, status")
+                    .eq("referrer_id", user_id)
+                    .execute()
+                    .data or []
+                )
+                referral_count = len(ref_earn)
+                referral_earnings_total = round(
+                    sum(float(r.get("earning_amount") or 0) for r in ref_earn), 2
+                )
+        except Exception:
+            pass
 
     show_nmc_disclaimer = False
     if request.session.get("role") != "admin":
@@ -10814,6 +10816,64 @@ def _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_pa
         "subscription_status": "active",
     }).eq("id", user_id).execute()
 
+    # ── Assign referral code to this newly paid user ─────────────────────
+    try:
+        _assign_referral_code_if_missing(db, user_id)
+    except Exception:
+        pass
+
+    # ── Create referral earning if this user was referred ─────────────────
+    try:
+        profile_rows = (
+            db.table("profiles")
+            .select("referred_by_code, full_name, email")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if profile_rows:
+            profile = profile_rows[0]
+            by_code = (profile.get("referred_by_code") or "").strip()
+            if by_code:
+                referrer_rows = (
+                    db.table("profiles")
+                    .select("id, full_name, email")
+                    .eq("referral_code", by_code)
+                    .limit(1)
+                    .execute()
+                    .data or []
+                )
+                if referrer_rows:
+                    referrer = referrer_rows[0]
+                    existing_earning = (
+                        db.table("referral_earnings")
+                        .select("id")
+                        .eq("referred_id", user_id)
+                        .limit(1)
+                        .execute()
+                        .data or []
+                    )
+                    if not existing_earning:
+                        sub_amount = float(amount_paid or 0)
+                        earning = round(sub_amount * 0.10, 2)
+                        db.table("referral_earnings").insert({
+                            "referrer_id": str(referrer["id"]),
+                            "referrer_name": referrer.get("full_name") or "",
+                            "referrer_email": referrer.get("email") or "",
+                            "referred_id": user_id,
+                            "referred_name": profile.get("full_name") or "",
+                            "referred_email": profile.get("email") or "",
+                            "referral_code": by_code,
+                            "subscription_amount": sub_amount,
+                            "earning_amount": earning,
+                            "earning_percentage": 10.0,
+                            "status": "pending",
+                        }).execute()
+    except Exception:
+        pass
+    # ──────────────────────────────────────────────────────────────────────
+
 
 def _subscription_history_for_user(user_id, limit=50):
     try:
@@ -11292,6 +11352,22 @@ def admin_payments(request):
                 }).eq("id", sub_id).execute()
                 success = "Subscription activated."
 
+                # ── Assign referral code to newly activated user ──────────
+                try:
+                    activated_sub = (
+                        db.table("subscriptions")
+                        .select("user_id")
+                        .eq("id", sub_id)
+                        .limit(1)
+                        .execute()
+                        .data or []
+                    )
+                    if activated_sub:
+                        _assign_referral_code_if_missing(db, str(activated_sub[0]["user_id"]))
+                except Exception:
+                    pass
+                # ─────────────────────────────────────────────────────────
+
                 # ── Create referral earning if referred user ──────────────
                 try:
                     sub_rows = (
@@ -11684,7 +11760,7 @@ def admin_referrals(request):
 
 
 def admin_referral_users(request):
-    """Admin page: all registered users with their referral codes."""
+    """Admin page: fully paid (active) students and their referral codes."""
     guard = _require_admin(request)
     if guard:
         return guard
@@ -11692,20 +11768,24 @@ def admin_referral_users(request):
     db = _supabase_admin()
     users = []
     try:
+        # Only show students with an active subscription — these are the
+        # "fully registered" users who have been assigned a referral code.
         users = (
             db.table("profiles")
             .select("id, full_name, email, referral_code, referred_by_code, created_at, subscription_status")
             .eq("role", "student")
+            .eq("subscription_status", "active")
             .order("created_at", desc=True)
             .limit(500)
             .execute()
             .data or []
         )
-        # For users without referral codes, assign one
+        # If any active user somehow still has no code, generate it now
+        # (handles users activated before this feature was deployed)
         for u in users:
             if not u.get("referral_code"):
                 code = _assign_referral_code_if_missing(db, u["id"])
-                u["referral_code"] = code
+                u["referral_code"] = code or ""
     except Exception:
         pass
 
