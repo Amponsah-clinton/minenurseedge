@@ -1241,7 +1241,7 @@
     #refPromptModal .rp-social a:hover { opacity: 0.82; }
     #refPromptModal .rp-share-wa  { color: #128c44; background: #f0fef4; border-color: #d1f5dc; }
     #refPromptModal .rp-share-fb  { color: #1877F2; background: #f0f5ff; border-color: #c9deff; }
-    #refPromptModal .rp-share-tw  { color: #1DA1F2; background: #f0faff; border-color: #c5e8fb; }
+    #refPromptModal .rp-share-tw  { color: #000; background: #f4f4f5; border-color: #e5e5e5; }
     #refPromptModal .rp-share-tg  { color: #0088cc; background: #edf8ff; border-color: #b9e3f8; }
     #refPromptModal .rp-share-li  { color: #0077B5; background: #edf5fa; border-color: #b8d9ed; }
     #refPromptModal .rp-btn-copy {
@@ -1346,7 +1346,7 @@
           <div class="rp-social">
             <a id="rpShareWa" href="#" target="_blank" rel="noopener" class="rp-share-wa" title="WhatsApp"><i class="bx bxl-whatsapp"></i></a>
             <a id="rpShareFb" href="#" target="_blank" rel="noopener" class="rp-share-fb" title="Facebook"><i class="bx bxl-facebook"></i></a>
-            <a id="rpShareTw" href="#" target="_blank" rel="noopener" class="rp-share-tw" title="X / Twitter"><i class="bx bxl-twitter"></i></a>
+            <a id="rpShareTw" href="#" target="_blank" rel="noopener" class="rp-share-tw" title="X"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
             <a id="rpShareTg" href="#" target="_blank" rel="noopener" class="rp-share-tg" title="Telegram"><i class="bx bxl-telegram"></i></a>
             <a id="rpShareLi" href="#" target="_blank" rel="noopener" class="rp-share-li" title="LinkedIn"><i class="bx bxl-linkedin"></i></a>
           </div>
@@ -1385,7 +1385,7 @@
                + "Sign up with my referral code *" + REF_CODE + "* and let's prepare together:\n"
                + INVITE_URL;
 
-    /* Generic message used by Twitter, Telegram, LinkedIn */
+    /* Generic message used by X, Telegram, LinkedIn */
     var STD_MSG = "Preparing for your NMC Nursing Licensure Exam? "
                 + "Join me on NursesEdge — the dedicated exam prep platform for nursing students in Ghana. "
                 + "Use my referral code \"" + REF_CODE + "\" when you register:";
@@ -1396,7 +1396,7 @@
     }
     setHref("rpShareWa", "https://api.whatsapp.com/send?text=" + encodeURIComponent(WA_MSG));
     setHref("rpShareFb", "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
-    setHref("rpShareTw", "https://twitter.com/intent/tweet?text=" + encodeURIComponent(STD_MSG) + "&url=" + encodeURIComponent(INVITE_URL));
+    setHref("rpShareTw", "https://x.com/intent/tweet?text=" + encodeURIComponent(STD_MSG) + "&url=" + encodeURIComponent(INVITE_URL));
     setHref("rpShareTg", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(STD_MSG));
     setHref("rpShareLi", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
 

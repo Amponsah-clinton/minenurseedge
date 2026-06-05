@@ -717,8 +717,8 @@
             <i class="bx bxl-facebook"></i>
           </a>
           <a id="shareTwitter" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #c5e8fb;background:#f0faff;display:flex;align-items:center;justify-content:center;color:#1DA1F2;font-size:17px;text-decoration:none;transition:background 0.15s;" title="X / Twitter">
-            <i class="bx bxl-twitter"></i>
+             style="height:38px;border-radius:9px;border:1px solid #e5e5e5;background:#f4f4f5;display:flex;align-items:center;justify-content:center;color:#000;font-size:17px;text-decoration:none;transition:background 0.15s;" title="X">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
           </a>
           <a id="shareTelegram" href="#" target="_blank" rel="noopener"
              style="height:38px;border-radius:9px;border:1px solid #b9e3f8;background:#edf8ff;display:flex;align-items:center;justify-content:center;color:#0088cc;font-size:17px;text-decoration:none;transition:background 0.15s;" title="Telegram">
@@ -817,7 +817,7 @@
   }
   setHref("shareWhatsapp", "https://api.whatsapp.com/send?text=" + encodeURIComponent(WA_MSG));
   setHref("shareFacebook", "https://www.facebook.com/sharer/sharer.php?u=" + encodeURIComponent(INVITE_URL));
-  setHref("shareTwitter",  "https://twitter.com/intent/tweet?text=" + encodeURIComponent(STD_MSG) + "&url=" + encodeURIComponent(INVITE_URL));
+  setHref("shareTwitter",  "https://x.com/intent/tweet?text=" + encodeURIComponent(STD_MSG) + "&url=" + encodeURIComponent(INVITE_URL));
   setHref("shareTelegram", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(STD_MSG));
   setHref("shareLinkedin", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
 
