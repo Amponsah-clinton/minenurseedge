@@ -441,6 +441,109 @@
       </div>
     </div>
     {% endif %}
+
+    <!-- Start Studying -->
+    <div class="mb-4">
+      <div class="card study-card">
+        <div class="card-header d-flex align-items-center justify-content-between pb-0">
+          <div class="card-title mb-0">
+            <h5 class="m-0 me-2">Start Studying</h5>
+            <small class="text-muted">Choose what to do today</small>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="p-0 m-0 study-list">
+
+            {# ── Messages (all plans) ─────────────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-bell"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">Messages</p>
+                  <p class="study-sub">
+                    {% if student_unread_notifications and student_unread_notifications > 0 %}{{ student_unread_notifications }} unread{% else %}No unread messages{% endif %}
+                  </p>
+                </div>
+                <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary study-btn">Open</a>
+              </div>
+            </li>
+
+            {# ── Lecture Notes ─────────────────────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">Lecture Notes</p>
+                  <p class="study-sub">Notes organised by year &amp; topic</p>
+                </div>
+                <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary study-btn">Browse</a>
+              </div>
+            </li>
+
+            {# ── Mock Exams (all plans) ────────────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-target-lock"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">Mock Exams</p>
+                  <p class="study-sub">Simulate the real NMC licensure exam</p>
+                </div>
+                <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success study-btn">Start</a>
+              </div>
+            </li>
+
+            {# ── Flashcards ────────────────────────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">Flashcards</p>
+                  <p class="study-sub">Spaced repetition review</p>
+                </div>
+                <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning study-btn">Review</a>
+              </div>
+            </li>
+
+            {# ── General Tests (all plans) ─────────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-question-mark"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">General Tests</p>
+                  <p class="study-sub">Standardized test preparation</p>
+                </div>
+                <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
+              </div>
+            </li>
+
+            {# ── Dosage Calculator (all plans) ─────────────────────────────── #}
+            <li class="study-item">
+              <div class="avatar flex-shrink-0 me-3">
+                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-calculator"></i></span>
+              </div>
+              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                <div class="me-2">
+                  <p class="study-title">Dosage Calculations</p>
+                  <p class="study-sub">Tablet, injection, IV &amp; drip rate drills</p>
+                </div>
+                <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
+              </div>
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- My Plan -->
@@ -468,7 +571,7 @@
         <p style="font-size:0.72rem;color:#9098b0;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">My Plan</p>
         <p style="font-size:1.2rem;font-weight:800;margin:0 0 10px;color:#1f2d40;">{{ plan_name }}</p>
 
-        {# ── Countdown / status body ───────────────────────────────────────── #}
+        {# ── Subscription status ───────────────────────────────────────────── #}
         <div>
           {% if sub_status == 'active' %}
 
@@ -491,39 +594,11 @@
               </div>
 
             {% else %}
-              {# Active with countdown #}
-              {# Colour scheme: green > 60 days, amber 30-60, red < 30 #}
-              {% if days_remaining > 60 %}
-                {% with bar_color="#3ea76a" text_color="#065f46" %}
-                <div style="background:#f1f5f1;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
-                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
-                </div>
-                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
-                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
-                </p>
-                {% endwith %}
-              {% elif days_remaining > 30 %}
-                {% with bar_color="#d97706" text_color="#92400e" %}
-                <div style="background:#fef3c7;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
-                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
-                </div>
-                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
-                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
-                </p>
-                {% endwith %}
-              {% else %}
-                {% with bar_color="#dc2626" text_color="#991b1b" %}
-                <div style="background:#fef2f2;border-radius:999px;height:6px;margin-bottom:10px;overflow:hidden;">
-                  <div style="height:100%;border-radius:999px;width:{{ plan_progress_pct }}%;background:{{ bar_color }};transition:width 0.6s ease;"></div>
-                </div>
-                <p style="font-size:0.9rem;font-weight:800;color:{{ text_color }};margin:0 0 3px;">
-                  {{ days_remaining }} day{{ days_remaining|pluralize }} remaining
-                </p>
-                {% endwith %}
-              {% endif %}
-
+              <p style="font-size:0.82rem;color:#065f46;margin:0;font-weight:600;">
+                <i class="bx bx-check-circle me-1"></i>Subscription active
+              </p>
               {% if sub_expires_display %}
-              <p style="font-size:0.74rem;color:#9098b0;margin:0;">
+              <p style="font-size:0.74rem;color:#9098b0;margin:6px 0 0;">
                 <i class="bx bx-calendar me-1"></i>Expires {{ sub_expires_display }}
               </p>
               {% endif %}
@@ -712,111 +787,6 @@
 
 </div>
 
-
-<div class="row">
-  <!-- Study actions -->
-  <div class="col-12 mb-4">
-    <div class="card study-card">
-      <div class="card-header d-flex align-items-center justify-content-between pb-0">
-        <div class="card-title mb-0">
-          <h5 class="m-0 me-2">Start Studying</h5>
-          <small class="text-muted">Choose what to do today</small>
-        </div>
-      </div>
-      <div class="card-body">
-        <ul class="p-0 m-0 study-list">
-
-          {# ── Messages (all plans) ─────────────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-bell"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">Messages</p>
-                <p class="study-sub">
-                  {% if student_unread_notifications and student_unread_notifications > 0 %}{{ student_unread_notifications }} unread{% else %}No unread messages{% endif %}
-                </p>
-              </div>
-              <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary study-btn">Open</a>
-            </div>
-          </li>
-
-          {# ── Lecture Notes ─────────────────────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">Lecture Notes</p>
-                <p class="study-sub">Notes organised by year &amp; topic</p>
-              </div>
-              <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary study-btn">Browse</a>
-            </div>
-          </li>
-
-          {# ── Mock Exams (all plans) ────────────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-success"><i class="bx bx-target-lock"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">Mock Exams</p>
-                <p class="study-sub">Simulate the real NMC licensure exam</p>
-              </div>
-              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success study-btn">Start</a>
-            </div>
-          </li>
-
-          {# ── Flashcards ────────────────────────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">Flashcards</p>
-                <p class="study-sub">Spaced repetition review</p>
-              </div>
-              <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning study-btn">Review</a>
-            </div>
-          </li>
-
-          {# ── General Tests (all plans) ─────────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-info"><i class="bx bx-question-mark"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">General Tests</p>
-                <p class="study-sub">Standardized test preparation</p>
-              </div>
-              <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
-            </div>
-          </li>
-
-          {# ── Dosage Calculator (all plans) ─────────────────────────────── #}
-          <li class="study-item">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-info"><i class="bx bx-calculator"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
-                <p class="study-title">Dosage Calculations</p>
-                <p class="study-sub">Tablet, injection, IV &amp; drip rate drills</p>
-              </div>
-              <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
-            </div>
-          </li>
-
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -949,12 +919,4 @@
 })();
 </script>
 {% endif %}
-{# Subscription countdown script (paired with commented countdown card above)
-<script>
-(function () {
-  var shell = document.getElementById("planCountdownShell");
-  ...
-})();
-</script>
-#}
 {% endblock %}
