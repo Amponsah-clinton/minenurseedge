@@ -61,6 +61,7 @@ urlpatterns = [
     path("dashboard/flashcards/", views.student_flashcards, name="student_flashcards"),
     path("dashboard/general-tests/", views.student_general_tests, name="student_general_tests"),
     path("dashboard/nclex/", views.student_nclex_questions, name="student_nclex_questions"),
+    path("dashboard/nclex/submit/", views.student_nclex_submit_result, name="student_nclex_submit_result"),
     path("dashboard/nclex/test/", views.student_nclex_test, name="student_nclex_test"),
     path("dashboard/nclex-guide/", views.student_nclex_guide, name="student_nclex_guide"),
     path("dashboard/mnemonics-guide/", views.student_mnemonics_guide, name="student_mnemonics_guide"),

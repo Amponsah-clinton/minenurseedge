@@ -60,7 +60,7 @@
 {% if questions %}
 {{ questions|json_script:"nclexQuestionsData" }}
 <script id="nclexTestMeta" type="application/json">{"test_index":"{{ test_index|default:'1'|escapejs }}"}</script>
-<script id="nclexStudentMeta" type="application/json">{"full_name":"{{ full_name|default:'Student'|escapejs }}","email":"{{ email|default:''|escapejs }}"}</script>
+<script id="nclexStudentMeta" type="application/json">{"full_name":"{{ full_name|default:'Student'|escapejs }}","email":"{{ email|default:''|escapejs }}","csrf_token":"{{ csrf_token }}"}</script>
 <div class="modal fade" id="nclexScoreModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
     <div class="modal-content">
@@ -81,6 +81,11 @@
     </div>
   </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if questions %}
 <script>
   (function () {
     const raw = JSON.parse(document.getElementById("nclexQuestionsData").textContent || "[]");
@@ -117,7 +122,14 @@
     const progressBar = document.getElementById("nclexProgressBar");
     const examTimer = document.getElementById("examTimer");
     const scoreModalEl = document.getElementById("nclexScoreModal");
-    const scoreModal = (window.bootstrap && scoreModalEl) ? new window.bootstrap.Modal(scoreModalEl) : null;
+    let scoreModal = null;
+    function getScoreModal() {
+      if (!scoreModalEl) return null;
+      if (!scoreModal && window.bootstrap && window.bootstrap.Modal) {
+        scoreModal = new window.bootstrap.Modal(scoreModalEl);
+      }
+      return scoreModal;
+    }
     const resultModalTitle = document.getElementById("resultModalTitle");
     const resultScore = document.getElementById("resultScore");
     const resultBreakdown = document.getElementById("resultBreakdown");
@@ -213,36 +225,34 @@
       resultModalTitle.textContent = "NCLEX-RN Test " + (testIndex + 1) + " Result";
       resultScore.textContent = "Score: " + payload.correctCount + " / " + payload.total + " (" + payload.pct + "%)";
       resultBreakdown.textContent = payload.pct >= 75 ? "Great performance" : "Keep practicing";
-      if (scoreModal) scoreModal.show(); else alert(resultScore.textContent);
+      const modal = getScoreModal();
+      if (modal) modal.show();
+      else if (scoreModalEl) {
+        scoreModalEl.classList.add("show");
+        scoreModalEl.style.display = "block";
+        document.body.classList.add("modal-open");
+      } else {
+        alert(resultScore.textContent);
+      }
     }
     function submitTest(isAutoTimeout) {
       stopTimer();
       const payload = buildResultPayload();
       try { localStorage.setItem(solvedKey, JSON.stringify(payload)); } catch (e) {}
-      try {
-        const boardKey = "nclex_leaderboard_test_" + (testIndex + 1);
-        const rawBoard = localStorage.getItem(boardKey);
-        const boardRows = rawBoard ? JSON.parse(rawBoard) : [];
-        const entry = {
-          name: (studentMeta.full_name || "Student").trim() || "Student",
-          email: (studentMeta.email || "").trim(),
-          correctCount: payload.correctCount,
-          total: payload.total,
-          pct: payload.pct,
-          completed_at: payload.completed_at || new Date().toISOString(),
-        };
-        boardRows.push(entry);
-        boardRows.sort((a, b) => {
-          const pctDelta = Number(b.pct || 0) - Number(a.pct || 0);
-          if (pctDelta !== 0) return pctDelta;
-          const correctDelta = Number(b.correctCount || 0) - Number(a.correctCount || 0);
-          if (correctDelta !== 0) return correctDelta;
-          const aTime = new Date(a.completed_at || 0).getTime();
-          const bTime = new Date(b.completed_at || 0).getTime();
-          return bTime - aTime;
-        });
-        localStorage.setItem(boardKey, JSON.stringify(boardRows.slice(0, 20)));
-      } catch (e) {}
+      const csrfToken = studentMeta.csrf_token || "";
+      fetch("/dashboard/nclex/submit/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+        },
+        body: JSON.stringify({
+          group_index: testIndex + 1,
+          correct_count: payload.correctCount,
+          total_questions: payload.total,
+          percentage: payload.pct,
+        }),
+      }).catch(function () {});
       showResult(payload);
       if (isAutoTimeout && window.showAppMessageModal) window.showAppMessageModal("Time is up. Your test was submitted automatically.", "NCLEX-RN Timer");
     }

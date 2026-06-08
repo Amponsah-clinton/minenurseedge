@@ -435,6 +435,96 @@ def _build_mock_leaderboard(supabase_client, exam_id, current_user_id, top_n=10)
     return leaderboard_rows, my_rank, my_row
 
 
+def _build_nclex_leaderboard(supabase_client, group_index, current_user_id, top_n=20):
+    """
+    Build a ranked leaderboard for an NCLEX question group (best score per student).
+
+    Returns (leaderboard_rows, my_rank, my_row) in the same shape as mock leaderboards,
+    with correct_count/total_questions on each row for display.
+    """
+    try:
+        all_attempts = (
+            supabase_client
+            .table("nclex_attempts")
+            .select("student_id, correct_count, total_questions, percentage, submitted_at")
+            .eq("group_index", int(group_index))
+            .not_.is_("submitted_at", "null")
+            .order("percentage", desc=True)
+            .order("submitted_at", desc=False)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        return [], None, None
+
+    best_by_student = {}
+    for row in all_attempts:
+        sid = row.get("student_id")
+        pct = float(row.get("percentage") or 0)
+        if sid not in best_by_student or pct > float(best_by_student[sid].get("percentage") or 0):
+            best_by_student[sid] = row
+
+    ranking = sorted(
+        best_by_student.values(),
+        key=lambda r: float(r.get("percentage") or 0),
+        reverse=True,
+    )
+
+    top_entries = ranking[:top_n]
+    ids_needed = {r.get("student_id") for r in top_entries if r.get("student_id")}
+    if current_user_id:
+        ids_needed.add(current_user_id)
+    names_map = {}
+    if ids_needed:
+        try:
+            profiles = (
+                supabase_client
+                .table("profiles")
+                .select("id, full_name")
+                .in_("id", list(ids_needed))
+                .execute()
+                .data
+                or []
+            )
+            names_map = {p["id"]: (p.get("full_name") or "Student") for p in profiles}
+        except Exception:
+            pass
+
+    my_rank = None
+    for idx, row in enumerate(ranking, start=1):
+        if row.get("student_id") == current_user_id:
+            my_rank = idx
+            break
+
+    leaderboard_rows = [
+        {
+            "rank": idx,
+            "student_name": names_map.get(row.get("student_id"), "Student"),
+            "correct_count": int(row.get("correct_count") or 0),
+            "total_questions": int(row.get("total_questions") or 0),
+            "percentage": float(row.get("percentage") or 0),
+            "is_me": row.get("student_id") == current_user_id,
+        }
+        for idx, row in enumerate(top_entries, start=1)
+    ]
+
+    my_row = None
+    if my_rank is not None and my_rank > top_n:
+        user_entry = best_by_student.get(current_user_id)
+        if user_entry:
+            my_row = {
+                "rank": my_rank,
+                "student_name": names_map.get(current_user_id, "Student"),
+                "correct_count": int(user_entry.get("correct_count") or 0),
+                "total_questions": int(user_entry.get("total_questions") or 0),
+                "percentage": float(user_entry.get("percentage") or 0),
+                "is_me": True,
+            }
+
+    return leaderboard_rows, my_rank, my_row
+
+
 def _escape_like_pattern_exact(value: str) -> str:
     """Escape %, _, \\ so ILIKE treats the string as a literal match (for emails)."""
     return (
@@ -5910,12 +6000,17 @@ def student_nclex_questions(request):
         items = questions[start:start + questions_per_test]
         if not items:
             continue
+        leaderboard_rows, _, _ = _build_nclex_leaderboard(admin, group_index, user_id)
         question_groups.append(
             {
                 "index": group_index,
                 "question_count": len(items),
                 "minutes": max(1, round((len(items) * seconds_per_question) / 60)),
                 "start_link": f"/dashboard/nclex/test/?test={group_index}",
+                "leaderboard_rows": leaderboard_rows,
+                "leaderboard_best_pct": (
+                    leaderboard_rows[0]["percentage"] if leaderboard_rows else None
+                ),
             }
         )
 
@@ -5929,8 +6024,63 @@ def student_nclex_questions(request):
         "has_unread_notifications": unread_count > 0,
         "questions": questions,
         "question_groups": question_groups,
+        "nclex_leaderboards": {str(g["index"]): g["leaderboard_rows"] for g in question_groups},
     }
     return render(request, "dashboard/student_nclex_questions.html", context)
+
+
+@require_POST
+def student_nclex_submit_result(request):
+    """POST JSON: persist an NCLEX group test score for the shared leaderboard."""
+    guard = _require_login(request)
+    if guard:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+    if request.session.get("role") == "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    try:
+        group_index = int(payload.get("group_index") or 0)
+        correct_count = int(payload.get("correct_count") or 0)
+        total_questions = int(payload.get("total_questions") or 0)
+        percentage = float(payload.get("percentage") or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Invalid test data"}, status=400)
+
+    if group_index < 1 or total_questions < 1:
+        return JsonResponse({"ok": False, "error": "Invalid test data"}, status=400)
+
+    if correct_count < 0 or correct_count > total_questions:
+        return JsonResponse({"ok": False, "error": "Invalid score"}, status=400)
+
+    user_id = request.session.get("user_id")
+    admin = _supabase_admin()
+    try:
+        admin.table("nclex_attempts").insert({
+            "student_id": str(user_id),
+            "group_index": group_index,
+            "correct_count": correct_count,
+            "total_questions": total_questions,
+            "percentage": round(percentage, 2),
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        return JsonResponse(
+            {"ok": False, "error": "Could not save result. Ensure table nclex_attempts exists in Supabase."},
+            status=500,
+        )
+
+    rows, my_rank, my_row = _build_nclex_leaderboard(admin, group_index, user_id)
+    return JsonResponse({
+        "ok": True,
+        "leaderboard_rows": rows,
+        "my_rank": my_rank,
+        "my_row": my_row,
+    })
 
 
 def student_nclex_test(request):

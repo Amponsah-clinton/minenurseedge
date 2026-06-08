@@ -39,7 +39,11 @@
           </div>
           <p class="text-muted small mb-2">Time: {{ group.minutes }} minutes</p>
           <div class="small text-muted mb-2" id="leaderboard-preview-{{ group.index }}">
+            {% if group.leaderboard_best_pct is not None %}
+            Leaderboard: Best score {{ group.leaderboard_best_pct|floatformat:0 }}%
+            {% else %}
             Leaderboard: No attempts yet.
+            {% endif %}
           </div>
           <div class="d-flex gap-2 flex-wrap">
             <button
@@ -64,7 +68,6 @@
     {% endif %}
   </div>
 </div>
-{{ question_groups|json_script:"nclexQuestionGroupsData" }}
 <div class="modal fade" id="nclexLeaderboardModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
@@ -95,13 +98,20 @@
     </div>
   </div>
 </div>
+{{ nclex_leaderboards|json_script:"nclexLeaderboardsData" }}
+{% endblock %}
+
+{% block scripts %}
 <script>
   (function () {
-    const groups = JSON.parse(document.getElementById("nclexQuestionGroupsData").textContent || "[]");
+    const leaderboardDataEl = document.getElementById("nclexLeaderboardsData");
+    const leaderboardsByGroup = leaderboardDataEl
+      ? JSON.parse(leaderboardDataEl.textContent || "{}")
+      : {};
     const leaderboardModalEl = document.getElementById("nclexLeaderboardModal");
     const leaderboardModalTitle = document.getElementById("leaderboardModalTitle");
     const leaderboardModalBody = document.getElementById("leaderboardModalBody");
-    const leaderboardModal = (window.bootstrap && leaderboardModalEl) ? new window.bootstrap.Modal(leaderboardModalEl) : null;
+    let leaderboardModalInstance = null;
 
     function esc(text) {
       return String(text || "")
@@ -113,61 +123,77 @@
     }
 
     function leaderboardRowsFor(index) {
-      let rows = [];
-      try {
-        const raw = localStorage.getItem("nclex_leaderboard_test_" + index);
-        rows = raw ? JSON.parse(raw) : [];
-      } catch (e) {
-        rows = [];
-      }
-      if (!Array.isArray(rows)) return [];
-      rows.sort((a, b) => {
-        const pctDelta = Number(b.pct || 0) - Number(a.pct || 0);
-        if (pctDelta !== 0) return pctDelta;
-        const correctDelta = Number(b.correctCount || 0) - Number(a.correctCount || 0);
-        if (correctDelta !== 0) return correctDelta;
-        const aTime = new Date(a.completed_at || 0).getTime();
-        const bTime = new Date(b.completed_at || 0).getTime();
-        return bTime - aTime;
-      });
-      return rows;
+      const rows = leaderboardsByGroup[String(index)] || leaderboardsByGroup[index] || [];
+      return Array.isArray(rows) ? rows : [];
     }
 
-    function openLeaderboardModal(groupIndex) {
-      const rows = leaderboardRowsFor(groupIndex);
-      leaderboardModalTitle.textContent = "Question Group " + groupIndex + " Leaderboard";
+    function showLeaderboardModal() {
+      if (!leaderboardModalEl) return;
+      if (window.bootstrap && window.bootstrap.Modal) {
+        if (!leaderboardModalInstance) {
+          leaderboardModalInstance = new window.bootstrap.Modal(leaderboardModalEl);
+        }
+        leaderboardModalInstance.show();
+        return;
+      }
+      leaderboardModalEl.classList.add("show");
+      leaderboardModalEl.style.display = "block";
+      leaderboardModalEl.removeAttribute("aria-hidden");
+      leaderboardModalEl.setAttribute("aria-modal", "true");
+      document.body.classList.add("modal-open");
+      var backdrop = document.createElement("div");
+      backdrop.className = "modal-backdrop fade show";
+      backdrop.setAttribute("data-nclex-lb-backdrop", "1");
+      document.body.appendChild(backdrop);
+    }
+
+    function renderLeaderboardRows(rows) {
       if (!rows.length) {
         leaderboardModalBody.innerHTML = "<tr><td colspan='4' class='text-center text-muted py-3'>No leaderboard entries yet.</td></tr>";
-      } else {
-        leaderboardModalBody.innerHTML = rows.slice(0, 20).map((row, idx) => (
-          "<tr>" +
-          "<td><strong>" + (idx + 1) + "</strong></td>" +
-          "<td>" + esc(row.name || "Student") + "</td>" +
-          "<td>" + Number(row.correctCount || 0) + "/" + Number(row.total || 0) + "</td>" +
-          "<td><strong>" + Number(row.pct || 0) + "%</strong></td>" +
-          "</tr>"
-        )).join("");
+        return;
       }
-      if (leaderboardModal) leaderboardModal.show();
+      leaderboardModalBody.innerHTML = rows.map(function (row) {
+        var rank = row.rank || "";
+        var name = esc(row.student_name || "Student");
+        if (row.is_me) {
+          name = "<strong>" + name + " (You)</strong>";
+        }
+        return (
+          "<tr" + (row.is_me ? " class='table-primary'" : "") + ">" +
+          "<td><strong>" + rank + "</strong></td>" +
+          "<td>" + name + "</td>" +
+          "<td>" + Number(row.correct_count || 0) + "/" + Number(row.total_questions || 0) + "</td>" +
+          "<td><strong>" + Number(row.percentage || 0) + "%</strong></td>" +
+          "</tr>"
+        );
+      }).join("");
     }
 
-    groups.forEach((group) => {
-      const index = Number(group.index || 0);
-      if (!index) return;
-      const previewEl = document.getElementById("leaderboard-preview-" + index);
+    function updatePreview(index) {
+      var previewEl = document.getElementById("leaderboard-preview-" + index);
       if (!previewEl) return;
-      const rows = leaderboardRowsFor(index);
+      var rows = leaderboardRowsFor(index);
       if (!rows.length) {
         previewEl.textContent = "Leaderboard: No attempts yet.";
         return;
       }
-      const best = rows[0];
-      previewEl.textContent = "Leaderboard: Best score " + Number(best.pct || 0) + "%";
+      previewEl.textContent = "Leaderboard: Best score " + Number(rows[0].percentage || 0) + "%";
+    }
+
+    function openLeaderboardModal(groupIndex) {
+      var rows = leaderboardRowsFor(groupIndex);
+      leaderboardModalTitle.textContent = "Question Group " + groupIndex + " Leaderboard";
+      renderLeaderboardRows(rows);
+      showLeaderboardModal();
+    }
+
+    Object.keys(leaderboardsByGroup).forEach(function (key) {
+      updatePreview(key);
     });
 
-    document.querySelectorAll(".leaderboard-open-btn").forEach((btn) => {
+    document.querySelectorAll(".leaderboard-open-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        const index = Number(this.dataset.groupIndex || 0);
+        var index = Number(this.dataset.groupIndex || 0);
         if (!index) return;
         openLeaderboardModal(index);
       });
