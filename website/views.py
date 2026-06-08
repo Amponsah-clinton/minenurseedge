@@ -1562,61 +1562,60 @@ def _book_download_url(external_url):
 
 CURATED_IELTS_BOOKS = [
     {
-        "id": "curated-ielts-writing-task-2",
-        "title": "IELTS 7 — Writing Task 2",
-        "description": "Focused PDF for IELTS Writing Task 2 — structure, vocabulary, and model answers.",
+        "id": "curated-ielts-writing-task2",
+        "title": "IELTS 7 Writing Task 2",
+        "description": "PDF guide for IELTS Writing Task 2 — essay structure, vocabulary, and band-7 strategies.",
         "external_url": "https://drive.google.com/file/d/1sJs8MCQb8cj3EhwEzhobmZe19s5yyIg6/view",
-        "link_kind": "pdf",
+        "category": "ielts",
+        "link_kind": "file",
     },
     {
         "id": "curated-ielts-library",
-        "title": "IELTS Study Books Collection",
-        "description": (
-            "Browse Cambridge Complete IELTS, Mindset for IELTS, Collins, IELTS Advantage, "
-            "IELTS Express, Macmillan Foundation, exam advice, and teacher guides."
-        ),
+        "title": "IELTS Work / Student / Teacher Books",
+        "description": "Google Drive collection with Cambridge, Collins, IELTS Advantage, Express, Macmillan, and teacher guides.",
         "external_url": (
             "https://drive.google.com/drive/folders/0B2Q8XuO2ebzxSG4wSDN5QkdQSzg"
             "?resourcekey=0-13r3LDznpYa4A1MpPQ_VYw"
         ),
+        "category": "ielts",
         "link_kind": "folder",
     },
 ]
 
 
-def _book_item_from_row(row):
+def _book_link_kind(external_url):
+    url = str(external_url or "").strip().casefold()
+    if "/folders/" in url:
+        return "folder"
+    return "file"
+
+
+def _normalize_book_item(row):
     external_url = (row.get("external_url") or "").strip()
-    category = (row.get("category") or "").strip().lower()
-    is_folder = "/drive/folders/" in external_url or "/folderview" in external_url
+    link_kind = row.get("link_kind") or _book_link_kind(external_url)
     return {
         "id": row.get("id"),
         "title": (row.get("title") or "").strip() or "Untitled Book",
         "description": (row.get("description") or "").strip(),
         "external_url": external_url,
-        "download_url": _book_download_url(external_url),
-        "category": category,
-        "link_kind": "folder" if is_folder else "pdf",
+        "download_url": _book_download_url(external_url) if link_kind == "file" else "",
+        "category": (row.get("category") or "").strip().lower(),
+        "link_kind": link_kind,
     }
 
 
-def _merge_curated_ielts_books(books):
-    """Prepend curated IELTS links unless the same URL already exists in Supabase."""
+def _merge_curated_ielts_books(ielts_books):
     existing_urls = {
         str(b.get("external_url") or "").strip().casefold()
-        for b in books
-        if b.get("external_url")
+        for b in ielts_books
     }
-    curated = []
-    for row in CURATED_IELTS_BOOKS:
-        url = row["external_url"].strip()
-        if url.casefold() in existing_urls:
+    merged = []
+    for curated in CURATED_IELTS_BOOKS:
+        url_key = curated["external_url"].strip().casefold()
+        if url_key in existing_urls:
             continue
-        curated.append({
-            **row,
-            "download_url": _book_download_url(url),
-            "category": "ielts",
-        })
-    return curated + books
+        merged.append(_normalize_book_item(curated))
+    return merged + ielts_books
 
 
 def _parse_lenient_json_payload(payload_text):
@@ -6816,12 +6815,14 @@ def student_books_library(request):
     nclex_books = []
     ielts_books = []
     for row in rows:
-        item = _book_item_from_row(row)
+        item = _normalize_book_item(row)
         if item["category"] == "ielts":
             ielts_books.append(item)
         else:
             nclex_books.append(item)
+
     ielts_books = _merge_curated_ielts_books(ielts_books)
+    all_books = nclex_books + ielts_books
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
@@ -6833,7 +6834,7 @@ def student_books_library(request):
         "has_unread_notifications": unread_count > 0,
         "nclex_books": nclex_books,
         "ielts_books": ielts_books,
-        "all_books": nclex_books + ielts_books,
+        "all_books": all_books,
     }
     return render(request, "dashboard/student_books_library.html", context)
 
