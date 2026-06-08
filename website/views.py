@@ -1560,6 +1560,65 @@ def _book_download_url(external_url):
     return url
 
 
+CURATED_IELTS_BOOKS = [
+    {
+        "id": "curated-ielts-writing-task-2",
+        "title": "IELTS 7 — Writing Task 2",
+        "description": "Focused PDF for IELTS Writing Task 2 — structure, vocabulary, and model answers.",
+        "external_url": "https://drive.google.com/file/d/1sJs8MCQb8cj3EhwEzhobmZe19s5yyIg6/view",
+        "link_kind": "pdf",
+    },
+    {
+        "id": "curated-ielts-library",
+        "title": "IELTS Study Books Collection",
+        "description": (
+            "Browse Cambridge Complete IELTS, Mindset for IELTS, Collins, IELTS Advantage, "
+            "IELTS Express, Macmillan Foundation, exam advice, and teacher guides."
+        ),
+        "external_url": (
+            "https://drive.google.com/drive/folders/0B2Q8XuO2ebzxSG4wSDN5QkdQSzg"
+            "?resourcekey=0-13r3LDznpYa4A1MpPQ_VYw"
+        ),
+        "link_kind": "folder",
+    },
+]
+
+
+def _book_item_from_row(row):
+    external_url = (row.get("external_url") or "").strip()
+    category = (row.get("category") or "").strip().lower()
+    is_folder = "/drive/folders/" in external_url or "/folderview" in external_url
+    return {
+        "id": row.get("id"),
+        "title": (row.get("title") or "").strip() or "Untitled Book",
+        "description": (row.get("description") or "").strip(),
+        "external_url": external_url,
+        "download_url": _book_download_url(external_url),
+        "category": category,
+        "link_kind": "folder" if is_folder else "pdf",
+    }
+
+
+def _merge_curated_ielts_books(books):
+    """Prepend curated IELTS links unless the same URL already exists in Supabase."""
+    existing_urls = {
+        str(b.get("external_url") or "").strip().casefold()
+        for b in books
+        if b.get("external_url")
+    }
+    curated = []
+    for row in CURATED_IELTS_BOOKS:
+        url = row["external_url"].strip()
+        if url.casefold() in existing_urls:
+            continue
+        curated.append({
+            **row,
+            "download_url": _book_download_url(url),
+            "category": "ielts",
+        })
+    return curated + books
+
+
 def _parse_lenient_json_payload(payload_text):
     """
     Parse admin JSON with light auto-fixes for common paste issues.
@@ -6757,18 +6816,12 @@ def student_books_library(request):
     nclex_books = []
     ielts_books = []
     for row in rows:
-        item = {
-            "id": row.get("id"),
-            "title": (row.get("title") or "").strip() or "Untitled Book",
-            "description": (row.get("description") or "").strip(),
-            "external_url": (row.get("external_url") or "").strip(),
-            "download_url": _book_download_url(row.get("external_url")),
-            "category": (row.get("category") or "").strip().lower(),
-        }
+        item = _book_item_from_row(row)
         if item["category"] == "ielts":
             ielts_books.append(item)
         else:
             nclex_books.append(item)
+    ielts_books = _merge_curated_ielts_books(ielts_books)
 
     context = {
         "full_name": request.session.get("full_name", "Student"),
@@ -6780,6 +6833,7 @@ def student_books_library(request):
         "has_unread_notifications": unread_count > 0,
         "nclex_books": nclex_books,
         "ielts_books": ielts_books,
+        "all_books": nclex_books + ielts_books,
     }
     return render(request, "dashboard/student_books_library.html", context)
 
