@@ -220,6 +220,10 @@
     const emptyMsg = document.getElementById("lectureNotesSearchEmpty");
     const root = document.getElementById("lectureNotesRoot");
     if (!input || !root) return;
+    const initialQ = "{{ initial_search_q|escapejs }}";
+    if (initialQ) {
+      input.value = initialQ;
+    }
     const sections = root.querySelectorAll(".lecture-note-group");
     function filterNotes() {
       const q = input.value.trim().toLowerCase();
@@ -251,6 +255,7 @@
     }
     input.addEventListener("input", filterNotes);
     input.addEventListener("search", filterNotes);
+    if (initialQ) filterNotes();
   })();
 
   (function () {

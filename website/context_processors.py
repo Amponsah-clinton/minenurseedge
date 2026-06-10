@@ -118,6 +118,21 @@ def referral_modal_ctx(request):
     return {"show_referral_modal": show_modal, "show_referral_prompt": show_prompt}
 
 
+def dashboard_search_nav(request):
+    """Navigation index for the dashboard top search bar (client-side + API)."""
+    path = request.path or ""
+    if not (path.startswith("/dashboard/") or path.startswith("/admin-panel/")):
+        return {"dashboard_search_nav": []}
+    try:
+        from website.views import _DASHBOARD_SEARCH_NAV_ADMIN, _DASHBOARD_SEARCH_NAV_STUDENT
+
+        role = request.session.get("role", "student")
+        nav = _DASHBOARD_SEARCH_NAV_ADMIN if role == "admin" else _DASHBOARD_SEARCH_NAV_STUDENT
+        return {"dashboard_search_nav": nav}
+    except Exception:
+        return {"dashboard_search_nav": []}
+
+
 def reported_questions_badge(request):
     """Provides pending report count for the admin sidebar badge.
     Only queries Supabase when the session role is 'admin'."""

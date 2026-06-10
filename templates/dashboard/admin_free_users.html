@@ -10,7 +10,8 @@
         <div>
           <h4 class="mb-0">Free Access Users</h4>
           <p class="text-muted small mb-0 mt-1">
-            Users added here get permanent, payment-free access to the full platform.
+            Users added here receive <strong>one year</strong> of complimentary full-platform access.
+            After that, they must subscribe like any other student.
           </p>
         </div>
         <span class="badge bg-label-primary fs-6">{{ free_users|length }} account{{ free_users|length|pluralize }}</span>
@@ -67,7 +68,7 @@
                 <i class="bx bx-show" id="pwdIcon"></i>
               </button>
             </div>
-            <div class="form-text">They can change this from their profile settings.</div>
+            <div class="form-text">Complimentary access lasts 365 days from account creation. They can change their password from profile settings.</div>
           </div>
 
           <div class="mb-4">
@@ -103,6 +104,7 @@
               <th>Name</th>
               <th>Email</th>
               <th>Programme</th>
+              <th>Free until</th>
               <th>Status</th>
               <th class="text-end">Actions</th>
             </tr>
@@ -113,11 +115,25 @@
               <td class="fw-semibold">{{ u.full_name }}</td>
               <td class="text-muted small">{{ u.email }}</td>
               <td class="small">{{ u.programme|default:"—" }}</td>
-              <td>
-                {% if u.is_free_access %}
-                <span class="badge bg-success">Free Access</span>
+              <td class="small">
+                {% if u.free_expires_display %}
+                  {{ u.free_expires_display }}
+                  {% if u.free_days_remaining is not None and u.free_days_remaining > 0 %}
+                    <div class="text-muted">{{ u.free_days_remaining }} day{{ u.free_days_remaining|pluralize }} left</div>
+                  {% elif u.free_days_remaining is not None and u.free_days_remaining <= 0 %}
+                    <div class="text-danger">Payment required</div>
+                  {% endif %}
                 {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if not u.is_free_access %}
                 <span class="badge bg-secondary">Revoked</span>
+                {% elif u.free_access_active %}
+                <span class="badge bg-success">Active (free year)</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Free year ended</span>
                 {% endif %}
                 {% if not u.is_active %}
                 <span class="badge bg-danger ms-1">Disabled</span>

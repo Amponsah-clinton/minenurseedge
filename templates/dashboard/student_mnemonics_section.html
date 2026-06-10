@@ -55,6 +55,7 @@
     border: 1px solid #e1e8f5;
     border-radius: 16px;
     padding: 0;
+    overflow: hidden;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
     transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
   }
@@ -63,30 +64,80 @@
     box-shadow: 0 14px 28px rgba(15, 23, 42, 0.11);
     transform: translateY(-2px);
   }
+  .ms-acronym-banner {
+    padding: 14px 16px 12px;
+    background: #1F007D;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .ms-acronym-banner--phrase {
+    background: #1F007D;
+    padding: 12px 16px;
+  }
+  .ms-acronym-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.78);
+    margin-bottom: 8px;
+  }
+  .ms-acronym-letters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .ms-acronym-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #1F007D;
+    font-size: 1.35rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255,255,255,.9);
+    text-transform: uppercase;
+  }
+  .ms-acronym-chunk {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #1F007D;
+    font-size: 1.05rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255,255,255,.9);
+    text-transform: uppercase;
+  }
+  .ms-acronym-phrase {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.45;
+    color: #fff;
+    letter-spacing: 0.01em;
+  }
   .ms-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    padding: 16px 16px 12px;
+    padding: 14px 16px 12px;
     border-bottom: 1px solid #e8edf7;
     background: #fbfdff;
-    border-radius: 16px 16px 0 0;
   }
   .ms-title { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4; }
-  .ms-code {
-    border: 1px solid #d6e4ff;
-    background: #f8fbff;
-    color: #1d4f9d;
-    border-radius: 8px;
-    padding: 3px 8px;
-    font-size: 12px;
-    font-weight: 700;
-    white-space: normal;
-    word-break: break-word;
-    text-align: right;
-    max-width: 52%;
-  }
   .ms-body { padding: 12px 14px 14px; }
   .ms-table-wrap {
     border: 1px solid #e4ebf7;
@@ -114,7 +165,7 @@
     line-height: 1.55;
   }
   .ms-table tbody tr:last-child td { border-bottom: 0; }
-  .ms-col-letter { width: 110px; font-weight: 700; color: #0f2f64; }
+  .ms-col-letter { width: 110px; font-weight: 700; color: #1F007D; }
   .ms-col-meaning { width: 42%; font-weight: 600; color: #243145; }
   .ms-col-explain { color: #4a5a74; }
   .ms-empty-explain { color: #98a3b6; font-style: italic; }
@@ -174,7 +225,6 @@
   .anat-leg--ph { color: #047857; }
   .anat-leg--go { color: #c2410c; }
   .anat-leg--k { color: #0f172a; }
-  @media (max-width: 900px) { .ms-code { max-width: 60%; } }
   @media (max-width: 640px) {
     .ms-shell { padding: 0 4px; }
     .ms-hero { padding: 16px; border-radius: 14px; }
@@ -182,9 +232,18 @@
     .ms-search { width: 100%; flex: 1 1 auto; }
     .ms-count { width: 100%; justify-content: center; }
     .ms-card { border-radius: 14px; }
-    .ms-head { flex-direction: column; align-items: flex-start; }
     .ms-title { font-size: 16px; }
-    .ms-code { max-width: 100%; text-align: left; }
+    .ms-acronym-letter {
+      min-width: 38px;
+      height: 38px;
+      font-size: 1.15rem;
+    }
+    .ms-acronym-chunk {
+      min-height: 38px;
+      font-size: 0.92rem;
+      padding: 0 11px;
+    }
+    .ms-acronym-phrase { font-size: 0.88rem; }
     .ms-table-wrap { overflow-x: auto; }
     .ms-table { min-width: 620px; }
   }
@@ -207,9 +266,27 @@
   <section class="ms-grid" id="sectionMnemonicGrid">
     {% for item in section.mnemonics %}
     <article class="ms-card" data-search="{{ item.title|lower }} {{ item.code|lower }} {% if item.extra_search %}{{ item.extra_search|lower }} {% endif %}{% for row in item.rows %} {{ row.letter|lower }} {{ row.meaning|lower }} {{ row.explanation|lower }} {% endfor %}">
+      {% if item.code %}
+      <div class="ms-acronym-banner ms-acronym-banner--{{ item.code_style|default:'phrase' }}">
+        {% if item.code_style == 'letters' and item.code_tokens %}
+          <span class="ms-acronym-label">Abbreviation</span>
+          <div class="ms-acronym-letters" aria-label="Mnemonic abbreviation: {{ item.code }}">
+            {% for token in item.code_tokens %}
+              {% if token.kind == 'letter' %}
+                <span class="ms-acronym-letter">{{ token.text }}</span>
+              {% else %}
+                <span class="ms-acronym-chunk">{{ token.text }}</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <span class="ms-acronym-label">Mnemonic phrase</span>
+          <p class="ms-acronym-phrase">{{ item.code }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="ms-head">
         <h5 class="ms-title">{{ item.title }}</h5>
-        <div class="ms-code">{{ item.code }}</div>
       </div>
       {% if item.body_html %}
       <div class="ms-body ms-body--rich">

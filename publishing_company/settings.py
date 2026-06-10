@@ -44,6 +44,13 @@ if os.getenv("VERCEL"):
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
+# Trust the X-Forwarded-Proto header from Vercel/Cloudflare/nginx so that
+# request.build_absolute_uri() and request.is_secure() return https:// URLs.
+# Without this the Paystack callback_url is built as http:// in production,
+# causing Paystack to redirect to the wrong URL and payments never activate.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -98,6 +105,7 @@ TEMPLATES = [
                 "website.context_processors.reported_questions_badge",
                 "website.context_processors.academic_profile_gate",
                 "website.context_processors.subscription_status_ctx",
+                "website.context_processors.dashboard_search_nav",
                 "website.context_processors.referral_modal_ctx",
             ],
         },

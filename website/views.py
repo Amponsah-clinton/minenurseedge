@@ -7,7 +7,7 @@ import secrets
 import csv
 from datetime import datetime, timedelta, timezone
 from io import StringIO
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -15,6 +15,7 @@ from django.core.mail import send_mail
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.html import escape
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from supabase import create_client
@@ -723,9 +724,11 @@ def _destroy_session(request):
 
 
 def _require_login(request):
-    """Returns None if authenticated; otherwise returns a redirect response."""
+    """Returns None if authenticated; otherwise returns a redirect to /login/ with next URL preserved."""
     if not request.session.get("user_id"):
-        return redirect("/login/")
+        from urllib.parse import quote as _quote
+        next_path = request.get_full_path()
+        return redirect(f"/login/?next={_quote(next_path, safe='')}")
     return None
 
 
@@ -1103,6 +1106,7 @@ MOCK_GENERAL_PAPER_QUESTIONS = 15
 MOCK_GENERAL_PAPER_POOL_CAP = 120
 # Admin-created free accounts: subscriptions row uses this reference; also used when profiles.is_free_access is missing.
 FREE_ACCESS_PAYMENT_REFERENCE = "free_access"
+FREE_ACCESS_DURATION_DAYS = 365
 GENERAL_TEST_QUESTION_BATCH_SIZE = MOCK_QUESTION_BATCH_SIZE
 
 FREE_TEST_TITLE = "Free Test"
@@ -1881,6 +1885,12 @@ def login_page(request):
             allowed, reason = _subscription_access_state(user_id)
             if not allowed:
                 return redirect(f"/subscribe/?reason={reason}")
+
+            # Honour a `next` redirect — used when the session expired during Paystack payment
+            # so the callback URL is visited again after re-login to complete activation.
+            next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
+            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+                return redirect(next_url)
             return redirect("/dashboard/")
 
         except Exception as exc:
@@ -1890,7 +1900,8 @@ def login_page(request):
             return render(request, "login.html", {"error": "Login failed. Please try again."})
 
     reason = request.GET.get("reason", "")
-    return render(request, "login.html", {"reason": reason})
+    next_url = request.GET.get("next", "")
+    return render(request, "login.html", {"reason": reason, "next": next_url})
 
 
 PROGRAMME_CHOICES = [
@@ -2499,10 +2510,18 @@ def forgot_password_page(request):
             # Do not store a code in session if the email never left the server.
             return redirect("/reset-password/?mail_err=1")
 
+        # Cache user_id so reset_password_page avoids re-scanning all auth users
+        reset_user_id = ""
+        if profile:
+            reset_user_id = str(profile.get("id") or "")
+        elif auth_user:
+            reset_user_id = str(auth_user.get("id") or "")
+
         request.session["pw_reset_email"] = mail_to
         request.session["pw_reset_code"] = code
         request.session["pw_reset_expires"] = int(time.time()) + 900  # 15 minutes
         request.session["pw_reset_just_sent"] = True
+        request.session["pw_reset_user_id"] = reset_user_id
         request.session.modified = True
     elif settings.DEBUG:
         logging.getLogger(__name__).warning(
@@ -2572,21 +2591,32 @@ def reset_password_page(request):
     # Update password in Supabase Auth
     try:
         admin = _supabase_admin()
-        # Find the auth user by email
-        auth_user = _find_auth_user_by_email(stored_email)
-        if not auth_user:
-            return _err("Account not found. Please contact support.")
+
+        # Use cached user_id from forgot_password_page if available (avoids scanning all users)
+        reset_uid = (request.session.get("pw_reset_user_id") or "").strip()
+        if not reset_uid:
+            auth_user = _find_auth_user_by_email(stored_email)
+            if not auth_user:
+                return _err("Account not found. Please contact support.")
+            reset_uid = str(auth_user["id"])
 
         admin.auth.admin.update_user_by_id(
-            auth_user["id"],
+            reset_uid,
             {"password": new_password},
         )
-    except Exception as exc:
-        return _err(f"Could not update password. Please try again or contact support.")
 
-    # Clear the reset token from session
-    for k in ("pw_reset_code", "pw_reset_email", "pw_reset_expires"):
+        # Invalidate any active sessions for this user so they must log in with the new password.
+        try:
+            admin.table("active_sessions").delete().eq("user_id", reset_uid).execute()
+        except Exception:
+            pass
+    except Exception:
+        return _err("Could not update password. Please try again or contact support.")
+
+    # Clear all reset tokens from session
+    for k in ("pw_reset_code", "pw_reset_email", "pw_reset_expires", "pw_reset_user_id", "pw_reset_just_sent"):
         request.session.pop(k, None)
+    request.session.modified = True
 
     return redirect("/login/?reason=password_reset")
 
@@ -2785,6 +2815,253 @@ def _build_weekly_peer_comparison(admin_client, user_id):
     }
 
 
+def _get_dashboard_performance_stats(admin, user_id):
+    """
+    Compute a rich performance snapshot for the dashboard stats card.
+    Pulls from mock_attempts, general_test_attempts, practice_quiz_attempts,
+    nclex_attempts, and flashcard_daily_reviews — no new tables required.
+    Returns a dict safe to pass directly to the template context.
+    """
+    from datetime import date as _date, timedelta as _td
+
+    uid = str(user_id)
+    today = _date.today()
+
+    # ── Fetch all completed attempts (lightweight selects) ────────────────────
+    mock_rows = (
+        admin.table("mock_attempts")
+        .select("percentage, submitted_at")
+        .eq("student_id", uid)
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(50)
+        .execute()
+        .data or []
+    )
+    gen_rows = (
+        admin.table("general_test_attempts")
+        .select("percentage, submitted_at")
+        .eq("student_id", uid)
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(50)
+        .execute()
+        .data or []
+    )
+    quiz_rows = (
+        admin.table("practice_quiz_attempts")
+        .select("percentage, submitted_at")
+        .eq("student_id", uid)
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(50)
+        .execute()
+        .data or []
+    )
+    nclex_rows = (
+        admin.table("nclex_attempts")
+        .select("percentage, submitted_at")
+        .eq("student_id", uid)
+        .not_.is_("submitted_at", "null")
+        .order("submitted_at", desc=True)
+        .limit(30)
+        .execute()
+        .data or []
+    )
+    flashcard_rows = (
+        admin.table("flashcard_daily_reviews")
+        .select("review_date")
+        .eq("student_id", uid)
+        .order("review_date", desc=True)
+        .limit(60)
+        .execute()
+        .data or []
+    )
+
+    # ── Combine all scored attempts sorted newest-first ───────────────────────
+    all_attempts = []
+    for row in mock_rows + gen_rows + quiz_rows + nclex_rows:
+        pct = row.get("percentage")
+        ts = row.get("submitted_at") or ""
+        if pct is None:
+            continue
+        try:
+            day = _date.fromisoformat(str(ts)[:10])
+        except Exception:
+            continue
+        all_attempts.append({"pct": float(pct), "day": day})
+    all_attempts.sort(key=lambda x: x["day"], reverse=True)
+
+    total_attempts = len(all_attempts)
+
+    if total_attempts == 0:
+        return {
+            "has_data": False,
+            "total_attempts": 0,
+            "overall_avg": 0,
+            "best_score": 0,
+            "recent_avg": 0,
+            "trend": "none",
+            "trend_delta": 0,
+            "streak": 0,
+            "sessions_this_week": 0,
+            "last_activity_days_ago": None,
+            "readiness_level": "none",
+            "readiness_pct": 0,
+            "advice": "Take your first mock exam or general test to see your performance stats here.",
+            "advice_icon": "bx-play-circle",
+            "mock_count": 0,
+            "gen_count": len(gen_rows),
+            "quiz_count": len(quiz_rows),
+        }
+
+    scores = [a["pct"] for a in all_attempts]
+    overall_avg = round(sum(scores) / len(scores), 1)
+    best_score = round(max(scores), 1)
+
+    # Recent avg: last 5 attempts; baseline: attempts 6–15
+    recent_5 = scores[:5]
+    baseline_10 = scores[5:15]
+    recent_avg = round(sum(recent_5) / len(recent_5), 1)
+    if baseline_10:
+        baseline_avg = sum(baseline_10) / len(baseline_10)
+        delta = recent_avg - baseline_avg
+        if delta >= 3:
+            trend = "improving"
+        elif delta <= -3:
+            trend = "declining"
+        else:
+            trend = "stable"
+        trend_delta = round(abs(delta), 1)
+    else:
+        trend = "new"
+        trend_delta = 0
+
+    # ── Activity streak (any study day) ──────────────────────────────────────
+    active_days = set()
+    for a in all_attempts:
+        active_days.add(a["day"])
+    for row in flashcard_rows:
+        rd = row.get("review_date") or ""
+        try:
+            active_days.add(_date.fromisoformat(str(rd)[:10]))
+        except Exception:
+            pass
+
+    streak = 0
+    check_day = today
+    while check_day in active_days:
+        streak += 1
+        check_day -= _td(days=1)
+    if streak == 0 and (today - _td(days=1)) in active_days:
+        check_day = today - _td(days=1)
+        while check_day in active_days:
+            streak += 1
+            check_day -= _td(days=1)
+
+    # ── Sessions this week ────────────────────────────────────────────────────
+    week_ago = today - _td(days=7)
+    sessions_this_week = sum(
+        1 for a in all_attempts if a["day"] >= week_ago
+    ) + len({
+        row.get("review_date", "")[:10]
+        for row in flashcard_rows
+        if row.get("review_date", "")[:10] >= str(week_ago)
+    })
+
+    # ── Days since last activity ──────────────────────────────────────────────
+    last_activity_days_ago = None
+    if all_attempts:
+        last_day = all_attempts[0]["day"]
+        last_activity_days_ago = (today - last_day).days
+
+    # ── Readiness level ───────────────────────────────────────────────────────
+    if overall_avg >= 75:
+        readiness_level = "strong"
+        readiness_pct = min(100, int(overall_avg))
+    elif overall_avg >= 60:
+        readiness_level = "on_track"
+        readiness_pct = int(overall_avg)
+    elif overall_avg >= 45:
+        readiness_level = "needs_work"
+        readiness_pct = int(overall_avg)
+    else:
+        readiness_level = "critical"
+        readiness_pct = int(overall_avg)
+
+    # ── Smart personalised advice ─────────────────────────────────────────────
+    if last_activity_days_ago is not None and last_activity_days_ago >= 3:
+        advice = (
+            f"You haven't studied in {last_activity_days_ago} day"
+            f"{'s' if last_activity_days_ago != 1 else ''}. "
+            "Even a 15-minute session today will protect your streak and keep your memory sharp."
+        )
+        advice_icon = "bx-time-five"
+    elif trend == "declining":
+        advice = (
+            f"Your recent average ({recent_avg}%) is lower than before. "
+            "Review your wrong answers from the last 3 attempts and spend time on lecture notes for weak topics."
+        )
+        advice_icon = "bx-trending-down"
+    elif trend == "improving":
+        if overall_avg >= 75:
+            advice = (
+                f"Outstanding — you're averaging {overall_avg}% and your scores are rising. "
+                "Keep this pace: one mock exam every 2 days will have you fully exam-ready."
+            )
+        else:
+            advice = (
+                f"Great momentum! Your scores have improved by {trend_delta}% recently. "
+                "Keep daily practice going and target 75%+ on your next mock."
+            )
+        advice_icon = "bx-trending-up"
+    elif readiness_level == "strong":
+        advice = (
+            f"You're averaging {overall_avg}% — excellent readiness. "
+            "Maintain this with regular practice and focus on your occasional weak spots."
+        )
+        advice_icon = "bx-trophy"
+    elif readiness_level == "on_track":
+        advice = (
+            f"Solid work — {overall_avg}% average puts you on track. "
+            "Push past 75% by revisiting topics where you scored below 60%."
+        )
+        advice_icon = "bx-target-lock"
+    elif readiness_level == "needs_work":
+        advice = (
+            f"Your average is {overall_avg}%. Focus on one topic at a time: "
+            "read the lecture notes, then take a general test on that subject before moving on."
+        )
+        advice_icon = "bx-book-open"
+    else:
+        advice = (
+            f"Your average is {overall_avg}%. Don't be discouraged — start with shorter general tests "
+            "to build confidence, then revisit flashcards daily. Consistency beats cramming."
+        )
+        advice_icon = "bx-bulb"
+
+    return {
+        "has_data": True,
+        "total_attempts": total_attempts,
+        "overall_avg": overall_avg,
+        "best_score": best_score,
+        "recent_avg": recent_avg,
+        "trend": trend,
+        "trend_delta": trend_delta,
+        "streak": streak,
+        "sessions_this_week": sessions_this_week,
+        "last_activity_days_ago": last_activity_days_ago,
+        "readiness_level": readiness_level,
+        "readiness_pct": readiness_pct,
+        "advice": advice,
+        "advice_icon": advice_icon,
+        "mock_count": len(mock_rows),
+        "gen_count": len(gen_rows),
+        "quiz_count": len(quiz_rows),
+        "recent_scores_json": json.dumps([round(a["pct"], 1) for a in reversed(all_attempts[:10])]),
+    }
+
+
 def user_dashboard(request):
     guard = _require_login(request)
     if guard:
@@ -2802,10 +3079,11 @@ def user_dashboard(request):
         profile_rows = admin.table("profiles").select("programme, referral_code, referred_by_code").eq("id", user_id).limit(1).execute().data or []
         programme = (profile_rows[0].get("programme") if profile_rows else "") or ""
         if programme:
+            # Mock exams live in the global pool (All Programmes), not per student programme.
             exam_count_resp = (
                 admin.table("mock_exams")
                 .select("id", count="exact", head=True)
-                .eq("programme", programme)
+                .eq("programme", GLOBAL_MOCK_PROGRAMME)
                 .eq("is_published", True)
                 .execute()
             )
@@ -2830,6 +3108,14 @@ def user_dashboard(request):
             recent_messages = recent_messages_resp.data or []
         else:
             # Fallback: show total available questions across all programmes.
+            exam_count_resp = (
+                admin.table("mock_exams")
+                .select("id", count="exact", head=True)
+                .eq("programme", GLOBAL_MOCK_PROGRAMME)
+                .eq("is_published", True)
+                .execute()
+            )
+            mock_exam_count = exam_count_resp.count or 0
             questions_resp = (
                 admin.table("question_bank")
                 .select("id", count="exact", head=True)
@@ -2860,6 +3146,18 @@ def user_dashboard(request):
         if best_attempt_rows:
             best_mock_percentage = int(float(best_attempt_rows[0].get("percentage") or 0))
         peer_comparison = _build_weekly_peer_comparison(admin, user_id)
+    except Exception:
+        pass
+
+    # ── Performance stats card ────────────────────────────────────────────────
+    perf_stats = {"has_data": False, "total_attempts": 0, "streak": 0, "sessions_this_week": 0,
+                  "readiness_pct": 0, "readiness_level": "none", "trend": "none",
+                  "overall_avg": 0, "best_score": 0, "recent_avg": 0, "trend_delta": 0,
+                  "last_activity_days_ago": None, "advice": "", "advice_icon": "bx-bulb",
+                  "mock_count": 0, "gen_count": 0, "quiz_count": 0,
+                  "recent_scores_json": "[]"}
+    try:
+        perf_stats = _get_dashboard_performance_stats(_supabase_admin(), user_id)
     except Exception:
         pass
 
@@ -2980,6 +3278,7 @@ def user_dashboard(request):
         "sub_expires_display": sub_expires_display,
         "days_remaining": days_remaining,
         "peer_comparison": peer_comparison,
+        "perf_stats": perf_stats,
         "user_referral_code": user_referral_code,
         "referral_invite_url": (
             f"{_public_site_origin(request)}/signup/?ref={user_referral_code}"
@@ -3010,6 +3309,205 @@ def dashboard_ack_nmc_disclaimer(request):
     except Exception:
         pass
     return JsonResponse({"ok": True})
+
+
+_DASHBOARD_SEARCH_NAV_STUDENT = [
+    {"title": "Dashboard", "url": "/dashboard/", "keywords": "home overview main"},
+    {"title": "Lecture Notes", "url": "/dashboard/lecture-notes/", "keywords": "notes study lecture topics"},
+    {"title": "NMC Mastery", "url": "/dashboard/nmc-mastery/", "keywords": "nmc exam mastery prep"},
+    {"title": "Mnemonics Guide", "url": "/dashboard/mnemonics-guide/", "keywords": "mnemonics memory aids"},
+    {"title": "Clinical Visual Library", "url": "/dashboard/clinical-visuals/", "keywords": "images visuals clinical"},
+    {"title": "Drug Cards", "url": "/dashboard/drug-cards/", "keywords": "drugs pharmacology medication"},
+    {"title": "Dosage Calculations", "url": "/dashboard/dosage-calculator/", "keywords": "dosage calculator iv drip"},
+    {"title": "General Tests", "url": "/dashboard/general-tests/", "keywords": "general test practice questions"},
+    {"title": "Free Test", "url": "/dashboard/free-test/", "keywords": "free trial sample test"},
+    {"title": "NCLEX Practice", "url": "/dashboard/nclex/", "keywords": "nclex questions practice"},
+    {"title": "NCLEX Guide", "url": "/dashboard/nclex-guide/", "keywords": "nclex guide tips"},
+    {"title": "Quizzes", "url": "/dashboard/quizzes/", "keywords": "quiz competitive"},
+    {"title": "Flashcards", "url": "/dashboard/flashcards/", "keywords": "flashcards revision cards"},
+    {"title": "Mock Exams", "url": "/dashboard/mock-exams/", "keywords": "mock exam leaderboard timed"},
+    {"title": "Performance", "url": "/dashboard/performance/", "keywords": "performance scores analytics"},
+    {"title": "Bookmarks", "url": "/dashboard/bookmarks/", "keywords": "bookmarks saved questions"},
+    {"title": "NCLEX & IELTS Books", "url": "/dashboard/books/", "keywords": "books ielts resources"},
+    {"title": "Community", "url": "/dashboard/community/", "keywords": "community forum posts"},
+    {"title": "Messages", "url": "/dashboard/messages/", "keywords": "messages notifications inbox"},
+    {"title": "Subscribe", "url": "/subscribe/", "keywords": "subscribe payment plan premium"},
+    {"title": "Payment", "url": "/payment/", "keywords": "payment subscription history"},
+]
+
+_DASHBOARD_SEARCH_NAV_ADMIN = [
+    {"title": "Admin Dashboard", "url": "/admin-panel/dashboard/", "keywords": "home overview"},
+    {"title": "Registered Users", "url": "/admin-panel/users/", "keywords": "users students accounts"},
+    {"title": "Locked Accounts", "url": "/admin-panel/locked-accounts/", "keywords": "locked suspended"},
+    {"title": "Contact Messages", "url": "/admin-panel/messages/", "keywords": "contact inbox"},
+    {"title": "Broadcast Messages", "url": "/admin-panel/broadcast-messages/", "keywords": "broadcast notify"},
+    {"title": "Upload Questions", "url": "/admin-panel/upload-questions/", "keywords": "upload import questions"},
+    {"title": "Manage Questions", "url": "/admin-panel/manage-questions/", "keywords": "question bank edit delete"},
+    {"title": "Build Mock Exams", "url": "/admin-panel/mock-exams/", "keywords": "mock exams build"},
+    {"title": "NCLEX Questions", "url": "/admin-panel/nclex/", "keywords": "nclex admin"},
+    {"title": "Quizzes", "url": "/admin-panel/quizzes/", "keywords": "quizzes admin"},
+    {"title": "Lecture Notes", "url": "/admin-panel/lecture-notes/", "keywords": "lecture notes create"},
+    {"title": "Drug Cards", "url": "/admin-panel/drug-cards/", "keywords": "drug cards pharmacology"},
+    {"title": "Clinical Visual Library", "url": "/admin-panel/clinical-visuals/", "keywords": "clinical images"},
+    {"title": "Community", "url": "/admin-panel/community/", "keywords": "community moderation"},
+    {"title": "Reported Questions", "url": "/admin-panel/reported-questions/", "keywords": "reported flagged"},
+    {"title": "System", "url": "/admin-panel/system/", "keywords": "system maintenance settings"},
+    {"title": "Free Access Users", "url": "/admin-panel/free-users/", "keywords": "free access complimentary"},
+    {"title": "Payments", "url": "/admin-panel/payments/", "keywords": "payments subscriptions"},
+    {"title": "Referral Earnings", "url": "/admin-panel/referrals/", "keywords": "referrals earnings"},
+    {"title": "Referral Users", "url": "/admin-panel/referral-users/", "keywords": "referral codes users"},
+]
+
+
+def _dashboard_search_match_score(query, *fields):
+    q = (query or "").strip().lower()
+    if not q:
+        return 0
+    text = " ".join(str(f or "") for f in fields).lower()
+    if q in text:
+        return 100
+    words = [w for w in q.split() if len(w) >= 2]
+    if words and all(w in text for w in words):
+        return 60
+    if words:
+        hits = sum(1 for w in words if w in text)
+        if hits:
+            return hits * 15
+    return 0
+
+
+def dashboard_global_search(request):
+    """JSON search for the dashboard navbar: pages, drug cards, lecture notes."""
+    guard = _require_login(request)
+    if guard:
+        return JsonResponse({"results": []}, status=401)
+
+    q = (request.GET.get("q") or "").strip()
+    if len(q) < 1:
+        return JsonResponse({"results": []})
+
+    role = request.session.get("role", "student")
+    nav = _DASHBOARD_SEARCH_NAV_ADMIN if role == "admin" else _DASHBOARD_SEARCH_NAV_STUDENT
+    results = []
+    seen_urls = set()
+
+    for item in nav:
+        score = _dashboard_search_match_score(q, item["title"], item.get("keywords", ""))
+        if score <= 0:
+            continue
+        url = item["url"]
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        results.append({
+            "type": "page",
+            "title": item["title"],
+            "subtitle": "Dashboard page",
+            "url": url,
+            "_score": score,
+        })
+
+    admin = _supabase_admin()
+    safe_q = q.replace("%", "").replace(",", " ")[:80]
+
+    if role == "admin":
+        try:
+            drugs = (
+                admin.table("drug_cards")
+                .select("drug_name, category")
+                .ilike("drug_name", f"%{safe_q}%")
+                .order("drug_name")
+                .limit(5)
+                .execute()
+                .data
+                or []
+            )
+            for d in drugs:
+                url = f"/admin-panel/drug-cards/?q={quote(d.get('drug_name') or q)}"
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                results.append({
+                    "type": "drug",
+                    "title": d.get("drug_name") or "Drug",
+                    "subtitle": d.get("category") or "Drug card",
+                    "url": url,
+                    "_score": 90,
+                })
+        except Exception:
+            pass
+        if len(q) >= 2:
+            mq_url = f"/admin-panel/manage-questions/?q={quote(q)}"
+            if mq_url not in seen_urls:
+                seen_urls.add(mq_url)
+                results.append({
+                    "type": "page",
+                    "title": f'Search questions for "{q}"',
+                    "subtitle": "Question bank",
+                    "url": mq_url,
+                    "_score": 70,
+                })
+    else:
+        try:
+            drugs = (
+                admin.table("drug_cards")
+                .select("drug_name, category")
+                .eq("is_active", True)
+                .ilike("drug_name", f"%{safe_q}%")
+                .order("drug_name")
+                .limit(5)
+                .execute()
+                .data
+                or []
+            )
+            for d in drugs:
+                url = f"/dashboard/drug-cards/?q={quote(d.get('drug_name') or q)}"
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                results.append({
+                    "type": "drug",
+                    "title": d.get("drug_name") or "Drug",
+                    "subtitle": d.get("category") or "Drug card",
+                    "url": url,
+                    "_score": 95,
+                })
+        except Exception:
+            pass
+        try:
+            notes = (
+                admin.table("lecture_notes")
+                .select("topic, subtopic, category")
+                .eq("is_published", True)
+                .or_(f"topic.ilike.%{safe_q}%,subtopic.ilike.%{safe_q}%")
+                .order("created_at", desc=True)
+                .limit(5)
+                .execute()
+                .data
+                or []
+            )
+            for n in notes:
+                topic = (n.get("topic") or "").strip()
+                if not topic:
+                    continue
+                url = f"/dashboard/lecture-notes/?q={quote(topic)}"
+                if url in seen_urls:
+                    continue
+                seen_urls.add(url)
+                results.append({
+                    "type": "lecture",
+                    "title": topic,
+                    "subtitle": (n.get("subtopic") or n.get("category") or "Lecture note").strip(),
+                    "url": url,
+                    "_score": 85,
+                })
+        except Exception:
+            pass
+
+    results.sort(key=lambda r: r.get("_score", 0), reverse=True)
+    for r in results:
+        r.pop("_score", None)
+    return JsonResponse({"results": results[:12]})
 
 
 def student_nmc_mastery(request):
@@ -3256,13 +3754,8 @@ def admin_broadcast_messages(request):
             uid = str(student.get("id", ""))
             sub = latest_subs.get(uid)
             status = (sub or {}).get("status", "")
-            ref = (sub or {}).get("payment_reference", "")
             expires = (sub or {}).get("expires_at")
-            is_free = student.get("is_free_access") or (
-                ref == FREE_ACCESS_PAYMENT_REFERENCE
-                and status == "active"
-                and _expires_at_still_valid(expires)
-            )
+            is_free = _user_has_free_access(admin, uid)
             if is_free:
                 student["group"] = "free"
             elif status == "active" and _expires_at_still_valid(expires):
@@ -3432,16 +3925,16 @@ def admin_users(request):
             ref = (sub or {}).get("payment_reference", "")
             expires = (sub or {}).get("expires_at")
 
-            is_free = user.get("is_free_access") or (
-                ref == FREE_ACCESS_PAYMENT_REFERENCE
-                and status == "active"
-                and _expires_at_still_valid(expires)
-            )
+            is_free = _user_has_free_access(admin, uid)
 
             if is_free:
                 user["payment_label"] = "Free Access"
                 user["payment_badge"] = "bg-label-info"
                 paid_users.append(user)
+            elif ref == FREE_ACCESS_PAYMENT_REFERENCE and status == "active":
+                user["payment_label"] = "Free year ended"
+                user["payment_badge"] = "bg-label-warning"
+                unpaid_users.append(user)
             elif status == "active" and _expires_at_still_valid(expires):
                 user["payment_label"] = "Active"
                 user["payment_badge"] = "bg-label-success"
@@ -3635,10 +4128,51 @@ def admin_locked_accounts(request):
 # Admin: Free-access user management
 # ---------------------------------------------------------------------------
 
+def _admin_enrich_free_user_row(admin, user_row):
+    """Attach free-access subscription expiry metadata for the admin table."""
+    uid = str(user_row.get("id") or "")
+    sub = _get_free_access_subscription(admin, uid) if uid else None
+    if sub:
+        sub = _backfill_free_access_expires_at(admin, sub)
+    effective = _free_access_effective_expires_at(sub) if sub else None
+    if not effective and user_row.get("is_free_access"):
+        effective = _free_access_expires_at_from_started(user_row.get("created_at")).isoformat()
+    user_row["free_started_at"] = (sub or {}).get("started_at") or user_row.get("created_at")
+    user_row["free_expires_at"] = effective
+    user_row["free_access_active"] = bool(
+        user_row.get("is_free_access")
+        and (
+            (sub and _free_access_still_valid(sub))
+            or (
+                not sub
+                and effective
+                and _expires_at_still_valid(effective)
+            )
+        )
+    )
+    if effective:
+        try:
+            from datetime import date as _date
+
+            exp_date = _date.fromisoformat(str(effective)[:10])
+            user_row["free_days_remaining"] = (exp_date - _date.today()).days
+            user_row["free_expires_display"] = "{} {} {}".format(
+                exp_date.day, exp_date.strftime("%b"), exp_date.year
+            )
+        except Exception:
+            user_row["free_days_remaining"] = None
+            user_row["free_expires_display"] = ""
+    else:
+        user_row["free_days_remaining"] = None
+        user_row["free_expires_display"] = ""
+    return user_row
+
+
 def _admin_fetch_free_users_list(admin):
     """List free-access student profiles; works with or without profiles.is_free_access."""
+    out = []
     try:
-        return (
+        out = (
             admin.table("profiles")
             .select("id, full_name, email, programme, is_free_access, is_active, created_at")
             .eq("is_free_access", True)
@@ -3648,42 +4182,40 @@ def _admin_fetch_free_users_list(admin):
             or []
         )
     except Exception:
-        pass
-    try:
-        subs = (
-            admin.table("subscriptions")
-            .select("user_id")
-            .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
-            .eq("status", "active")
-            .execute()
-            .data
-            or []
-        )
-        uids = list({str(s["user_id"]) for s in subs if s.get("user_id")})
-        if not uids:
-            return []
         out = []
-        for i in range(0, len(uids), 100):
-            batch = uids[i : i + 100]
-            rows = (
-                admin.table("profiles")
-                .select("id, full_name, email, programme, is_active, created_at")
-                .in_("id", batch)
+    if not out:
+        try:
+            subs = (
+                admin.table("subscriptions")
+                .select("user_id")
+                .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
                 .execute()
                 .data
                 or []
             )
-            out.extend(rows)
-        for r in out:
-            r["is_free_access"] = True
-        out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
-        return out
-    except Exception:
-        return []
+            uids = list({str(s["user_id"]) for s in subs if s.get("user_id")})
+            if uids:
+                for i in range(0, len(uids), 100):
+                    batch = uids[i : i + 100]
+                    rows = (
+                        admin.table("profiles")
+                        .select("id, full_name, email, programme, is_active, created_at")
+                        .in_("id", batch)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    out.extend(rows)
+                for r in out:
+                    r["is_free_access"] = True
+                out.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+        except Exception:
+            out = []
+    return [_admin_enrich_free_user_row(admin, dict(r)) for r in out]
 
 
 def admin_free_users(request):
-    """Create and manage accounts that are permanently exempt from payment."""
+    """Create and manage accounts with one year of complimentary platform access."""
     guard = _require_admin(request)
     if guard:
         return guard
@@ -3743,7 +4275,8 @@ def admin_free_users(request):
                         else:
                             raise
 
-                    # Create a permanent active subscription (no expiry)
+                    free_started = datetime.now(timezone.utc)
+                    free_expires = free_started + timedelta(days=FREE_ACCESS_DURATION_DAYS)
                     admin.table("subscriptions").insert({
                         "user_id": user_id,
                         "user_email": email,
@@ -3754,11 +4287,14 @@ def admin_free_users(request):
                         "currency": "GHS",
                         "status": "active",
                         "payment_reference": FREE_ACCESS_PAYMENT_REFERENCE,
-                        "started_at": datetime.now(timezone.utc).isoformat(),
-                        "expires_at": None,  # never expires
+                        "started_at": free_started.isoformat(),
+                        "expires_at": free_expires.isoformat(),
                     }).execute()
 
-                    success = f"Free-access account created for {full_name} ({email})."
+                    success = (
+                        f"Free-access account created for {full_name} ({email}) "
+                        f"— complimentary access for {FREE_ACCESS_DURATION_DAYS} days."
+                    )
                 except Exception as exc:
                     msg = str(exc).lower()
                     if "already registered" in msg or "already exists" in msg or "duplicate" in msg:
@@ -3813,11 +4349,17 @@ def admin_free_users(request):
                             "No free-access subscription row found for this user. "
                             "Recreate the account or add the is_free_access column in Supabase."
                         )
+                    restored_at = datetime.now(timezone.utc)
+                    restored_expires = restored_at + timedelta(days=FREE_ACCESS_DURATION_DAYS)
                     for s in subs:
                         sid = s.get("id")
                         if sid:
-                            admin.table("subscriptions").update({"status": "active"}).eq("id", sid).execute()
-                    success = "Free access restored."
+                            admin.table("subscriptions").update({
+                                "status": "active",
+                                "started_at": restored_at.isoformat(),
+                                "expires_at": restored_expires.isoformat(),
+                            }).eq("id", sid).execute()
+                    success = f"Free access restored for {FREE_ACCESS_DURATION_DAYS} days."
                 except Exception as exc:
                     error = str(exc)
 
@@ -6334,6 +6876,176 @@ def _student_mnemonic_sections():
             {"letter": "R", "meaning": "Renal failure", "explanation": "Hypertensive nephrosclerosis leads to chronic kidney disease."},
             {"letter": "D", "meaning": "Death", "explanation": "Uncontrolled hypertension increases overall mortality risk."},
         ]},
+        {"title": "The Nursing Process", "code": "ADPIE", "rows": [
+            {"letter": "A", "meaning": "Assessment", "explanation": "Collect subjective and objective data before any intervention."},
+            {"letter": "D", "meaning": "Diagnosis", "explanation": "Identify actual or potential patient problems from assessment findings."},
+            {"letter": "P", "meaning": "Planning", "explanation": "Set goals and select evidence-based nursing interventions."},
+            {"letter": "I", "meaning": "Implementation", "explanation": "Carry out the planned care safely and systematically."},
+            {"letter": "E", "meaning": "Evaluation", "explanation": "Determine whether goals were met and revise the plan if needed."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Every NMC question on nursing care follows this order. Always assess before acting."},
+        ]},
+        {"title": "Handover/Referral Communication", "code": "SBAR", "rows": [
+            {"letter": "S", "meaning": "Situation", "explanation": "What is happening right now."},
+            {"letter": "B", "meaning": "Background", "explanation": "Relevant history and context."},
+            {"letter": "A", "meaning": "Assessment", "explanation": "Your clinical impression of the problem."},
+            {"letter": "R", "meaning": "Recommendation", "explanation": "What you want done next."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Used heavily in clinical practicals and NMC communication questions."},
+        ]},
+        {"title": "Pain/Symptom Assessment", "code": "OLDCART", "rows": [
+            {"letter": "O", "meaning": "Onset", "explanation": "When did the symptom start."},
+            {"letter": "L", "meaning": "Location", "explanation": "Where is the pain or symptom felt."},
+            {"letter": "D", "meaning": "Duration", "explanation": "How long does it last."},
+            {"letter": "C", "meaning": "Character", "explanation": "Sharp, dull, burning, throbbing, etc."},
+            {"letter": "A", "meaning": "Aggravating/Alleviating factors", "explanation": "What makes it worse or better."},
+            {"letter": "R", "meaning": "Radiation", "explanation": "Does the pain or symptom spread elsewhere."},
+            {"letter": "T", "meaning": "Treatment tried so far", "explanation": "What the patient has already done for relief."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Use this any time a patient presents with a complaint. NMC loves history-taking questions."},
+        ]},
+        {"title": "ABG Interpretation (Acid-Base Balance)", "code": "ROME", "rows": [
+            {"letter": "R", "meaning": "Respiratory Opposite", "explanation": "In respiratory disorders, pH and CO₂ move in opposite directions."},
+            {"letter": "M", "meaning": "Metabolic Equal", "explanation": "In metabolic disorders, pH and HCO₃ move in the same direction."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "If pH ↑ and CO₂ ↓ → Respiratory Alkalosis. If pH ↓ and HCO₃ ↓ → Metabolic Acidosis."},
+        ]},
+        {"title": "Principles of Surgical Asepsis", "code": "TICOSM", "rows": [
+            {"letter": "T", "meaning": "The sterile field must be kept in view at all times", "explanation": "Never turn your back on the sterile field."},
+            {"letter": "I", "meaning": "Items below the waist are considered contaminated", "explanation": "Waist level defines sterility in theatre practice."},
+            {"letter": "C", "meaning": "Contact with non-sterile objects breaks sterility", "explanation": "One touch outside the field contaminates gloves/instruments."},
+            {"letter": "O", "meaning": "Only sterile items touch sterile fields", "explanation": "Sterile-to-sterile contact only."},
+            {"letter": "S", "meaning": "Sterile persons only touch sterile items", "explanation": "Non-sterile team members must not break the field."},
+            {"letter": "M", "meaning": "Moisture/wetness contaminates the sterile field", "explanation": "Wet drapes or packages are no longer sterile."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Theatre and wound care questions frequently test asepsis principles."},
+        ]},
+        {"title": "Signs of Stroke", "code": "FAST", "rows": [
+            {"letter": "F", "meaning": "Face drooping", "explanation": "Ask the patient to smile; one side may droop."},
+            {"letter": "A", "meaning": "Arm weakness", "explanation": "Ask to raise both arms; one may drift downward."},
+            {"letter": "S", "meaning": "Speech difficulty", "explanation": "Slurred or strange speech."},
+            {"letter": "T", "meaning": "Time to call for help immediately", "explanation": "Activate emergency response without delay."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "NMC expects you to identify stroke early and act fast — time = brain."},
+        ]},
+        {"title": "5 Rs of Safe Medication Administration", "code": "5 Rs", "rows": [
+            {"letter": "Core 5", "meaning": "Right Patient, Right Drug, Right Dose, Right Route, Right Time", "explanation": "The five essential checks before every medication administration."},
+            {"letter": "R", "meaning": "Right Documentation", "explanation": "Record after giving."},
+            {"letter": "R", "meaning": "Right Reason", "explanation": "Know why the drug is given."},
+            {"letter": "R", "meaning": "Right Response", "explanation": "Monitor effect after administration."},
+            {"letter": "R", "meaning": "Right to Refuse", "explanation": "Patient can refuse medication."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Drug administration errors are a common NMC scenario question. Some schools teach 9 Rs."},
+        ]},
+        {"title": "Paediatric Emergency Drug Doses", "code": "WETFLAG", "rows": [
+            {"letter": "W", "meaning": "Weight (kg)", "explanation": "Estimate as (Age + 4) × 2 kg."},
+            {"letter": "E", "meaning": "Energy (defibrillation)", "explanation": "4 J/kg."},
+            {"letter": "T", "meaning": "Tube (ETT size)", "explanation": "Age/4 + 4."},
+            {"letter": "F", "meaning": "Fluid bolus", "explanation": "10–20 mL/kg."},
+            {"letter": "L", "meaning": "Lorazepam", "explanation": "0.1 mg/kg."},
+            {"letter": "A", "meaning": "Adrenaline", "explanation": "0.01 mg/kg of 1:10,000."},
+            {"letter": "G", "meaning": "Glucose", "explanation": "2 mL/kg of 10% dextrose."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Paediatric emergencies appear on NMC Ghana. These values must be memorised."},
+        ]},
+        {"title": "Danger Signs of Oral Contraceptive Pills", "code": "ACHES", "rows": [
+            {"letter": "A", "meaning": "Abdominal pain (severe)", "explanation": "May indicate hepatic or vascular complication."},
+            {"letter": "C", "meaning": "Chest pain or shortness of breath", "explanation": "Possible PE or MI."},
+            {"letter": "H", "meaning": "Headache (severe, sudden)", "explanation": "May indicate stroke or severe hypertension."},
+            {"letter": "E", "meaning": "Eye problems", "explanation": "Blurred vision or loss of vision."},
+            {"letter": "S", "meaning": "Severe leg pain", "explanation": "Possible DVT."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Report any of these immediately and stop the pill. Common in reproductive health questions."},
+        ]},
+        {"title": "Informed Consent Decision Aid", "code": "BRAIN", "rows": [
+            {"letter": "B", "meaning": "Benefits", "explanation": "What are the advantages of the proposed treatment."},
+            {"letter": "R", "meaning": "Risks", "explanation": "What could go wrong."},
+            {"letter": "A", "meaning": "Alternatives", "explanation": "What other options exist."},
+            {"letter": "I", "meaning": "Intuition", "explanation": "What does the patient feel or want."},
+            {"letter": "N", "meaning": "Nothing", "explanation": "What happens if nothing is done."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "NMC ethics questions test whether you respect patient autonomy."},
+        ]},
+        {"title": "Causes of Transient/Reversible Urinary Incontinence", "code": "DIAPPERS", "rows": [
+            {"letter": "D", "meaning": "Delirium", "explanation": "Acute confusion can cause new incontinence."},
+            {"letter": "I", "meaning": "Infection (UTI)", "explanation": "Urinary tract infection is a reversible cause."},
+            {"letter": "A", "meaning": "Atrophic vaginitis/urethritis", "explanation": "Genitourinary syndrome of menopause."},
+            {"letter": "P", "meaning": "Pharmacological", "explanation": "Diuretics, sedatives, and other drugs."},
+            {"letter": "P", "meaning": "Psychological", "explanation": "Depression and related factors."},
+            {"letter": "E", "meaning": "Excess urine output", "explanation": "Hyperglycaemia, hypercalcaemia, etc."},
+            {"letter": "R", "meaning": "Restricted mobility", "explanation": "Cannot reach toilet in time."},
+            {"letter": "S", "meaning": "Stool impaction", "explanation": "Fecal impaction can cause urinary overflow."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Very common in geriatric and fundamentals questions."},
+        ]},
+        {"title": "Shift Handover Report (Ghana Clinical Practice)", "code": "ISOBAR", "rows": [
+            {"letter": "I", "meaning": "Identify", "explanation": "Patient name, age, ward, and bed number."},
+            {"letter": "S", "meaning": "Situation", "explanation": "Current condition and reason for admission."},
+            {"letter": "O", "meaning": "Observation", "explanation": "Latest vital signs and findings."},
+            {"letter": "B", "meaning": "Background", "explanation": "Diagnosis, history, and allergies."},
+            {"letter": "A", "meaning": "Agreed plan", "explanation": "Current management plan."},
+            {"letter": "R", "meaning": "Responsibility", "explanation": "Who takes over care."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "ISOBAR is the structured handover tool used in many Ghanaian hospitals."},
+        ]},
+        {"title": "History Taking in Emergency", "code": "SAMPLE", "rows": [
+            {"letter": "S", "meaning": "Signs and Symptoms", "explanation": "What the patient is experiencing now."},
+            {"letter": "A", "meaning": "Allergies", "explanation": "Drug, food, and environmental allergies."},
+            {"letter": "M", "meaning": "Medications currently taking", "explanation": "Prescription, OTC, and herbal medicines."},
+            {"letter": "P", "meaning": "Past medical history", "explanation": "Relevant illnesses, surgeries, and hospitalisations."},
+            {"letter": "L", "meaning": "Last meal/oral intake", "explanation": "Important for surgery and metabolic emergencies."},
+            {"letter": "E", "meaning": "Events leading to current condition", "explanation": "Mechanism and timeline of illness or injury."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "This is your first-response history tool at triage."},
+        ]},
+        {"title": "Wound Assessment", "code": "PERMISSION", "rows": [
+            {"letter": "P", "meaning": "Position/location of wound", "explanation": "Anatomical site and orientation."},
+            {"letter": "E", "meaning": "Edges", "explanation": "Regular, irregular, or undermined wound margins."},
+            {"letter": "R", "meaning": "Redness/erythema around wound", "explanation": "Signs of inflammation or infection."},
+            {"letter": "M", "meaning": "Moisture/exudate", "explanation": "Type and amount of wound drainage."},
+            {"letter": "I", "meaning": "Infection signs", "explanation": "Odour, pus, warmth, and spreading erythema."},
+            {"letter": "S", "meaning": "Size", "explanation": "Length × width × depth in cm."},
+            {"letter": "S", "meaning": "Surrounding skin condition", "explanation": "Maceration, dryness, or breakdown."},
+            {"letter": "I", "meaning": "Improvement or deterioration over time", "explanation": "Trend since last assessment."},
+            {"letter": "O", "meaning": "Odour", "explanation": "Foul odour may suggest infection."},
+            {"letter": "N", "meaning": "Necrosis/slough present", "explanation": "Non-viable tissue in the wound bed."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Wound care is heavily tested in fundamentals and surgical nursing."},
+        ]},
+        {"title": "Primary Survey in Emergency/Triage", "code": "ABCDE", "rows": [
+            {"letter": "A", "meaning": "Airway", "explanation": "Is it open and clear."},
+            {"letter": "B", "meaning": "Breathing", "explanation": "Rate, depth, and effort."},
+            {"letter": "C", "meaning": "Circulation", "explanation": "Pulse, BP, bleeding, and skin colour."},
+            {"letter": "D", "meaning": "Disability", "explanation": "GCS, pupils, and blood glucose."},
+            {"letter": "E", "meaning": "Exposure", "explanation": "Undress and check all body parts."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Follow this order every single time in any emergency. Do not skip steps."},
+        ]},
+        {"title": "Fire Safety on the Ward", "code": "PASS", "rows": [
+            {"letter": "P", "meaning": "Pull the pin", "explanation": "First step when using a fire extinguisher."},
+            {"letter": "A", "meaning": "Aim at the base of the fire", "explanation": "Target the fuel source, not the flames."},
+            {"letter": "S", "meaning": "Squeeze the handle", "explanation": "Discharge the extinguishing agent."},
+            {"letter": "S", "meaning": "Sweep side to side", "explanation": "Cover the fire area until extinguished."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "NMC tests hospital safety including fire protocols. Also remember RACE: Rescue, Alarm, Confine, Extinguish."},
+        ]},
+        {"title": "Umbilical Cord Vessels", "code": "NAVEL", "rows": [
+            {"letter": "N", "meaning": "No vessels alone", "explanation": "Cord must contain the full vascular set."},
+            {"letter": "A", "meaning": "Artery (×2)", "explanation": "Carries deoxygenated blood away from the fetus."},
+            {"letter": "V", "meaning": "Vein (×1)", "explanation": "Carries oxygenated blood to the fetus."},
+            {"letter": "E", "meaning": "Ensures fetal circulation", "explanation": "Placental exchange depends on these vessels."},
+            {"letter": "L", "meaning": "Look for 2 arteries + 1 vein at delivery", "explanation": "Normal cord anatomy at birth."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "A single umbilical artery is associated with congenital abnormalities — flag it."},
+        ]},
+        {"title": "Symptoms of Cholera (Ghana)", "code": "CHOLERAE", "rows": [
+            {"letter": "C", "meaning": "Copious watery (\"rice-water\") diarrhoea", "explanation": "Profuse, painless stool loss."},
+            {"letter": "H", "meaning": "Hypotension from severe dehydration", "explanation": "Shock from massive fluid loss."},
+            {"letter": "O", "meaning": "Oral rehydration is first-line treatment", "explanation": "ORS when tolerated; IV fluids if severe."},
+            {"letter": "L", "meaning": "Loss of skin turgor", "explanation": "Tenting and poor capillary refill."},
+            {"letter": "E", "meaning": "Electrolyte imbalance (Na⁺, K⁺)", "explanation": "Life-threatening shifts with severe diarrhoea."},
+            {"letter": "R", "meaning": "Rapid fluid replacement is life-saving", "explanation": "Priority is volume and electrolyte correction."},
+            {"letter": "A", "meaning": "Abdominal cramps", "explanation": "Cramping may accompany profuse diarrhoea."},
+            {"letter": "E", "meaning": "Eyes sunken", "explanation": "Sign of severe dehydration."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Cholera is endemic in parts of Ghana. NMC tests dehydration management and infection control."},
+        ]},
+        {"title": "Opiate Withdrawal vs Toxicity", "code": "COWS", "rows": [
+            {"letter": "Withdrawal", "meaning": "Cold turkey signs", "explanation": "Cramps, yawning, sweating, piloerection, diarrhoea, anxiety."},
+            {"letter": "Toxicity", "meaning": "Opposite of withdrawal", "explanation": "Coma, pinpoint pupils, respiratory depression, bradycardia."},
+            {"letter": "Antidote", "meaning": "Naloxone (Narcan)", "explanation": "Reverses opioid overdose."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Withdrawal = stimulation; overdose = depression of everything."},
+        ]},
+        {"title": "Nursing Documentation Principles", "code": "IEFAP", "rows": [
+            {"letter": "I", "meaning": "Immediately", "explanation": "Document as soon as care is given."},
+            {"letter": "E", "meaning": "Exact", "explanation": "Use precise measurements and language."},
+            {"letter": "F", "meaning": "Factual", "explanation": "Record what you observed, not what you assume."},
+            {"letter": "A", "meaning": "Accurate", "explanation": "Correct time, date, and signature."},
+            {"letter": "P", "meaning": "Professional", "explanation": "No jargon, no erasure; use black ink."},
+            {"letter": "Tip", "meaning": "Exam tip", "explanation": "Documentation standards are tested across fundamentals and clinical scenarios."},
+        ]},
     ]
     medical_surgical = [
         {"title": "Systems of the Body", "code": "My Very Easy Method Just Speeds Up Naming Parts", "rows": [
@@ -6715,10 +7427,62 @@ def _student_mnemonic_sections():
     ]
     for section in sections:
         for mnemonic in section.get("mnemonics") or []:
-            if mnemonic.get("rows") or mnemonic.get("body_html"):
-                continue
-            mnemonic["rows"] = _build_mnemonic_rows(mnemonic.get("items") or [])
+            if not mnemonic.get("rows") and not mnemonic.get("body_html"):
+                mnemonic["rows"] = _build_mnemonic_rows(mnemonic.get("items") or [])
+            _enrich_mnemonic_code_display(mnemonic)
     return sections
+
+
+def _enrich_mnemonic_code_display(mnemonic):
+    """Prepare abbreviation tokens for the prominent card-header UI."""
+    code = (mnemonic.get("code") or "").strip()
+    if not code:
+        mnemonic["code_style"] = "empty"
+        mnemonic["code_tokens"] = []
+        return mnemonic
+
+    lowered = code.lower()
+    if len(code) > 40 or "/" in code or " vs " in lowered:
+        mnemonic["code_style"] = "phrase"
+        mnemonic["code_tokens"] = []
+        return mnemonic
+
+    words = code.split()
+    if len(words) > 8:
+        mnemonic["code_style"] = "phrase"
+        mnemonic["code_tokens"] = []
+        return mnemonic
+
+    tokens = []
+    for word in words:
+        w = word.strip()
+        if not w:
+            continue
+        if any(c.isdigit() for c in w) or "'" in w:
+            tokens.append({"kind": "chunk", "text": w})
+            continue
+        alpha = "".join(c for c in w if c.isalpha())
+        if not alpha:
+            tokens.append({"kind": "chunk", "text": w})
+            continue
+        if any(c.islower() for c in alpha):
+            mnemonic["code_style"] = "phrase"
+            mnemonic["code_tokens"] = []
+            return mnemonic
+        upper = alpha.upper()
+        if len(upper) <= 3:
+            tokens.append({"kind": "chunk", "text": upper})
+        elif len(upper) <= 8:
+            for ch in upper:
+                tokens.append({"kind": "letter", "text": ch})
+        else:
+            mnemonic["code_style"] = "phrase"
+            mnemonic["code_tokens"] = []
+            return mnemonic
+
+    mnemonic["code_style"] = "letters" if tokens else "phrase"
+    mnemonic["code_tokens"] = tokens
+    return mnemonic
 
 
 def _build_mnemonic_rows(items):
@@ -9193,6 +9957,7 @@ def student_lecture_notes(request):
         "has_unread_notifications": unread_count > 0,
         "notes": notes,
         "note_groups": note_groups,
+        "initial_search_q": request.GET.get("q", "").strip(),
     }
     return render(request, "dashboard/student_lecture_notes.html", context)
 
@@ -10640,31 +11405,46 @@ def _expires_at_still_valid(expires_at):
         return True
 
 
-def _user_has_free_access(admin, user_id):
-    """
-    Permanent free access: profiles.is_free_access, or an active subscription row with
-    payment_reference = free_access (used when the profiles column is not migrated yet).
-    """
-    uid = str(user_id)
+def _free_access_expires_at_from_started(started_at):
+    """One-year free access from account/subscription start."""
     try:
-        prof = (
-            admin.table("profiles")
-            .select("is_free_access")
-            .eq("id", uid)
-            .limit(1)
-            .execute()
-            .data
-            or []
-        )
-        if prof and prof[0].get("is_free_access"):
-            return True
+        raw = str(started_at or "").replace("Z", "+00:00")
+        if raw:
+            started = datetime.fromisoformat(raw)
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            return started + timedelta(days=FREE_ACCESS_DURATION_DAYS)
     except Exception:
         pass
+    return datetime.now(timezone.utc) + timedelta(days=FREE_ACCESS_DURATION_DAYS)
+
+
+def _free_access_effective_expires_at(sub_row):
+    """Return ISO expiry for a free_access subscription (infer from started_at if missing)."""
+    if not sub_row:
+        return None
+    exp = sub_row.get("expires_at")
+    if exp:
+        return exp
+    return _free_access_expires_at_from_started(
+        sub_row.get("started_at") or sub_row.get("created_at")
+    ).isoformat()
+
+
+def _free_access_still_valid(sub_row):
+    if not sub_row or sub_row.get("payment_reference") != FREE_ACCESS_PAYMENT_REFERENCE:
+        return False
+    if sub_row.get("status") != "active":
+        return False
+    return _expires_at_still_valid(_free_access_effective_expires_at(sub_row))
+
+
+def _get_free_access_subscription(admin, user_id):
     try:
         rows = (
             admin.table("subscriptions")
-            .select("status, payment_reference, expires_at")
-            .eq("user_id", uid)
+            .select("id, status, payment_reference, expires_at, started_at, created_at")
+            .eq("user_id", str(user_id))
             .eq("payment_reference", FREE_ACCESS_PAYMENT_REFERENCE)
             .order("created_at", desc=True)
             .limit(1)
@@ -10672,8 +11452,53 @@ def _user_has_free_access(admin, user_id):
             .data
             or []
         )
-        if rows and rows[0].get("status") == "active":
-            return _expires_at_still_valid(rows[0].get("expires_at"))
+        return rows[0] if rows else None
+    except Exception:
+        return None
+
+
+def _backfill_free_access_expires_at(admin, sub_row):
+    """Persist expires_at on legacy free_access rows that were created without one."""
+    if not sub_row or sub_row.get("expires_at") or not sub_row.get("id"):
+        return sub_row
+    expires = _free_access_expires_at_from_started(
+        sub_row.get("started_at") or sub_row.get("created_at")
+    )
+    try:
+        admin.table("subscriptions").update({
+            "expires_at": expires.isoformat(),
+        }).eq("id", sub_row["id"]).execute()
+        updated = dict(sub_row)
+        updated["expires_at"] = expires.isoformat()
+        return updated
+    except Exception:
+        return sub_row
+
+
+def _user_has_free_access(admin, user_id):
+    """
+    Admin-granted free access: active free_access subscription within the first year.
+    Legacy rows without expires_at use started_at/created_at + FREE_ACCESS_DURATION_DAYS.
+    """
+    uid = str(user_id)
+    sub = _get_free_access_subscription(admin, uid)
+    if sub:
+        sub = _backfill_free_access_expires_at(admin, sub)
+        if _free_access_still_valid(sub):
+            return True
+    try:
+        prof = (
+            admin.table("profiles")
+            .select("is_free_access, created_at")
+            .eq("id", uid)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if prof and prof[0].get("is_free_access") and not sub:
+            effective = _free_access_expires_at_from_started(prof[0].get("created_at")).isoformat()
+            return _expires_at_still_valid(effective)
     except Exception:
         pass
     return False
@@ -10681,7 +11506,7 @@ def _user_has_free_access(admin, user_id):
 
 def subscription_allows_dashboard(user_id):
     """Active subscription required for /dashboard/ (student).
-    Free-access accounts (profile flag or free_access subscription row) are always allowed in."""
+    Admin free-access accounts are allowed during their complimentary year only."""
     admin = _supabase_admin()
     if _user_has_free_access(admin, user_id):
         return True
@@ -10703,6 +11528,8 @@ def _subscription_access_state(user_id):
     sub = _get_active_subscription(user_id)
     if not sub or sub.get("status") != "active":
         return False, "payment_required"
+    if sub.get("payment_reference") == FREE_ACCESS_PAYMENT_REFERENCE:
+        return False, "renewal_required"
     if not _expires_at_still_valid(sub.get("expires_at")):
         return False, "renewal_required"
     return True, "ok"
@@ -11274,6 +12101,17 @@ def student_subscribe(request):
                     _subscribe_ctx(request, user_id, plans, checkout_row, config_error=msg, error=error),
                 )
             auth_url = (pdata.get("authorization_url") or "").strip()
+            # Save reference to subscription row immediately so _reconcile_pending_subscription_from_paystack
+            # can activate the subscription at next login if the callback URL is never visited
+            # (e.g., session expired during payment, browser closed, mobile context switch).
+            paystack_ref = (pdata.get("reference") or "").strip()
+            if paystack_ref and checkout_row:
+                try:
+                    _supabase_admin().table("subscriptions").update({
+                        "payment_reference": paystack_ref,
+                    }).eq("id", str(checkout_row["id"])).eq("user_id", str(user_id)).execute()
+                except Exception:
+                    pass
             if auth_url:
                 return redirect(auth_url)
             return render(
@@ -11379,7 +12217,13 @@ def student_subscribe_success(request):
         if not sub_id:
             return redirect("/subscribe/?error=missing_subscription")
         pending = _get_active_subscription(user_id)
-        if not pending or str(pending.get("id")) != str(sub_id).strip():
+        if not pending:
+            return redirect("/subscribe/?error=forbidden")
+        # Subscription was already activated (e.g. reconcile ran at login after callback failed).
+        if pending.get("status") == "active":
+            request.session["plan_slug"] = (pending.get("plan_slug") or "standard")
+            return redirect("/dashboard/")
+        if str(pending.get("id")) != str(sub_id).strip():
             return redirect("/subscribe/?error=forbidden")
         amount_minor = int(data.get("amount") or 0)
         amount_paid = amount_minor / 100.0
@@ -11428,6 +12272,101 @@ def student_subscribe_cancel(request):
     if guard:
         return guard
     return redirect("/subscribe/?reason=cancelled")
+
+
+# ---------------------------------------------------------------------------
+# Paystack webhook — server-to-server payment notification
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+def paystack_webhook(request):
+    """
+    Receives Paystack server-to-server webhook events.
+    This is the most reliable activation path: fires even when the browser
+    callback URL is never reached (session expired, browser closed, HTTPS mismatch).
+
+    Register this URL in: Paystack Dashboard → Settings → Webhooks → Live/Test callback URL.
+    Set it to: https://yourdomain.com/paystack/webhook/
+    """
+    if request.method != "POST":
+        return HttpResponse(status=405)
+
+    secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
+    if not secret:
+        return HttpResponse(status=200)
+
+    import hmac as _hmac
+    import hashlib as _hashlib
+    signature = request.META.get("HTTP_X_PAYSTACK_SIGNATURE", "")
+    if not signature:
+        return HttpResponse(status=400)
+
+    computed = _hmac.new(
+        secret.encode("utf-8"),
+        request.body,
+        _hashlib.sha512,
+    ).hexdigest()
+
+    if not _hmac.compare_digest(computed, signature):
+        return HttpResponse(status=400)
+
+    try:
+        payload = json.loads(request.body)
+    except Exception:
+        return HttpResponse(status=400)
+
+    event = (payload.get("event") or "").strip()
+    if event != "charge.success":
+        return HttpResponse(status=200)
+
+    data = payload.get("data") or {}
+    if data.get("status") != "success":
+        return HttpResponse(status=200)
+
+    meta = data.get("metadata") or {}
+    user_id = (str(meta.get("user_id") or "")).strip()
+    sub_id = (str(meta.get("subscription_id") or "")).strip()
+    plan_slug = (str(meta.get("plan_slug") or "standard")).strip() or "standard"
+    amount_paid = float(int(data.get("amount") or 0)) / 100.0
+    reference = (data.get("reference") or "").strip()
+
+    if not user_id:
+        return HttpResponse(status=200)
+
+    try:
+        db = _supabase_admin()
+
+        if sub_id:
+            rows = (
+                db.table("subscriptions")
+                .select("id, status, user_id")
+                .eq("id", sub_id)
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+                .data or []
+            )
+            if rows and rows[0].get("status") == "active":
+                return HttpResponse(status=200)
+            if not rows:
+                sub_id = ""
+
+        if not sub_id:
+            sub = _get_active_subscription(user_id)
+            if not sub:
+                return HttpResponse(status=200)
+            if sub.get("status") == "active":
+                return HttpResponse(status=200)
+            sub_id = str(sub["id"])
+
+        _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "paystack_webhook: activation failed user_id=%s sub_id=%s", user_id, sub_id
+        )
+        return HttpResponse(status=500)
+
+    return HttpResponse(status=200)
 
 
 # ---------------------------------------------------------------------------

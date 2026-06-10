@@ -332,6 +332,85 @@
     .NursesEdge-top-brand:hover {
       opacity: 0.9;
     }
+    #layout-navbar,
+    #navbar-collapse,
+    .navbar-nav-right,
+    #dashboardSearchWrap {
+      overflow: visible !important;
+    }
+    #layout-navbar {
+      position: relative;
+      z-index: 1085;
+    }
+    #dashboardSearchWrap {
+      min-width: 0;
+    }
+    #dashboardSearchForm {
+      width: 100%;
+      margin: 0;
+    }
+    .dashboard-search-results {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      z-index: 1095;
+      background: #fff;
+      border: 1px solid #e4e6ef;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .dashboard-search-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 14px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      color: inherit;
+      text-decoration: none;
+    }
+    .dashboard-search-item:hover,
+    .dashboard-search-item.is-active {
+      background: #f4f6fb;
+    }
+    .dashboard-search-item + .dashboard-search-item {
+      border-top: 1px solid #f0f2f6;
+    }
+    .dashboard-search-item__icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: #eef2ff;
+      color: #5a5ce8;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 15px;
+    }
+    .dashboard-search-item__title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1f2d40;
+      line-height: 1.3;
+    }
+    .dashboard-search-item__sub {
+      font-size: 0.74rem;
+      color: #7b8599;
+      margin-top: 2px;
+    }
+    .dashboard-search-empty {
+      padding: 14px;
+      font-size: 0.82rem;
+      color: #7b8599;
+      text-align: center;
+    }
     .NursesEdge-top-brand-text {
       font-size: 1.125rem;
       letter-spacing: -0.02em;
@@ -825,10 +904,28 @@
 
           <div class="navbar-nav-right d-flex align-items-center flex-grow-1" id="navbar-collapse">
             <!-- Search -->
-            <div class="navbar-nav align-items-center">
-              <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
+            <div class="navbar-nav align-items-center flex-grow-1 me-2" style="max-width:420px;">
+              <div class="nav-item w-100 position-relative" id="dashboardSearchWrap">
+                <form id="dashboardSearchForm" role="search" autocomplete="off">
+                  <div class="d-flex align-items-center w-100">
+                    <i class="bx bx-search fs-4 lh-0 text-muted flex-shrink-0"></i>
+                    <input type="search"
+                           id="dashboardGlobalSearch"
+                           name="q"
+                           class="form-control border-0 shadow-none"
+                           placeholder="Search pages, drugs, notes…"
+                           aria-label="Search dashboard"
+                           autocomplete="off"
+                           role="combobox"
+                           aria-expanded="false"
+                           aria-controls="dashboardSearchResults"
+                           aria-autocomplete="list" />
+                  </div>
+                  <div id="dashboardSearchResults"
+                       class="dashboard-search-results d-none"
+                       role="listbox"
+                       aria-label="Search results"></div>
+                </form>
               </div>
             </div>
             <!-- /Search -->
@@ -858,6 +955,7 @@
                       </div>
                     </a>
                   </li>
+                  <li>
                     <a class="dropdown-item" href="/logout/">
                       <i class="bx bx-power-off me-2"></i>
                       <span class="align-middle">Log Out</span>
@@ -941,6 +1039,228 @@
       const el = document.getElementById('footer-year');
       if (el) el.textContent = new Date().getFullYear();
     })();
+  </script>
+  {{ dashboard_search_nav|json_script:"dashboardSearchNavData" }}
+  <script>
+  (function () {
+    function initDashboardSearch() {
+      var input = document.getElementById('dashboardGlobalSearch');
+      var panel = document.getElementById('dashboardSearchResults');
+      var wrap = document.getElementById('dashboardSearchWrap');
+      var form = document.getElementById('dashboardSearchForm');
+      if (!input || !panel || !wrap) return;
+
+      var navIndex = [];
+      try {
+        var dataEl = document.getElementById('dashboardSearchNavData');
+        if (dataEl && dataEl.textContent) {
+          navIndex = JSON.parse(dataEl.textContent);
+        }
+      } catch (e) {
+        navIndex = [];
+      }
+
+      var results = [];
+      var activeIndex = -1;
+      var debounceTimer = null;
+      var fetchCtrl = null;
+      var TYPE_ICONS = { page: 'bx-grid-alt', drug: 'bx-capsule', lecture: 'bx-book-open' };
+
+      function hidePanel() {
+        panel.classList.add('d-none');
+        panel.innerHTML = '';
+        input.setAttribute('aria-expanded', 'false');
+        results = [];
+        activeIndex = -1;
+      }
+
+      function matchScore(q, title, keywords) {
+        var ql = q.toLowerCase();
+        var hay = ((title || '') + ' ' + (keywords || '')).toLowerCase();
+        if (!ql) return 0;
+        if (hay.indexOf(ql) >= 0) return 100;
+        var words = ql.split(/\s+/).filter(function (w) { return w.length >= 2; });
+        if (words.length && words.every(function (w) { return hay.indexOf(w) >= 0; })) return 60;
+        if (words.length) {
+          var hits = words.filter(function (w) { return hay.indexOf(w) >= 0; }).length;
+          if (hits) return hits * 15;
+        }
+        return 0;
+      }
+
+      function localSearch(q) {
+        return navIndex.map(function (item) {
+          return {
+            type: 'page',
+            title: item.title,
+            subtitle: 'Dashboard page',
+            url: item.url,
+            _score: matchScore(q, item.title, item.keywords || ''),
+          };
+        }).filter(function (item) { return item._score > 0; })
+          .sort(function (a, b) { return b._score - a._score; })
+          .slice(0, 12);
+      }
+
+      function mergeResults(local, remote) {
+        var merged = [];
+        var seen = {};
+        function push(item) {
+          if (!item || !item.url || seen[item.url]) return;
+          seen[item.url] = true;
+          merged.push(item);
+        }
+        (local || []).forEach(push);
+        (remote || []).forEach(push);
+        return merged.slice(0, 12);
+      }
+
+      function setActive(idx) {
+        activeIndex = idx;
+        var items = panel.querySelectorAll('.dashboard-search-item');
+        for (var i = 0; i < items.length; i++) {
+          items[i].classList.toggle('is-active', i === activeIndex);
+        }
+        if (activeIndex >= 0 && items[activeIndex]) {
+          items[activeIndex].scrollIntoView({ block: 'nearest' });
+        }
+      }
+
+      function navigate(url) {
+        if (!url) return;
+        hidePanel();
+        window.location.assign(url);
+      }
+
+      function renderResults(items) {
+        results = (items || []).map(function (item) {
+          var copy = {
+            type: item.type || 'page',
+            title: item.title || '',
+            subtitle: item.subtitle || '',
+            url: item.url || '',
+          };
+          return copy;
+        });
+        if (!results.length) {
+          panel.innerHTML = '<div class="dashboard-search-empty">No results found</div>';
+          panel.classList.remove('d-none');
+          input.setAttribute('aria-expanded', 'true');
+          activeIndex = -1;
+          return;
+        }
+        panel.innerHTML = results.map(function (item, idx) {
+          var icon = TYPE_ICONS[item.type] || 'bx-search';
+          return (
+            '<button type="button" class="dashboard-search-item" data-idx="' + idx + '" role="option">' +
+              '<span class="dashboard-search-item__icon"><i class="bx ' + icon + '"></i></span>' +
+              '<span class="min-w-0">' +
+                '<div class="dashboard-search-item__title"></div>' +
+                '<div class="dashboard-search-item__sub"></div>' +
+              '</span>' +
+            '</button>'
+          );
+        }).join('');
+        panel.querySelectorAll('.dashboard-search-item').forEach(function (btn, idx) {
+          btn.querySelector('.dashboard-search-item__title').textContent = results[idx].title || '';
+          btn.querySelector('.dashboard-search-item__sub').textContent = results[idx].subtitle || '';
+          btn.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            navigate(results[idx].url);
+          });
+        });
+        panel.classList.remove('d-none');
+        input.setAttribute('aria-expanded', 'true');
+        setActive(0);
+      }
+
+      function runSearch() {
+        var q = input.value.trim();
+        if (q.length < 1) {
+          hidePanel();
+          return;
+        }
+        var local = localSearch(q);
+        renderResults(local);
+
+        if (fetchCtrl) fetchCtrl.abort();
+        fetchCtrl = new AbortController();
+        fetch('/dashboard/search/?q=' + encodeURIComponent(q), {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          signal: fetchCtrl.signal,
+        })
+          .then(function (res) {
+            if (!res.ok) return { results: local };
+            return res.json();
+          })
+          .then(function (data) {
+            var remote = (data && data.results) || [];
+            renderResults(mergeResults(local, remote));
+          })
+          .catch(function (err) {
+            if (err && err.name === 'AbortError') return;
+          });
+      }
+
+      input.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runSearch, 120);
+      });
+
+      input.addEventListener('focus', function () {
+        if (input.value.trim()) runSearch();
+      });
+
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          if (!results.length) {
+            runSearch();
+            return;
+          }
+          if (activeIndex >= 0 && results[activeIndex]) {
+            navigate(results[activeIndex].url);
+          } else if (results[0]) {
+            navigate(results[0].url);
+          }
+        });
+      }
+
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          hidePanel();
+          return;
+        }
+        if (!results.length) return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActive(Math.min(activeIndex + 1, results.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActive(Math.max(activeIndex - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (activeIndex >= 0 && results[activeIndex]) {
+            navigate(results[activeIndex].url);
+          } else if (results[0]) {
+            navigate(results[0].url);
+          }
+        }
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!wrap.contains(e.target)) hidePanel();
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDashboardSearch);
+    } else {
+      initDashboardSearch();
+    }
+  })();
   </script>
 
   {% if role != "admin" and not hide_assistant_bot %}
