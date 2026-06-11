@@ -42,6 +42,7 @@ urlpatterns = [
         name="complete_academic_profile",
     ),
     path("dashboard/ack-disclaimer/", views.dashboard_ack_nmc_disclaimer, name="dashboard_ack_nmc_disclaimer"),
+    path("dashboard/search/", views.dashboard_global_search, name="dashboard_global_search"),
     path("dashboard/nmc-mastery/", views.student_nmc_mastery, name="student_nmc_mastery"),
     path(
         "dashboard/clinical-visuals/",
@@ -116,6 +117,7 @@ urlpatterns = [
     path("subscribe/", views.student_subscribe, name="student_subscribe"),
     path("subscribe/success/", views.student_subscribe_success, name="student_subscribe_success"),
     path("subscribe/cancel/", views.student_subscribe_cancel, name="student_subscribe_cancel"),
+    path("paystack/webhook/", views.paystack_webhook, name="paystack_webhook"),
 
     # Community — Student
     path("dashboard/community/", views.community_home, name="community_home"),

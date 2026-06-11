@@ -43,7 +43,9 @@ class SingleSessionMiddleware:
 
         # Not logged in at all
         if not user_id or not session_token:
-            return redirect("/login/")
+            from urllib.parse import quote as _quote
+            next_path = request.get_full_path()
+            return redirect(f"/login/?next={_quote(next_path, safe='')}")
 
         # Validate session token against Supabase
         try:
@@ -57,12 +59,16 @@ class SingleSessionMiddleware:
             if row is None:
                 # No active session in DB – account was logged out elsewhere
                 request.session.flush()
-                return redirect("/login/?reason=session_expired")
+                from urllib.parse import quote as _quote
+                next_path = request.get_full_path()
+                return redirect(f"/login/?reason=session_expired&next={_quote(next_path, safe='')}")
 
             if row["session_token"] != session_token:
                 # A newer session exists (another device logged in)
                 request.session.flush()
-                return redirect("/login/?reason=session_expired")
+                from urllib.parse import quote as _quote
+                next_path = request.get_full_path()
+                return redirect(f"/login/?reason=session_expired&next={_quote(next_path, safe='')}")
 
         except Exception:
             # On any Supabase error, fail open (don't lock the user out)
@@ -126,6 +132,7 @@ class StudentSubscriptionGateMiddleware:
         "/dashboard/free-test/",
         "/dashboard/complete-academic-profile/",
         "/dashboard/ack-disclaimer/",
+        "/dashboard/search/",
     )
     _FREE_EXACT = {"/dashboard/", "/dashboard"}
 

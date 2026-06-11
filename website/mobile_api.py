@@ -254,7 +254,7 @@ def mobile_dashboard(request):
             mock_exam_count = (
                 admin.table("mock_exams")
                 .select("id", count="exact", head=True)
-                .eq("programme", programme)
+                .eq("programme", V.GLOBAL_MOCK_PROGRAMME)
                 .eq("is_published", True)
                 .execute()
                 .count
