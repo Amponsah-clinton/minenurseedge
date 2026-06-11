@@ -2,319 +2,187 @@
 {% block title %}Admin Dashboard - NursesEdge {% endblock %}
 
 {% block content %}
-<div class="row">
+<style>
+  .admin-dash { max-width: 1320px; margin: 0 auto; }
+  .admin-stat-card { height: 100%; border: 1px solid #e8ecf4; box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); }
+  .admin-stat-card .card-body { display: flex; flex-direction: column; min-height: 118px; }
+  .admin-stat-card h3 { font-size: 1.65rem; font-weight: 800; color: #1a1a2e; }
+  .admin-stat-card .stat-label { font-size: 0.82rem; font-weight: 600; color: #6b7280; }
+  .admin-stat-card .stat-meta { margin-top: auto; font-size: 0.75rem; font-weight: 600; }
+  .admin-welcome-card { border: 1px solid #e8ecf4; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05); height: 100%; }
+  .admin-section-title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8892a4;
+    margin: 0 0 12px;
+  }
+  .admin-ft-stat {
+    border: 1px solid #e8ecf4;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fafbfd;
+    height: 100%;
+  }
+  .admin-ft-stat h3 { font-size: 1.5rem; font-weight: 800; color: #1a1a2e; margin: 0; }
+</style>
 
-  <!-- Welcome card (col-lg-8) -->
-  <div class="col-lg-8 mb-4 order-0">
-    <div class="card">
-      <div class="d-flex align-items-end row">
-        <div class="col-sm-7">
-          <div class="card-body">
-            <h5 class="card-title text-primary">Welcome back, {{ full_name }}! 🎉</h5>
-            <p class="mb-4">
-              You have <span class="fw-bold">{{ total_students }}</span> registered student{{ total_students|pluralize }}
-              on NursesEdge . Keep growing the platform!
-            </p>
-            <a href="/admin-panel/users/" class="btn btn-sm btn-outline-primary">View Students</a>
-          </div>
-        </div>
-        <div class="col-sm-5 text-center text-sm-left">
-          <div class="card-body pb-0 px-0 px-md-4">
-            <img src="/sneat-assets/img/illustrations/man-with-laptop-light.png"
-                 height="140"
-                 alt="Admin illustration"
-                 data-app-dark-img="illustrations/man-with-laptop-dark.png"
-                 data-app-light-img="illustrations/man-with-laptop-light.png" />
+<div class="admin-dash">
+
+  {# ── Row 1: Welcome + Quick actions ─────────────────────────────────────── #}
+  <div class="row g-4 mb-4">
+    <div class="col-12 col-lg-5">
+      <div class="card admin-welcome-card">
+        <div class="card-body d-flex flex-column justify-content-center" style="min-height:220px;">
+          <h5 class="card-title text-primary mb-2">Welcome back, {{ full_name }}!</h5>
+          <p class="mb-4 text-muted" style="line-height:1.6;">
+            You have <strong class="text-body">{{ total_students }}</strong> registered student{{ total_students|pluralize }}
+            on NursesEdge. Keep growing the platform.
+          </p>
+          <div>
+            <a href="/admin-panel/users/" class="btn btn-sm btn-primary me-2">View Students</a>
+            <a href="/admin-panel/messages/" class="btn btn-sm btn-outline-secondary">Messages</a>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Stat cards (col-lg-4) -->
-  <div class="col-lg-4 col-md-4 order-1">
-    <div class="row">
-
-      <div class="col-lg-6 col-md-12 col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <img src="/sneat-assets/img/icons/unicons/chart-success.png" alt="Students" class="rounded" />
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="/admin-panel/users/">View All</a>
-                </div>
-              </div>
-            </div>
-            <span class="fw-semibold d-block mb-1">Students</span>
-            <h3 class="card-title mb-2">{{ total_students }}</h3>
-            <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> Registered</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-6 col-md-12 col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <img src="/sneat-assets/img/icons/unicons/wallet-info.png" alt="Messages" class="rounded" />
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="/admin-panel/messages/">View All</a>
-                </div>
-              </div>
-            </div>
-            <span>Messages</span>
-            <h3 class="card-title text-nowrap mb-1">{{ unread_messages }}</h3>
-            <small class="text-warning fw-semibold"><i class="bx bx-envelope"></i> Unread</small>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Second row: stat cards -->
-  <div class="col-12 col-md-8 col-lg-4 order-3 order-md-2">
-    <div class="row">
-
-      <div class="col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <img src="/sneat-assets/img/icons/unicons/paypal.png" alt="Total Accounts" class="rounded" />
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="/admin-panel/users/">View More</a>
-                </div>
-              </div>
-            </div>
-            <span class="d-block mb-1">Total Accounts</span>
-            <h3 class="card-title text-nowrap mb-2">{{ total_users }}</h3>
-            <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> All roles</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <img src="/sneat-assets/img/icons/unicons/cc-primary.png" alt="Questions" class="rounded" />
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="#">View More</a>
-                </div>
-              </div>
-            </div>
-            <span class="fw-semibold d-block mb-1">Questions</span>
-            <h3 class="card-title mb-2">—</h3>
-            <small class="text-muted fw-semibold">Coming soon</small>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Visit stat cards -->
-  <div class="col-12 col-md-4 col-lg-4 order-4 mb-4">
-    <div class="row">
-
-      <div class="col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-time-five"></i></span>
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="/admin-panel/users/">View Stats</a>
-                </div>
-              </div>
-            </div>
-            <span class="fw-semibold d-block mb-1">Visits (24 h)</span>
-            <h3 class="card-title mb-2">{{ visits_24h }}</h3>
-            <small class="text-info fw-semibold"><i class="bx bx-trending-up"></i> Page hits</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="card-title d-flex align-items-start justify-content-between">
-              <div class="avatar flex-shrink-0">
-                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-world"></i></span>
-              </div>
-              <div class="dropdown">
-                <button class="btn p-0" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <i class="bx bx-dots-vertical-rounded"></i>
-                </button>
-                <div class="dropdown-menu dropdown-menu-end">
-                  <a class="dropdown-item" href="/admin-panel/users/">View Stats</a>
-                </div>
-              </div>
-            </div>
-            <span class="fw-semibold d-block mb-1">Total Visits</span>
-            <h3 class="card-title mb-2">{{ total_visits }}</h3>
-            <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> All time</small>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Free Test Page Analytics -->
-  <div class="col-12 order-5 mb-4">
-    <div class="card">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <div>
-          <h5 class="m-0 me-2"><i class="bx bx-test-tube text-warning me-2"></i>Free Test Page Visitors</h5>
-          <small class="text-muted">Traffic to <code>/dashboard/free-test/</code></small>
-        </div>
-        <a href="/dashboard/free-test/" target="_blank" class="btn btn-sm btn-outline-warning">View Page</a>
-      </div>
-      <div class="card-body pt-3">
-        <div class="row g-3">
-
-          <div class="col-sm-4">
-            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-warning-rgb),.08)">
-              <div class="avatar me-3 flex-shrink-0">
-                <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-show fs-4"></i></span>
-              </div>
-              <div>
-                <p class="mb-0 text-muted small fw-semibold">Total Visits</p>
-                <h3 class="mb-0 fw-bold">{{ free_test_visits }}</h3>
-                <small class="text-warning fw-semibold"><i class="bx bx-infinite"></i> All time</small>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-sm-4">
-            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-info-rgb),.08)">
-              <div class="avatar me-3 flex-shrink-0">
-                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-time-five fs-4"></i></span>
-              </div>
-              <div>
-                <p class="mb-0 text-muted small fw-semibold">Visits (Last 24h)</p>
-                <h3 class="mb-0 fw-bold">{{ free_test_visits_24h }}</h3>
-                <small class="text-info fw-semibold"><i class="bx bx-trending-up"></i> Recent activity</small>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-sm-4">
-            <div class="d-flex align-items-center p-3 rounded" style="background:rgba(var(--bs-success-rgb),.08)">
-              <div class="avatar me-3 flex-shrink-0">
-                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-user fs-4"></i></span>
-              </div>
-              <div>
-                <p class="mb-0 text-muted small fw-semibold">Unique Visitors</p>
-                <h3 class="mb-0 fw-bold">{{ free_test_unique_visitors }}</h3>
-                <small class="text-success fw-semibold"><i class="bx bx-user-check"></i> By IP address</small>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick actions card -->
-  <div class="col-md-6 col-lg-8 order-2 order-md-3 order-lg-2 mb-4">
-    <div class="card">
-      <div class="card-header d-flex align-items-center justify-content-between pb-0">
-        <div class="card-title mb-0">
-          <h5 class="m-0 me-2">Quick Actions</h5>
-          <small class="text-muted">Manage your platform</small>
-        </div>
-      </div>
-      <div class="card-body">
-        <ul class="p-0 m-0">
-          <li class="d-flex mb-4 pb-1">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-user-check"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
+    <div class="col-12 col-lg-7">
+      <p class="admin-section-title">Quick actions</p>
+      <div class="card h-100" style="border:1px solid #e8ecf4;box-shadow:0 2px 8px rgba(15,23,42,.04);">
+        <div class="card-body py-3">
+          <ul class="p-0 m-0 list-unstyled">
+            <li class="d-flex align-items-center gap-3 py-3 border-bottom">
+              <span class="avatar-initial rounded bg-label-primary d-inline-flex align-items-center justify-content-center" style="width:40px;height:40px;font-size:18px;"><i class="bx bx-user-check"></i></span>
+              <div class="flex-grow-1 min-width-0">
                 <h6 class="mb-0">Registered Users</h6>
-                <small class="text-muted">View all student accounts</small>
+                <small class="text-muted">View and manage student accounts</small>
               </div>
-              <div>
-                <a href="/admin-panel/users/" class="btn btn-sm btn-outline-primary">View</a>
-              </div>
-            </div>
-          </li>
-          <li class="d-flex mb-4 pb-1">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-envelope"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
+              <a href="/admin-panel/users/" class="btn btn-sm btn-outline-primary flex-shrink-0">View</a>
+            </li>
+            <li class="d-flex align-items-center gap-3 py-3 border-bottom">
+              <span class="avatar-initial rounded bg-label-warning d-inline-flex align-items-center justify-content-center" style="width:40px;height:40px;font-size:18px;"><i class="bx bx-envelope"></i></span>
+              <div class="flex-grow-1 min-width-0">
                 <h6 class="mb-0">Contact Messages</h6>
-                <small class="text-muted">{{ unread_messages }} unread message{{ unread_messages|pluralize }}</small>
+                <small class="text-muted">{{ unread_messages }} unread</small>
               </div>
-              <div>
-                <a href="/admin-panel/messages/" class="btn btn-sm btn-outline-warning">View</a>
-              </div>
-            </div>
-          </li>
-          <li class="d-flex mb-4 pb-1">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-info"><i class="bx bx-book"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
+              <a href="/admin-panel/messages/" class="btn btn-sm btn-outline-warning flex-shrink-0">View</a>
+            </li>
+            <li class="d-flex align-items-center gap-3 py-3 border-bottom">
+              <span class="avatar-initial rounded bg-label-info d-inline-flex align-items-center justify-content-center" style="width:40px;height:40px;font-size:18px;"><i class="bx bx-book"></i></span>
+              <div class="flex-grow-1 min-width-0">
                 <h6 class="mb-0">Question Bank</h6>
-                <small class="text-muted">Add and manage questions</small>
+                <small class="text-muted">Upload and manage questions</small>
               </div>
-              <div>
-                <a href="#" class="btn btn-sm btn-outline-info">Manage</a>
-              </div>
-            </div>
-          </li>
-          <li class="d-flex">
-            <div class="avatar flex-shrink-0 me-3">
-              <span class="avatar-initial rounded bg-label-success"><i class="bx bx-credit-card"></i></span>
-            </div>
-            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-              <div class="me-2">
+              <a href="/admin-panel/manage-questions/" class="btn btn-sm btn-outline-info flex-shrink-0">Manage</a>
+            </li>
+            <li class="d-flex align-items-center gap-3 pt-3">
+              <span class="avatar-initial rounded bg-label-success d-inline-flex align-items-center justify-content-center" style="width:40px;height:40px;font-size:18px;"><i class="bx bx-credit-card"></i></span>
+              <div class="flex-grow-1 min-width-0">
                 <h6 class="mb-0">Payments</h6>
-                <small class="text-muted">Track subscriptions &amp; transactions</small>
+                <small class="text-muted">Subscriptions and transactions</small>
               </div>
-              <div>
-                <a href="#" class="btn btn-sm btn-outline-success">View</a>
-              </div>
-            </div>
-          </li>
-        </ul>
+              <a href="/admin-panel/payments/" class="btn btn-sm btn-outline-success flex-shrink-0">View</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Row 2: Platform stats (uniform 3×2 grid) ─────────────────────────────── #}
+  <p class="admin-section-title">Platform overview</p>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Students</span>
+          <h3 class="mb-1">{{ total_students }}</h3>
+          <small class="stat-meta text-success"><i class="bx bx-user"></i> Registered</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Unread messages</span>
+          <h3 class="mb-1">{{ unread_messages }}</h3>
+          <small class="stat-meta text-warning"><i class="bx bx-envelope"></i> Inbox</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Total accounts</span>
+          <h3 class="mb-1">{{ total_users }}</h3>
+          <small class="stat-meta text-success"><i class="bx bx-group"></i> All roles</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Visits (24 h)</span>
+          <h3 class="mb-1">{{ visits_24h }}</h3>
+          <small class="stat-meta text-info"><i class="bx bx-time-five"></i> Page hits</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Total visits</span>
+          <h3 class="mb-1">{{ total_visits }}</h3>
+          <small class="stat-meta text-success"><i class="bx bx-world"></i> All time</small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card admin-stat-card">
+        <div class="card-body">
+          <span class="stat-label d-block mb-1">Unique IPs (24 h)</span>
+          <h3 class="mb-1">{{ unique_ips_24h }}</h3>
+          <small class="stat-meta text-muted"><i class="bx bx-network-chart"></i> Distinct</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Row 3: Free test analytics ───────────────────────────────────────────── #}
+  <p class="admin-section-title">Free test page</p>
+  <div class="card mb-4" style="border:1px solid #e8ecf4;box-shadow:0 2px 8px rgba(15,23,42,.04);">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 bg-transparent border-bottom">
+      <div>
+        <h5 class="m-0 me-2"><i class="bx bx-test-tube me-2"></i>Free Test Visitors</h5>
+        <small class="text-muted">Traffic to <code>/dashboard/free-test/</code></small>
+      </div>
+      <a href="/dashboard/free-test/" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Open page</a>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-sm-4">
+          <div class="admin-ft-stat">
+            <p class="mb-1 text-muted small fw-semibold">Total visits</p>
+            <h3>{{ free_test_visits }}</h3>
+            <small class="text-muted fw-semibold">All time</small>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="admin-ft-stat">
+            <p class="mb-1 text-muted small fw-semibold">Visits (last 24 h)</p>
+            <h3>{{ free_test_visits_24h }}</h3>
+            <small class="text-muted fw-semibold">Recent activity</small>
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div class="admin-ft-stat">
+            <p class="mb-1 text-muted small fw-semibold">Unique visitors</p>
+            <h3>{{ free_test_unique_visitors }}</h3>
+            <small class="text-muted fw-semibold">By IP address</small>
+          </div>
+        </div>
       </div>
     </div>
   </div>
