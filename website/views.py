@@ -883,6 +883,134 @@ def _general_paper_row_ids_for_same_question(admin_client, question_text):
     return [r["id"] for r in rows if _is_general_paper(r.get("paper_title"))]
 
 
+def _question_bank_options_dict(options):
+    if isinstance(options, dict):
+        out = {}
+        for key, value in options.items():
+            clean_key = str(key).strip().upper()
+            if clean_key in {"A", "B", "C"} and str(value or "").strip():
+                out[clean_key] = str(value).strip()
+        return out
+    if isinstance(options, str):
+        raw = options.strip()
+        if not raw:
+            return {}
+        try:
+            return _question_bank_options_dict(json.loads(raw))
+        except Exception:
+            return {}
+    return {}
+
+
+def _question_bank_to_fix_json(row):
+    return {
+        "programme": (row.get("programme") or "").strip(),
+        "paper_title": (row.get("paper_title") or "").strip(),
+        "question_text": (row.get("question_text") or "").strip(),
+        "options": _question_bank_options_dict(row.get("options")),
+        "correct_option": (row.get("correct_option") or "").strip().upper(),
+        "explanation": (row.get("explanation") or "").strip(),
+    }
+
+
+REPORTED_QUESTION_JSON_SAMPLE = json.dumps(
+    {
+        "programme": "Nursing",
+        "paper_title": "Medical-Surgical Nursing",
+        "question_text": (
+            "A patient with type 1 diabetes mellitus reports dizziness and sweating. "
+            "What is the nurse's priority action?"
+        ),
+        "options": {
+            "A": "Administer rapid-acting insulin",
+            "B": "Check blood glucose level immediately",
+            "C": "Encourage increased oral fluid intake",
+        },
+        "correct_option": "B",
+        "explanation": (
+            "These symptoms suggest hypoglycemia. The priority is to check blood glucose "
+            "and treat low blood sugar per protocol."
+        ),
+    },
+    indent=2,
+    ensure_ascii=False,
+)
+
+
+def _apply_question_bank_update(admin_client, question_id, payload):
+    """Update one question_bank row (and General Paper siblings when applicable)."""
+    existing_rows = (
+        admin_client.table("question_bank")
+        .select("id, programme, paper_title, question_text")
+        .eq("id", question_id)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    existing_row = existing_rows[0] if existing_rows else None
+    if not existing_row:
+        raise ValueError("Question not found for update.")
+
+    old_pt = existing_row.get("paper_title") or ""
+    old_qt = (existing_row.get("question_text") or "").strip()
+    if _is_general_paper(old_pt) and not _is_general_paper(payload["paper_title"]):
+        raise ValueError(
+            "This item is shared across all programmes as General Paper. "
+            "Keep paper as General Paper, or delete it and create a programme-specific question."
+        )
+
+    update_body = {
+        "paper_title": payload["paper_title"],
+        "question_text": payload["question_text"],
+        "options": payload["options"],
+        "correct_option": payload["correct_option"],
+        "explanation": payload["explanation"],
+    }
+
+    if _is_general_paper(old_pt):
+        sibling_ids = _general_paper_row_ids_for_same_question(admin_client, old_qt)
+        if not sibling_ids:
+            sibling_ids = [question_id]
+        elif question_id not in sibling_ids:
+            sibling_ids = sibling_ids + [question_id]
+        for target_programme in PROGRAMME_NAMES:
+            if _has_duplicate_question(
+                admin_client,
+                target_programme,
+                payload["paper_title"],
+                payload["question_text"],
+                exclude_ids=sibling_ids,
+            ):
+                raise ValueError(
+                    "Update would create a duplicate General Paper question for one or more programmes."
+                )
+        admin_client.table("question_bank").update(update_body).in_("id", sibling_ids).execute()
+        n = len(sibling_ids)
+        return (
+            f"Question updated for all programmes ({n} copies)."
+            if n > 1
+            else "Question updated successfully."
+        )
+
+    target_programme = payload["programme"] or existing_row.get("programme", "")
+    if _has_duplicate_question(
+        admin_client,
+        target_programme,
+        payload["paper_title"],
+        payload["question_text"],
+        exclude_ids=[question_id],
+    ):
+        raise ValueError(
+            "Update would create a duplicate question for this programme and paper."
+        )
+    admin_client.table("question_bank").update({
+        **update_body,
+        "programme": target_programme,
+    }).eq("id", question_id).execute()
+    return "Question updated successfully."
+
+
 MANAGE_QUESTIONS_PER_PAGE = 25
 MANAGE_QUESTIONS_MAX_FETCH = 8000
 
@@ -8448,23 +8576,50 @@ def admin_reported_questions(request):
                 except Exception as exc:
                     error = str(exc)
 
-        elif action == "update_question":
+        elif action == "update_question_json":
             question_id = request.POST.get("question_id", "").strip()
-            report_id   = request.POST.get("report_id", "").strip()
-            if question_id:
-                payload        = {}
-                correct_option = request.POST.get("correct_option", "").strip().upper()
-                explanation    = request.POST.get("explanation", "").strip()
-                if correct_option in ("A", "B", "C"):
-                    payload["correct_option"] = correct_option
-                if explanation:
-                    payload["explanation"] = explanation
+            report_id = request.POST.get("report_id", "").strip()
+            json_payload = request.POST.get("json_payload", "").strip()
+            if not question_id:
+                error = "Question ID is required."
+            elif not json_payload:
+                error = "JSON payload is required."
+            else:
                 try:
-                    if payload:
-                        admin.table("question_bank").update(payload).eq("id", question_id).execute()
+                    parsed = json.loads(json_payload)
+                    if isinstance(parsed, list):
+                        if len(parsed) != 1:
+                            raise ValueError("Provide one question object, or a one-item array.")
+                        parsed = parsed[0]
+                    if not isinstance(parsed, dict):
+                        raise ValueError("JSON must be a single question object.")
+
+                    existing_rows = (
+                        admin.table("question_bank")
+                        .select("id, programme, paper_title, question_text, options, correct_option, explanation")
+                        .eq("id", question_id)
+                        .limit(1)
+                        .execute()
+                        .data
+                        or []
+                    )
+                    existing_row = existing_rows[0] if existing_rows else None
+                    if not existing_row:
+                        raise ValueError("Question not found for update.")
+
+                    merged = dict(parsed)
+                    if not (merged.get("programme") or "").strip():
+                        merged["programme"] = existing_row.get("programme") or ""
+                    if not (merged.get("paper_title") or "").strip():
+                        merged["paper_title"] = existing_row.get("paper_title") or ""
+                    if not (merged.get("question") or merged.get("question_text") or "").strip():
+                        merged["question_text"] = existing_row.get("question_text") or ""
+
+                    payload = _normalize_question_payload(merged)
+                    msg = _apply_question_bank_update(admin, question_id, payload)
                     if report_id:
                         admin.table("question_reports").update({"status": "resolved"}).eq("id", report_id).execute()
-                    success = "Question updated and report resolved."
+                    success = f"{msg} Report marked as resolved."
                 except Exception as exc:
                     error = str(exc)
 
@@ -8500,14 +8655,30 @@ def admin_reported_questions(request):
 
     for r in reports:
         qb = r.get("question_bank") or {}
-        r["student_name"]  = name_map.get(r.get("student_id"), "Unknown")
-        r["question_text"] = qb.get("question_text", "—")
-        r["paper_title"]   = qb.get("paper_title", "—")
-        r["programme"]     = qb.get("programme", "—")
-        r["correct_option"]= qb.get("correct_option", "—")
-        r["explanation"]   = qb.get("explanation") or ""
-        r["options"]       = qb.get("options") or {}
-        r["q_id"]          = qb.get("id") or r.get("question_id")
+        options_dict = _question_bank_options_dict(qb.get("options"))
+        qb_row = {
+            "id": qb.get("id") or r.get("question_id"),
+            "programme": qb.get("programme") or "",
+            "paper_title": qb.get("paper_title") or "",
+            "question_text": qb.get("question_text") or "",
+            "options": options_dict,
+            "correct_option": qb.get("correct_option") or "",
+            "explanation": qb.get("explanation") or "",
+        }
+        r["student_name"] = name_map.get(r.get("student_id"), "Unknown")
+        r["question_text"] = qb_row["question_text"] or "—"
+        r["paper_title"] = qb_row["paper_title"] or "—"
+        r["programme"] = qb_row["programme"] or "—"
+        r["correct_option"] = (qb_row["correct_option"] or "—").strip().upper()
+        r["explanation"] = qb_row["explanation"]
+        r["options"] = options_dict
+        r["options_ordered"] = [
+            (key, options_dict[key])
+            for key in ("A", "B", "C")
+            if key in options_dict
+        ]
+        r["q_id"] = qb_row["id"]
+        r["fix_json"] = json.dumps(_question_bank_to_fix_json(qb_row), indent=2, ensure_ascii=False)
 
     pending_count = sum(1 for r in reports if r.get("status") == "pending")
 
@@ -8520,6 +8691,7 @@ def admin_reported_questions(request):
         "pending_count": pending_count,
         "success":      success,
         "error":        error,
+        "reported_question_json_sample": REPORTED_QUESTION_JSON_SAMPLE,
     }
     return render(request, "dashboard/admin_reported_questions.html", context)
 
