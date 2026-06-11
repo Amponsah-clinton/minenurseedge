@@ -280,7 +280,210 @@
     font-weight: 700;
     font-size: 0.77rem;
   }
+
+  /* ── Welcome card ─────────────────────────────────────────────── */
+  .wc-card {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #dbeafe;
+    border-left: 4px solid #2563eb;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.07);
+    margin-bottom: 26px;
+    overflow: hidden;
+    animation: wc-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes wc-in {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .wc-card.is-hiding {
+    animation: wc-out 0.28s ease forwards;
+    pointer-events: none;
+  }
+  @keyframes wc-out {
+    to { opacity: 0; transform: translateY(-8px); }
+  }
+  .wc-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 20px 20px 0 22px;
+  }
+  .wc-left { display: flex; align-items: flex-start; gap: 14px; }
+  .wc-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .wc-greeting {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .wc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+    background: #f1f5f9;
+    color: #64748b;
+  }
+  .wc-chip--green { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+  .wc-chip--amber { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+  .wc-chip i { font-size: 12px; }
+  .wc-dismiss {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #f8fafc;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    flex-shrink: 0;
+    transition: background 0.12s;
+    line-height: 1;
+    padding: 0;
+  }
+  .wc-dismiss:hover { background: #f1f5f9; color: #475569; }
+  .wc-quote {
+    font-size: 0.9rem;
+    font-style: italic;
+    color: #475569;
+    line-height: 1.65;
+    margin: 14px 22px 0;
+    padding: 0;
+    border: 0;
+  }
+  .wc-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px 20px 16px;
+  }
+  .wc-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.815rem;
+    font-weight: 800;
+    color: #2563eb;
+    text-decoration: none;
+    letter-spacing: 0.005em;
+    transition: color 0.12s;
+  }
+  .wc-cta:hover { color: #1d4ed8; }
+  .wc-cta i { font-size: 19px; }
+  .wc-bar {
+    height: 3px;
+    background: #2563eb;
+    transform-origin: left;
+    transform: scaleX(1);
+    opacity: 0.35;
+  }
+  .wc-bar.is-running {
+    transition: transform linear;
+    transform: scaleX(0);
+  }
 </style>
+
+{% if show_welcome_card %}
+<div id="wcCard" class="wc-card" role="status" aria-live="polite" aria-label="Welcome message">
+  <div class="wc-top">
+    <div class="wc-left">
+      <span class="wc-icon" aria-hidden="true">
+        {% if welcome_time == "morning" %}<i class="bx bx-sun"></i>
+        {% elif welcome_time == "afternoon" %}<i class="bx bx-smile"></i>
+        {% else %}<i class="bx bx-moon"></i>{% endif %}
+      </span>
+      <div>
+        <p class="wc-greeting">Good {{ welcome_time }}, {{ welcome_first_name }}</p>
+        {% if sub_status == "active" %}
+          <span class="wc-chip wc-chip--green">
+            <i class="bx bx-check-circle"></i> Subscribed{% if days_remaining and days_remaining > 0 %} &middot; {{ days_remaining }} day{{ days_remaining|pluralize }} left{% endif %}
+          </span>
+        {% else %}
+          <span class="wc-chip wc-chip--amber">
+            <i class="bx bx-user"></i> Free access &middot; <a href="/subscribe/" style="color:inherit;font-weight:800;">Upgrade</a>
+          </span>
+        {% endif %}
+      </div>
+    </div>
+    <button class="wc-dismiss" type="button" id="wcClose" aria-label="Dismiss welcome message">
+      <i class="bx bx-x"></i>
+    </button>
+  </div>
+
+  <blockquote class="wc-quote">"{{ welcome_quote }}"</blockquote>
+
+  <div class="wc-footer">
+    {% if sub_status == "active" %}
+      <a href="/dashboard/general-tests/" class="wc-cta">
+        Start Practicing <i class="bx bx-right-arrow-alt"></i>
+      </a>
+    {% else %}
+      <a href="/dashboard/free-test/" class="wc-cta">
+        Try a Free Test <i class="bx bx-right-arrow-alt"></i>
+      </a>
+    {% endif %}
+  </div>
+
+  <div class="wc-bar" id="wcBar"></div>
+</div>
+<script>
+(function () {
+  var card     = document.getElementById('wcCard');
+  var bar      = document.getElementById('wcBar');
+  var closeBtn = document.getElementById('wcClose');
+  if (!card) return;
+
+  var DELAY = 10000; // 10 seconds
+
+  function dismiss() {
+    card.classList.add('is-hiding');
+    setTimeout(function () { card.style.display = 'none'; }, 290);
+  }
+
+  // Kick off the countdown bar
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      if (bar) {
+        bar.style.transitionDuration = DELAY + 'ms';
+        bar.classList.add('is-running');
+      }
+    });
+  });
+
+  var timer = setTimeout(dismiss, DELAY);
+
+  closeBtn.addEventListener('click', function () {
+    clearTimeout(timer);
+    dismiss();
+  });
+})();
+</script>
+{% endif %}
+
 {% if show_nmc_disclaimer %}
 {% csrf_token %}
 <div class="modal fade" id="nmcDisclaimerModal" tabindex="-1" aria-labelledby="nmcDisclaimerModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">

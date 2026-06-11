@@ -1998,6 +1998,7 @@ def login_page(request):
             if role == "admin":
                 return redirect("/admin-panel/dashboard/")
             if role == "student":
+                request.session["show_welcome_card"] = True
                 # Only show the Refer-a-Friend modal to users who have paid
                 if profile.get("subscription_status") == "active":
                     request.session["show_referral_prompt"] = True
@@ -3368,6 +3369,35 @@ def user_dashboard(request):
         except Exception:
             pass
 
+    # ── Welcome card (one-shot per login) ────────────────────────────────────
+    show_welcome_card = request.session.pop("show_welcome_card", False)
+    _WELCOME_QUOTES = [
+        "The nurse you want to become is built by the student you are right now.",
+        "Consistency beats intensity. Even 20 minutes of study today compounds into mastery.",
+        "Every question you practise today is one your future patients will benefit from.",
+        "Hard days are part of the journey. Today's effort is tomorrow's confidence.",
+        "Knowledge is the most powerful tool in any nurse's hands. Keep sharpening yours.",
+        "Progress is not always visible, but it is always happening. Trust the process.",
+        "You did not come this far to only come this far. Keep pushing.",
+        "Your future patients are counting on the nurse you are becoming today.",
+        "Each correct answer in practice is a wrong answer that will not happen in the ward.",
+        "Preparation today is confidence tomorrow. Open a session and start.",
+        "Champions in nursing do not wait to feel ready — they study until they are.",
+        "Small daily improvements lead to results you can barely imagine at the start.",
+        "The questions feel hard because you are growing. Lean into the challenge.",
+        "Recall under pressure is a skill built in the quiet hours before the exam.",
+        "Every hour you invest today is a debt you will never owe your future patients.",
+    ]
+    _welcome_quote = random.choice(_WELCOME_QUOTES)
+    _full_name = request.session.get("full_name", "Student")
+    _first_name = _full_name.split()[0] if _full_name else "Student"
+    _hour = datetime.now().hour
+    _welcome_time = (
+        "morning" if _hour < 12 else
+        "afternoon" if _hour < 17 else
+        "evening"
+    )
+
     show_nmc_disclaimer = False
     if request.session.get("role") != "admin":
         show_nmc_disclaimer = _student_needs_dashboard_nmc_disclaimer(request, user_id)
@@ -3414,6 +3444,10 @@ def user_dashboard(request):
         ),
         "referral_count": referral_count,
         "referral_earnings_total": referral_earnings_total,
+        "show_welcome_card": show_welcome_card,
+        "welcome_time": _welcome_time,
+        "welcome_first_name": _first_name,
+        "welcome_quote": _welcome_quote,
     }
     return render(request, "dashboard/user_dashboard.html", context)
 
