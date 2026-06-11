@@ -9387,11 +9387,12 @@ def admin_reported_questions(request):
                 except Exception as exc:
                     error = str(exc)
 
-    # Fetch all reports (latest first) with joined question data
+    # Pending reports only — resolved items leave this queue
     try:
         reports = (
             admin.table("question_reports")
             .select("*, question_bank(id, question_text, paper_title, programme, correct_option, explanation, options)")
+            .eq("status", "pending")
             .order("created_at", desc=True)
             .execute()
             .data
@@ -9444,15 +9445,13 @@ def admin_reported_questions(request):
         r["q_id"] = qb_row["id"]
         r["fix_json"] = json.dumps(_question_bank_to_fix_json(qb_row), indent=2, ensure_ascii=False)
 
-    pending_count = sum(1 for r in reports if r.get("status") == "pending")
-
     context = {
         "full_name":    request.session.get("full_name", "Admin"),
         "email":        request.session.get("email", ""),
         "role":         "admin",
         "active_page":  "reported_questions",
         "reports":      reports,
-        "pending_count": pending_count,
+        "pending_count": len(reports),
         "success":      success,
         "error":        error,
         "reported_question_json_sample": REPORTED_QUESTION_JSON_SAMPLE,

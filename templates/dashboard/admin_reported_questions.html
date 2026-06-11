@@ -3,9 +3,7 @@
 
 {% block content %}
 <style>
-  .rq-card { border-radius: 14px; overflow: hidden; }
-  .rq-card.is-pending { border: 2px solid #f0c040; }
-  .rq-card.is-resolved { border: 1px solid #e4e8f0; opacity: 0.88; }
+  .rq-card { border-radius: 14px; overflow: hidden; border: 2px solid #f0c040; }
 
   .rq-question-box {
     background: #f8f9fc;
@@ -128,9 +126,8 @@
           </p>
         </div>
         <div class="text-muted small">
-          <span class="badge bg-danger me-1">{{ pending_count }}</span> pending
-          &nbsp;·&nbsp;
-          <span class="fw-semibold text-body">{{ reports|length }}</span> total
+          <span class="badge bg-danger">{{ pending_count }}</span>
+          <span class="ms-1">awaiting review</span>
         </div>
       </div>
     </div>
@@ -163,23 +160,20 @@
 {% if reports %}
 <div class="d-flex flex-column gap-3">
   {% for r in reports %}
-  <div class="card rq-card {% if r.status == 'pending' %}is-pending{% else %}is-resolved{% endif %}">
+  <div class="card rq-card">
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 py-2">
       <div class="d-flex align-items-center gap-2 flex-wrap">
-        {% if r.status == 'pending' %}
         <span class="badge bg-warning text-dark">Pending</span>
-        {% else %}
-        <span class="badge bg-success">Resolved</span>
-        {% endif %}
         <span class="small text-muted">{{ r.programme }} &middot; {{ r.paper_title }}</span>
         <span class="small text-muted">Reported by <strong>{{ r.student_name }}</strong></span>
         <span class="small text-muted">{{ r.created_at|slice:":16"|cut:"T" }}</span>
       </div>
       <div class="d-flex gap-2 flex-wrap">
-        {% if r.status == 'pending' and r.q_id %}
+        {% if r.q_id %}
         <button type="button" class="btn btn-sm btn-primary rq-fix-btn" data-report-id="{{ r.id }}">
           <i class="bx bx-code-alt me-1"></i>Fix with JSON
         </button>
+        {% endif %}
         <form method="post" class="d-inline"
               onsubmit="return confirm('Mark this report as resolved without editing the question?');">
           {% csrf_token %}
@@ -189,7 +183,6 @@
             <i class="bx bx-check me-1"></i>Resolve only
           </button>
         </form>
-        {% endif %}
       </div>
     </div>
 
@@ -256,8 +249,8 @@
 <div class="card">
   <div class="card-body text-center text-muted py-5">
     <i class="bx bx-check-shield fs-1 mb-3 d-block text-success"></i>
-    <h5>No reported questions yet</h5>
-    <p class="mb-0">Students will report questions here when they spot errors.</p>
+    <h5>All caught up</h5>
+    <p class="mb-0">No pending reports. Resolved items are removed from this queue.</p>
   </div>
 </div>
 {% endif %}
