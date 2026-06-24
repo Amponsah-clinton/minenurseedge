@@ -658,6 +658,14 @@ def _create_session(request, user_id, email, full_name, role):
         "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
     }).execute()
 
+    # Stamp last_login_at on the profile row so it persists even after session ends
+    try:
+        admin.table("profiles").update({
+            "last_login_at": datetime.now(timezone.utc).isoformat()
+        }).eq("id", user_id).execute()
+    except Exception:
+        pass
+
     # Store in Django session
     request.session.flush()
     request.session["user_id"] = user_id
@@ -4061,6 +4069,26 @@ def admin_users(request):
             user["programme_initial"] = PROGRAMME_INITIALS.get(programme, programme or "—")
     except Exception:
         users = []
+
+    # Fetch active sessions — used as a fallback source for last-login time on users
+    # whose profiles.last_login_at has not been populated yet (pre-migration users)
+    try:
+        sessions_data = admin.table("active_sessions").select("user_id, created_at").execute().data or []
+        sessions_map = {str(row["user_id"]): row["created_at"] for row in sessions_data}
+    except Exception:
+        sessions_map = {}
+
+    for user in users:
+        uid = str(user.get("id", ""))
+        raw = user.get("last_login_at") or sessions_map.get(uid)
+        if raw:
+            try:
+                dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                user["last_login_display"] = dt.strftime("%d %b %Y, %H:%M") + " UTC"
+            except Exception:
+                user["last_login_display"] = raw[:16]
+        else:
+            user["last_login_display"] = None
 
     # Classify users into paid vs unpaid in one batch (no per-user queries)
     paid_users = []

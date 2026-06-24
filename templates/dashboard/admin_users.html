@@ -144,6 +144,7 @@
                   <th>Year</th>
                   <th>School / Institution</th>
                   <th>Registered</th>
+                  <th>Last Login</th>
                   <th>Payment</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -176,6 +177,13 @@
                     <td>{{ user.year_of_study|default:"—"|title }}</td>
                     <td>{{ user.school|default:"—" }}</td>
                     <td>{{ user.created_at|slice:":10" }}</td>
+                    <td>
+                      {% if user.last_login_display %}
+                        <span class="text-nowrap small">{{ user.last_login_display }}</span>
+                      {% else %}
+                        <span class="text-muted small">Never</span>
+                      {% endif %}
+                    </td>
                     <td><span class="badge {{ user.payment_badge }}">{{ user.payment_label }}</span></td>
                     <td>
                       {% if user.is_active %}
@@ -220,7 +228,7 @@
                   {% endfor %}
                 {% else %}
                   <tr>
-                    <td colspan="11" class="text-center py-5">
+                    <td colspan="12" class="text-center py-5">
                       <div class="d-flex flex-column align-items-center gap-2 text-muted">
                         <i class="bx bx-credit-card-front" style="font-size:40px;"></i>
                         <span>No paid students yet.</span>
@@ -253,6 +261,7 @@
                   <th>Year</th>
                   <th>School / Institution</th>
                   <th>Registered</th>
+                  <th>Last Login</th>
                   <th>Payment</th>
                   <th>Status</th>
                   <th>Actions</th>
@@ -285,6 +294,13 @@
                     <td>{{ user.year_of_study|default:"—"|title }}</td>
                     <td>{{ user.school|default:"—" }}</td>
                     <td>{{ user.created_at|slice:":10" }}</td>
+                    <td>
+                      {% if user.last_login_display %}
+                        <span class="text-nowrap small">{{ user.last_login_display }}</span>
+                      {% else %}
+                        <span class="text-muted small">Never</span>
+                      {% endif %}
+                    </td>
                     <td><span class="badge {{ user.payment_badge }}">{{ user.payment_label }}</span></td>
                     <td>
                       {% if user.is_active %}
@@ -329,7 +345,7 @@
                   {% endfor %}
                 {% else %}
                   <tr>
-                    <td colspan="11" class="text-center py-5">
+                    <td colspan="12" class="text-center py-5">
                       <div class="d-flex flex-column align-items-center gap-2 text-muted">
                         <i class="bx bx-party" style="font-size:40px;"></i>
                         <span>All registered students have paid.</span>
