@@ -2031,9 +2031,14 @@ def login_page(request):
             return redirect("/dashboard/")
 
         except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).exception("Login error for %s", email)
             msg = str(exc).lower()
             if "invalid" in msg or "credentials" in msg or "not found" in msg:
                 return render(request, "login.html", {"error": "Invalid email or password."})
+            from django.conf import settings as _s
+            if getattr(_s, "DEBUG", False):
+                return render(request, "login.html", {"error": f"Login error (debug): {exc}"})
             return render(request, "login.html", {"error": "Login failed. Please try again."})
 
     reason = request.GET.get("reason", "")
@@ -11547,7 +11552,7 @@ def _ensure_plan_defaults():
             db.table("subscription_plans").insert({
                 "slug": "standard", "name": "Annual Access",
                 "tagline": "Full access to all nursesedge  features",
-                "price": 50.0, "currency": "GHS", "duration_days": 365,
+                "price": 60.0, "currency": "GHS", "duration_days": 365,
                 "is_active": True, "features": [], "payment_instructions": "",
                 "updated_at": now,
             }).execute()
@@ -11570,7 +11575,7 @@ def _get_plans():
             "slug": "standard",
             "name": base.get("name") or "Annual Access",
             "tagline": base.get("tagline") or "Full access to all nursesedge  features",
-            "price": float(base.get("price") or 50.0),
+            "price": float(base.get("price") or 60.0),
             "currency": base.get("currency") or "GHS",
             "duration_days": int(base.get("duration_days") or 365),
             "is_active": True,
@@ -11588,7 +11593,7 @@ def _get_plans():
         }
     except Exception:
         standard = {
-            "slug": "standard", "name": "Annual Access", "price": 50, "currency": "GHS",
+            "slug": "standard", "name": "Annual Access", "price": 60, "currency": "GHS",
             "tagline": "Full access to all nursesedge  features",
             "features": ["Competitive Quizzes"], "payment_instructions": "", "duration_days": 365,
         }

@@ -38,7 +38,7 @@
 <div class="sub-wrap">
   <div class="sub-head">
     <h4>Unlock Full Access</h4>
-    <p>Get unlimited General Tests, Mock Exams, Lecture Notes, Flashcards, Drug Cards, NCLEX Questions, and the AI Study Assistant — everything you need to ace the NMC Licensure Exam. GHS {{ standard.price|default:"50" }} / {{ standard.duration_days|default:365 }} days.</p>
+    <p>Get unlimited General Tests, Mock Exams, Lecture Notes, Flashcards, Drug Cards, NCLEX Questions, and the AI Study Assistant — everything you need to ace the NMC Licensure Exam. GHS {{ standard.price|default:"60" }} / {{ standard.duration_days|default:365 }} days.</p>
   </div>
 
   {% if request.GET.reason == 'payment_required' %}
@@ -76,7 +76,7 @@
           <input type="radio" name="plan_slug" value="standard" checked>
           <span class="plan-badge plan-badge-standard">Annual Access</span>
           <div class="plan-name">{{ standard.name|default:"Annual Access" }}</div>
-          <div class="plan-price">GHS {{ standard.price|default:"50" }}<small> / {{ standard.duration_days|default:365 }} days</small></div>
+          <div class="plan-price">GHS {{ standard.price|default:"60" }}<small> / {{ standard.duration_days|default:365 }} days</small></div>
         </label>
       </div>
       <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
@@ -105,7 +105,7 @@
         <h5 class="modal-title">Renewal Required</h5>
       </div>
       <div class="modal-body">
-        Your subscription has ended. Renew with <strong>GHS {{ standard.price|default:"50" }} / {{ standard.duration_days|default:365 }} days</strong> to continue using dashboard features.
+        Your subscription has ended. Renew with <strong>GHS {{ standard.price|default:"60" }} / {{ standard.duration_days|default:365 }} days</strong> to continue using dashboard features.
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Renew Now</button>
