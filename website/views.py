@@ -6706,17 +6706,25 @@ def student_nclex_questions(request):
     unread_count = _student_unread_count(user_id)
 
     try:
-        questions = (
-            admin.table("nclex_questions")
-            .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
-            .eq("is_active", True)
-            .order("display_order", desc=False)
-            .order("created_at", desc=True)
-            .limit(2000)
-            .execute()
-            .data
-            or []
-        )
+        questions = []
+        _chunk = 1000
+        _offset = 0
+        while True:
+            _rows = (
+                admin.table("nclex_questions")
+                .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
+                .eq("is_active", True)
+                .order("display_order", desc=False)
+                .order("created_at", desc=True)
+                .range(_offset, _offset + _chunk - 1)
+                .execute()
+                .data
+                or []
+            )
+            questions.extend(_rows)
+            if len(_rows) < _chunk:
+                break
+            _offset += _chunk
     except Exception:
         questions = []
 
@@ -6857,17 +6865,25 @@ def student_nclex_test(request):
     unread_count = _student_unread_count(user_id)
 
     try:
-        questions = (
-            admin.table("nclex_questions")
-            .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
-            .eq("is_active", True)
-            .order("display_order", desc=False)
-            .order("created_at", desc=True)
-            .limit(2000)
-            .execute()
-            .data
-            or []
-        )
+        questions = []
+        _chunk = 1000
+        _offset = 0
+        while True:
+            _rows = (
+                admin.table("nclex_questions")
+                .select("id, question_type, question_text, options, correct_answers, rationale, difficulty, display_order")
+                .eq("is_active", True)
+                .order("display_order", desc=False)
+                .order("created_at", desc=True)
+                .range(_offset, _offset + _chunk - 1)
+                .execute()
+                .data
+                or []
+            )
+            questions.extend(_rows)
+            if len(_rows) < _chunk:
+                break
+            _offset += _chunk
     except Exception:
         questions = []
 
