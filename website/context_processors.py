@@ -26,10 +26,12 @@ def page_states(request):
     return {"page_states": {}}
 
 
-def bytez_key(request):
-    # Exposed to the browser so the assistant can call Bytez directly.
-    # Make sure you use the correct Bytez key for your environment.
-    return {"bytez_api_key": getattr(settings, "BYTEZ_API_KEY", "")}
+def gemini_key(request):
+    return {"gemini_api_key": getattr(settings, "GEMINI_API_KEY", "")}
+
+
+def groq_key(request):
+    return {"groq_api_key": getattr(settings, "GROQ_API_KEY", "")}
 
 
 def academic_profile_gate(request):

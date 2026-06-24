@@ -101,7 +101,8 @@ TEMPLATES = [
                 "website.context_processors.default_app_font_size",
                 "website.context_processors.user_permissions",
                 "website.context_processors.page_states",
-                "website.context_processors.bytez_key",
+                "website.context_processors.gemini_key",
+                "website.context_processors.groq_key",
                 "website.context_processors.reported_questions_badge",
                 "website.context_processors.academic_profile_gate",
                 "website.context_processors.subscription_status_ctx",
@@ -130,7 +131,8 @@ SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY", "")
 SUPABASE_PROJECT_ID = os.getenv("SUPABASE_PROJECT_ID", "")
 SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "project-files")
 
-BYTEZ_API_KEY = os.getenv("BYTEZ_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GROQ_API_KEY   = os.getenv("GROQ_API_KEY", "")
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()

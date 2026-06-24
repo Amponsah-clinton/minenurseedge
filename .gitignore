@@ -1,0 +1,26 @@
+# Secrets — never commit
+.env
+.env.*
+*.env
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Django
+db.sqlite3
+*.log
+staticfiles/
+media/
+
+# OS
+.DS_Store
+Thumbs.db
