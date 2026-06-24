@@ -1288,7 +1288,10 @@
   <button id="chatbot-toggle-btn" aria-label="Open AI Assistant">🤖</button>
   <div class="chatbot-popup" id="chatbot-popup">
     <div class="chat-header">
-      <span>🤖 NursesEdge AI Assistant</span>
+      <span class="chat-header-info">
+        <span class="chat-status-dot"></span>
+        🤖 NursesEdge AI Assistant
+      </span>
       <button id="close-btn" aria-label="Close">&times;</button>
     </div>
     <div id="chat-box">
@@ -1821,15 +1824,15 @@
 
       if (toggleBtn) {
         toggleBtn.addEventListener('click', function () {
-          popup.style.display = popup.style.display === 'block' ? 'none' : 'block';
-          if (popup.style.display === 'block' && inputEl) {
-            try { inputEl.focus(); } catch (_) {}
+          popup.classList.toggle('is-open');
+          if (popup.classList.contains('is-open') && inputEl) {
+            try { setTimeout(function(){ inputEl.focus(); }, 80); } catch (_) {}
           }
         });
       }
       if (closeBtn) {
         closeBtn.addEventListener('click', function () {
-          popup.style.display = 'none';
+          popup.classList.remove('is-open');
         });
       }
 

@@ -137,6 +137,100 @@
                 line-height: 1.28 !important;
             }
         }
+        /* ── Disclaimer Section ── */
+        .ne-disclaimer-section {
+            padding: 52px 0 44px;
+            background: #f4f6f9;
+        }
+        .ne-disclaimer-card {
+            max-width: 980px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 34px 36px;
+            display: flex;
+            gap: 28px;
+            align-items: flex-start;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+        }
+        .ne-disclaimer-icon-col {
+            flex-shrink: 0;
+        }
+        .ne-disclaimer-icon-wrap {
+            width: 52px;
+            height: 52px;
+            border-radius: 13px;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ne-disclaimer-icon-wrap .fa {
+            font-size: 22px;
+            color: #d97706;
+        }
+        .ne-disclaimer-body {
+            flex: 1;
+            min-width: 0;
+        }
+        .ne-disclaimer-badge {
+            display: inline-block;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #92400e;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 999px;
+            padding: 3px 11px;
+            margin-bottom: 10px;
+        }
+        .ne-disclaimer-title {
+            margin: 0 0 10px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #111827;
+            line-height: 1.35;
+            text-transform: none;
+        }
+        .ne-disclaimer-text {
+            margin: 0 0 18px;
+            font-size: 15px;
+            line-height: 1.78;
+            color: #374151;
+        }
+        .ne-disclaimer-points {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .ne-disclaimer-point {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 13.5px;
+            color: #4b5563;
+            line-height: 1.55;
+        }
+        .ne-disclaimer-point .fa {
+            color: #d97706;
+            font-size: 14px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+        @media only screen and (max-width: 767px) {
+            .ne-disclaimer-card {
+                flex-direction: column;
+                gap: 18px;
+                padding: 24px 20px;
+                border-left-width: 4px;
+            }
+            .ne-disclaimer-title { font-size: 16px; }
+            .ne-disclaimer-text { font-size: 14px; }
+        }
         /* Hero tagline: namari-color.css is linked after style.css, so its #banner h2 was
            undoing responsive type and shadow — tagline looked unstyled vs the headline. */
         #banner .section-heading h2.banner-tagline::after {
@@ -462,6 +556,284 @@
             .landing-nclex-title { font-size: 23px; }
             .pricing-feature-list { grid-template-columns: 1fr; }
         }
+        /* ── NursesEdge Footer ── */
+        .ne-footer {
+            background: #010729;
+            font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+            /* index.html has no #wrapper margin, so just ensure full bleed */
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .ne-footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 64px 48px 48px;
+            display: grid;
+            grid-template-columns: 2.2fr 1fr 1fr 1fr;
+            gap: 40px 36px;
+        }
+        .ne-footer-logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 16px;
+        }
+        .ne-footer-logo-img {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        .ne-footer-logo-text {
+            font-size: 20px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: -0.4px;
+            font-family: 'Montserrat', 'Lato', sans-serif;
+        }
+        .ne-footer-tagline {
+            font-size: 14px;
+            line-height: 1.75;
+            color: #b0bec5;
+            margin: 0 0 24px;
+            max-width: 280px;
+            font-weight: 400;
+        }
+        .ne-footer-socials { display: flex; gap: 10px; }
+        .ne-social-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #c8d6e5;
+            font-size: 17px;
+            text-decoration: none;
+            transition: background 0.22s ease, color 0.22s ease,
+                        border-color 0.22s ease, transform 0.18s ease;
+        }
+        .ne-social-btn:hover {
+            background: #4a9eff;
+            border-color: #4a9eff;
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+        .ne-footer-heading {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #ffffff;
+            margin: 0 0 20px;
+            font-family: 'Montserrat', 'Lato', sans-serif;
+        }
+        .ne-footer-links {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+        }
+        .ne-footer-links a {
+            font-size: 14.5px;
+            color: #b0bec5;
+            text-decoration: none;
+            font-weight: 400;
+            transition: color 0.2s ease;
+        }
+        .ne-footer-links a:hover { color: #ffffff; }
+        .ne-footer-disclaimer-note {
+            margin: 20px 0 0;
+            font-size: 12.5px;
+            line-height: 1.65;
+            color: #90a4ae;
+        }
+        .ne-footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.09);
+            padding: 20px 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            font-size: 13px;
+            color: #90a4ae;
+            font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+        }
+        .ne-footer-sep { color: rgba(255,255,255,0.2); }
+        @media (max-width: 960px) {
+            .ne-footer-inner { grid-template-columns: 1fr 1fr; padding: 48px 32px 36px; gap: 32px 24px; }
+            .ne-footer-brand { grid-column: 1 / -1; }
+            .ne-footer-bottom { padding: 18px 32px; }
+        }
+        @media (max-width: 540px) {
+            .ne-footer-inner { grid-template-columns: 1fr; padding: 36px 24px 28px; }
+            .ne-footer-bottom { padding: 16px 24px; font-size: 12.5px; }
+        }
+        /* ── Stats Section ── */
+        .ne-stats-section {
+            position: relative;
+            padding: 82px 0 74px;
+            background: #0a1628;
+            overflow: hidden;
+        }
+        .ne-stats-section::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.028) 1px, transparent 1px);
+            background-size: 26px 26px;
+            pointer-events: none;
+        }
+        .ne-stats-section::after {
+            content: "";
+            position: absolute;
+            top: -120px;
+            left: -120px;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: rgba(74,158,255,0.06);
+            filter: blur(60px);
+            pointer-events: none;
+        }
+        .ne-stats-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 28px;
+        }
+        .ne-stats-header {
+            text-align: center;
+            margin-bottom: 54px;
+        }
+        .ne-stats-eyebrow {
+            margin: 0 0 12px;
+            font-size: 11.5px;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: #4a9eff;
+            text-transform: uppercase;
+        }
+        .ne-stats-title {
+            margin: 0;
+            font-size: 30px;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.3;
+        }
+        .ne-stats-title span { color: #4a9eff; }
+        .ne-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 22px;
+        }
+        .ne-stat-card {
+            position: relative;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 38px 22px 32px;
+            text-align: center;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease,
+                        background 0.3s ease, border-color 0.3s ease;
+        }
+        /* inner ambient glow */
+        .ne-stat-card::after {
+            content: "";
+            position: absolute;
+            top: -40px; left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(74,158,255,0.08);
+            filter: blur(28px);
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .ne-stat-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 24px 52px rgba(74,158,255,0.18),
+                        0 8px 24px rgba(0,0,0,0.32);
+            background: rgba(74,158,255,0.07);
+            border-color: rgba(74,158,255,0.25);
+        }
+        .ne-stat-icon-wrap {
+            width: 54px;
+            height: 54px;
+            border-radius: 15px;
+            background: rgba(74,158,255,0.1);
+            border: 1px solid rgba(74,158,255,0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 22px;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        .ne-stat-card:hover .ne-stat-icon-wrap {
+            background: rgba(74,158,255,0.2);
+            box-shadow: 0 0 22px rgba(74,158,255,0.28);
+        }
+        .ne-stat-icon-wrap .fa {
+            font-size: 22px;
+            color: #4a9eff;
+        }
+        .ne-stat-number-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 2px;
+            margin-bottom: 11px;
+        }
+        .ne-stat-number {
+            font-size: 52px;
+            font-weight: 900;
+            color: #ffffff;
+            line-height: 1;
+            letter-spacing: -2px;
+            font-family: 'Montserrat', 'Poppins', sans-serif;
+            text-shadow: 0 0 36px rgba(74,158,255,0.35);
+        }
+        .ne-stat-suffix {
+            font-size: 28px;
+            font-weight: 900;
+            color: #4a9eff;
+            line-height: 1;
+            margin-top: 6px;
+        }
+        .ne-stat-label {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #7a94b4;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .ne-stat-divider {
+            width: 36px;
+            height: 2px;
+            background: rgba(74,158,255,0.3);
+            border-radius: 2px;
+            margin: 10px auto 11px;
+        }
+        @media only screen and (max-width: 900px) {
+            .ne-stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media only screen and (max-width: 540px) {
+            .ne-stats-section { padding: 52px 0 46px; }
+            .ne-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+            .ne-stats-title { font-size: 22px; }
+            .ne-stat-number { font-size: 40px; }
+            .ne-stat-card { padding: 28px 14px 24px; }
+        }
     </style>
 </head>
 <body>
@@ -689,6 +1061,60 @@
             </div>
         </section>
 
+        <!-- Stats Section -->
+        <section id="ne-stats" class="ne-stats-section" aria-label="NursesEdge platform statistics">
+            <div class="ne-stats-container">
+                <div class="ne-stats-header wow fadeInUp" data-wow-delay="0.1s">
+                    <p class="ne-stats-eyebrow">By the Numbers</p>
+                    <h2 class="ne-stats-title">Trusted by nursing students <span>across Ghana</span></h2>
+                </div>
+                <div class="ne-stats-grid">
+
+                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.15s">
+                        <div class="ne-stat-icon-wrap"><i class="fa fa-user-md" aria-hidden="true"></i></div>
+                        <div class="ne-stat-number-row">
+                            <span class="ne-stat-number" data-target="{{ stat_students|default:220 }}">0</span>
+                            <span class="ne-stat-suffix">+</span>
+                        </div>
+                        <div class="ne-stat-divider"></div>
+                        <div class="ne-stat-label">Active Students</div>
+                    </div>
+
+                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.25s">
+                        <div class="ne-stat-icon-wrap"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></div>
+                        <div class="ne-stat-number-row">
+                            <span class="ne-stat-number" data-target="{{ stat_questions|default:0 }}">0</span>
+                            <span class="ne-stat-suffix">+</span>
+                        </div>
+                        <div class="ne-stat-divider"></div>
+                        <div class="ne-stat-label">Practice Questions</div>
+                    </div>
+
+                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.35s">
+                        <div class="ne-stat-icon-wrap"><i class="fa fa-trophy" aria-hidden="true"></i></div>
+                        <div class="ne-stat-number-row">
+                            <span class="ne-stat-number" data-target="95">0</span>
+                            <span class="ne-stat-suffix">%</span>
+                        </div>
+                        <div class="ne-stat-divider"></div>
+                        <div class="ne-stat-label">Student Pass Rate</div>
+                    </div>
+
+                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.45s">
+                        <div class="ne-stat-icon-wrap"><i class="fa fa-book" aria-hidden="true"></i></div>
+                        <div class="ne-stat-number-row">
+                            <span class="ne-stat-number" data-target="120">0</span>
+                            <span class="ne-stat-suffix">+</span>
+                        </div>
+                        <div class="ne-stat-divider"></div>
+                        <div class="ne-stat-label">Topics Covered</div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+        <!-- End Stats Section -->
+
         <section class="florence-quote-section scrollto clearfix" aria-label="Florence Nightingale quotes">
             <div class="row clearfix">
                 <div class="col-1">
@@ -831,18 +1257,36 @@
         </aside>
         <!--End of Testimonials-->
 
-    <section class="landing-disclaimer-wrap">
+    <section class="ne-disclaimer-section">
         <div class="row clearfix">
             <div class="col-1">
-                <div class="landing-disclaimer-card wow fadeInUp" data-wow-delay="0.2s">
-                    <h3 class="landing-disclaimer-title">
-                        <span class="landing-disclaimer-icon"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i></span>
-                        Important Disclaimer
-                    </h3>
-                    <p class="landing-disclaimer-text">
-                        nursesedge  is an independent platform and is not affiliated with the Nursing and Midwifery Council (NMC) of Ghana.
-                        It is privately managed with the sole aim of supporting nursing students in their exam preparation.
-                    </p>
+                <div class="ne-disclaimer-card wow fadeInUp" data-wow-delay="0.15s">
+
+                    <div class="ne-disclaimer-icon-col">
+                        <div class="ne-disclaimer-icon-wrap">
+                            <i class="fa fa-shield" aria-hidden="true"></i>
+                        </div>
+                    </div>
+
+                    <div class="ne-disclaimer-body">
+                        <span class="ne-disclaimer-badge">Important Disclaimer</span>
+                        <h3 class="ne-disclaimer-title">Independent Platform — Not Affiliated with NMC Ghana</h3>
+                        <p class="ne-disclaimer-text">
+                            NursesEdge is an independent platform and is <strong>not affiliated with the Nursing and Midwifery Council (NMC) of Ghana</strong>.
+                            It is privately managed with the sole aim of supporting nursing students in their exam preparation.
+                        </p>
+                        <div class="ne-disclaimer-points">
+                            <div class="ne-disclaimer-point">
+                                <i class="fa fa-check-circle" aria-hidden="true"></i>
+                                <span>All questions and study materials are created independently for exam practice only.</span>
+                            </div>
+                            <div class="ne-disclaimer-point">
+                                <i class="fa fa-check-circle" aria-hidden="true"></i>
+                                <span>NursesEdge does not represent, speak for, or act on behalf of any regulatory body.</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -850,11 +1294,57 @@
 
 
     <!--Footer-->
-    <footer id="landing-footer" class="clearfix">
-        <div class="row clearfix">
-            <p id="copyright" class="col-2">
-                &copy; <span id="footer-year"></span> All rights reserved nursesedge .
-            </p>
+    <footer class="ne-footer">
+        <div class="ne-footer-inner">
+            <div class="ne-footer-brand">
+                <a href="/" class="ne-footer-logo-link">
+                    <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" alt="NursesEdge Logo" class="ne-footer-logo-img">
+                    <span class="ne-footer-logo-text">NursesEdge</span>
+                </a>
+                <p class="ne-footer-tagline">Your trusted companion for NMC nursing exam preparation in Ghana.</p>
+                <div class="ne-footer-socials">
+                    <a href="https://www.tiktok.com/@nurses_edge?_r=1&amp;_t=ZS-97UGA7NXiQG" target="_blank" rel="noopener noreferrer" class="ne-social-btn" aria-label="TikTok" title="@nursesedgegh">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.77a8.16 8.16 0 004.77 1.52V6.84a4.85 4.85 0 01-1-.15z"/></svg>
+                    </a>
+                    <a href="mailto:a70118471@gmail.com" class="ne-social-btn" aria-label="Email" title="a70118471@gmail.com">
+                        <i class="fa fa-envelope" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Explore</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/nclex/">NCLEX-RN</a></li>
+                    <li><a href="/contact/">Contact</a></li>
+                </ul>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Account</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/login/">Login</a></li>
+                    <li><a href="/signup/">Sign Up</a></li>
+                    <li><a href="/subscribe/">Subscribe</a></li>
+                </ul>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Legal</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/about/">About Us</a></li>
+                    <li><a href="/contact/">Get Help</a></li>
+                </ul>
+                <p class="ne-footer-disclaimer-note">Not affiliated with<br>NMC Ghana.</p>
+            </div>
+        </div>
+
+        <div class="ne-footer-bottom">
+            <span>&copy; <span class="ne-footer-year"></span> NursesEdge &mdash; All rights reserved.</span>
+            <span class="ne-footer-sep">·</span>
+            <span>Independent platform, not affiliated with NMC Ghana.</span>
         </div>
     </footer>
     <!--End of Footer-->
@@ -878,6 +1368,7 @@
     (function () {
         var yearEl = document.getElementById("footer-year");
         if (yearEl) yearEl.textContent = new Date().getFullYear();
+        document.querySelectorAll(".ne-footer-year").forEach(function(el){ el.textContent = new Date().getFullYear(); });
     })();
     (function () {
         var quotes = [
@@ -908,6 +1399,38 @@
             }, fadeMs);
         }
         setInterval(step, everyMs);
+    })();
+    /* ── Stats counter ── */
+    (function () {
+        function easeOutExpo(t) {
+            return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+        }
+        function animateCount(el, target, duration) {
+            var start = performance.now();
+            (function frame(now) {
+                var p = Math.min((now - start) / duration, 1);
+                el.textContent = Math.floor(easeOutExpo(p) * target).toLocaleString();
+                if (p < 1) requestAnimationFrame(frame);
+                else el.textContent = target.toLocaleString();
+            })(start);
+        }
+        var section = document.getElementById('ne-stats');
+        if (!section) return;
+        var fired = false;
+        function run() {
+            if (fired) return;
+            fired = true;
+            section.querySelectorAll('.ne-stat-number[data-target]').forEach(function (el) {
+                animateCount(el, parseInt(el.getAttribute('data-target'), 10), 2400);
+            });
+        }
+        if ('IntersectionObserver' in window) {
+            new IntersectionObserver(function (entries, obs) {
+                entries.forEach(function (e) {
+                    if (e.isIntersecting) { run(); obs.disconnect(); }
+                });
+            }, { threshold: 0.25 }).observe(section);
+        } else { run(); }
     })();
 </script>
 
