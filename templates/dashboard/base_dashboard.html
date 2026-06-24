@@ -1870,26 +1870,36 @@
       var SYSTEM_PROMPT = "You are NursesEdge AI Assistant, a dedicated study helper for nursing students in Ghana preparing for the NMC licensure exam. Answer questions about nursing topics including pharmacology, anatomy, vital signs, diseases, nursing procedures, dosage calculations, and exam strategy. Be clear and concise (2-5 sentences for most questions, longer only for complex clinical topics). Only answer nursing and health-related questions. If a question is unrelated to nursing or medicine, politely explain that you can only assist with nursing study topics.";
 
       async function answerWithGemini(question) {
-        var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
-        var response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [{ role: "user", parts: [{ text: question }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: 1024, topP: 0.9, thinkingConfig: { thinkingBudget: 0 } }
-          })
-        });
-        if (!response.ok) {
-          var e = await response.json().catch(function() { return {}; });
-          throw new Error("Gemini " + response.status + (e.error ? ": " + e.error.message : ""));
+        var models = ["gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b"];
+        var lastErr;
+        for (var i = 0; i < models.length; i++) {
+          var endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + models[i] + ":generateContent?key=" + geminiApiKey;
+          var response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents: [{ role: "user", parts: [{ text: question }] }],
+              generationConfig: { temperature: 0.3, maxOutputTokens: 1024, topP: 0.9 }
+            })
+          });
+          if (response.status === 503 || response.status === 429) {
+            var e = await response.json().catch(function() { return {}; });
+            lastErr = new Error("Gemini " + models[i] + " " + response.status + (e.error ? ": " + e.error.message : ""));
+            continue;
+          }
+          if (!response.ok) {
+            var e = await response.json().catch(function() { return {}; });
+            throw new Error("Gemini " + response.status + (e.error ? ": " + e.error.message : ""));
+          }
+          var data = await response.json();
+          var text = data && data.candidates && data.candidates[0] &&
+                     data.candidates[0].content && data.candidates[0].content.parts &&
+                     data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+          if (!text || !text.trim()) { lastErr = new Error("Gemini returned empty response"); continue; }
+          return text.trim();
         }
-        var data = await response.json();
-        var text = data && data.candidates && data.candidates[0] &&
-                   data.candidates[0].content && data.candidates[0].content.parts &&
-                   data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
-        if (!text || !text.trim()) throw new Error("Gemini returned empty response");
-        return text.trim();
+        throw lastErr || new Error("All Gemini models unavailable");
       }
 
       async function answerWithGroq(question) {
