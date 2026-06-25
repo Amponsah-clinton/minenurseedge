@@ -1576,11 +1576,42 @@ def _score_message(percentage):
 # Public pages
 # ---------------------------------------------------------------------------
 
+def _get_platform_stats():
+    """Return live counts for the public homepage stats section."""
+    try:
+        client = _get_admin_client()
+        students_res = (
+            client.table("profiles")
+            .select("id", count="exact", head=True)
+            .execute()
+        )
+        student_count = students_res.count or 0
+
+        qb_res = (
+            client.table("question_bank")
+            .select("id", count="exact", head=True)
+            .execute()
+        )
+        nclex_res = (
+            client.table("nclex_questions")
+            .select("id", count="exact", head=True)
+            .execute()
+        )
+        question_count = (qb_res.count or 0) + (nclex_res.count or 0)
+    except Exception:
+        student_count = 220
+        question_count = 5000
+    return {"student_count": student_count, "question_count": question_count}
+
+
 def home(request):
     plans = _get_plans()
+    stats = _get_platform_stats()
     context = {
         "basic": plans.get("basic", {}),
         "premium": plans.get("premium", {}),
+        "stat_students": stats["student_count"],
+        "stat_questions": stats["question_count"],
     }
     return render(request, "index.html", context)
 

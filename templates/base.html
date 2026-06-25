@@ -10,6 +10,137 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     {% block head_extra %}{% endblock %}
     <style>
+        /* ── NursesEdge Footer ── */
+        .ne-footer {
+            background: #010729;
+            font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+            /* break out of #wrapper's 15px side margins */
+            margin-left: -15px;
+            margin-right: -15px;
+            width: calc(100% + 30px);
+            box-sizing: border-box;
+        }
+        .ne-footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 64px 48px 48px;
+            display: grid;
+            grid-template-columns: 2.2fr 1fr 1fr 1fr;
+            gap: 40px 36px;
+        }
+        .ne-footer-logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            margin-bottom: 16px;
+        }
+        .ne-footer-logo-img {
+            width: 38px;
+            height: 38px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        .ne-footer-logo-text {
+            font-size: 20px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: -0.4px;
+            font-family: 'Montserrat', 'Lato', sans-serif;
+        }
+        .ne-footer-tagline {
+            font-size: 14px;
+            line-height: 1.75;
+            color: #b0bec5;
+            margin: 0 0 24px;
+            max-width: 280px;
+            font-weight: 400;
+        }
+        .ne-footer-socials {
+            display: flex;
+            gap: 10px;
+        }
+        .ne-social-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #c8d6e5;
+            font-size: 17px;
+            text-decoration: none;
+            transition: background 0.22s ease, color 0.22s ease,
+                        border-color 0.22s ease, transform 0.18s ease;
+        }
+        .ne-social-btn:hover {
+            background: #4a9eff;
+            border-color: #4a9eff;
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+        .ne-footer-heading {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #ffffff;
+            margin: 0 0 20px;
+            font-family: 'Montserrat', 'Lato', sans-serif;
+        }
+        .ne-footer-links {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+        }
+        .ne-footer-links a {
+            font-size: 14.5px;
+            color: #b0bec5;
+            text-decoration: none;
+            font-weight: 400;
+            transition: color 0.2s ease;
+        }
+        .ne-footer-links a:hover { color: #ffffff; }
+        .ne-footer-disclaimer-note {
+            margin: 20px 0 0;
+            font-size: 12.5px;
+            line-height: 1.65;
+            color: #90a4ae;
+            font-weight: 400;
+        }
+        .ne-footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.09);
+            padding: 20px 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            font-size: 13px;
+            color: #90a4ae;
+            font-family: 'Lato', 'Segoe UI', Arial, sans-serif;
+        }
+        .ne-footer-sep { color: rgba(255,255,255,0.2); }
+        @media (max-width: 960px) {
+            .ne-footer-inner {
+                grid-template-columns: 1fr 1fr;
+                padding: 48px 32px 36px;
+                gap: 32px 24px;
+            }
+            .ne-footer-brand { grid-column: 1 / -1; }
+            .ne-footer-bottom { padding: 18px 32px; }
+        }
+        @media (max-width: 540px) {
+            .ne-footer-inner { grid-template-columns: 1fr; padding: 36px 24px 28px; }
+            .ne-footer-bottom { padding: 16px 24px; font-size: 12.5px; }
+        }
+        /* ── Base styles ── */
         html, body {
             margin: 0 !important;
             padding: 0 !important;
@@ -123,11 +254,57 @@
         {% block content %}{% endblock %}
     </div>
 
-    <footer id="landing-footer" class="clearfix">
-        <div class="row clearfix">
-            <p id="copyright" class="col-2">
-                &copy; <span id="footer-year"></span> All rights reserved nursesedge .
-            </p>
+    <footer class="ne-footer">
+        <div class="ne-footer-inner">
+            <div class="ne-footer-brand">
+                <a href="/" class="ne-footer-logo-link">
+                    <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" alt="NursesEdge Logo" class="ne-footer-logo-img">
+                    <span class="ne-footer-logo-text">NursesEdge</span>
+                </a>
+                <p class="ne-footer-tagline">Your trusted companion for NMC nursing exam preparation in Ghana.</p>
+                <div class="ne-footer-socials">
+                    <a href="https://www.tiktok.com/@nurses_edge?_r=1&amp;_t=ZS-97UGA7NXiQG" target="_blank" rel="noopener noreferrer" class="ne-social-btn" aria-label="TikTok" title="@nursesedgegh">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.77a8.16 8.16 0 004.77 1.52V6.84a4.85 4.85 0 01-1-.15z"/></svg>
+                    </a>
+                    <a href="mailto:a70118471@gmail.com" class="ne-social-btn" aria-label="Email" title="a70118471@gmail.com">
+                        <i class="fa fa-envelope" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Explore</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/nclex/">NCLEX-RN</a></li>
+                    <li><a href="/contact/">Contact</a></li>
+                </ul>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Account</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/login/">Login</a></li>
+                    <li><a href="/signup/">Sign Up</a></li>
+                    <li><a href="/subscribe/">Subscribe</a></li>
+                </ul>
+            </div>
+
+            <div class="ne-footer-col">
+                <h4 class="ne-footer-heading">Legal</h4>
+                <ul class="ne-footer-links">
+                    <li><a href="/about/">About Us</a></li>
+                    <li><a href="/contact/">Get Help</a></li>
+                </ul>
+                <p class="ne-footer-disclaimer-note">Not affiliated with<br>NMC Ghana.</p>
+            </div>
+        </div>
+
+        <div class="ne-footer-bottom">
+            <span>&copy; <span class="ne-footer-year"></span> NursesEdge &mdash; All rights reserved.</span>
+            <span class="ne-footer-sep">·</span>
+            <span>Independent platform, not affiliated with NMC Ghana.</span>
         </div>
     </footer>
 </div>
@@ -196,6 +373,7 @@
     (function () {
         var yearEl = document.getElementById("footer-year");
         if (yearEl) yearEl.textContent = new Date().getFullYear();
+        document.querySelectorAll(".ne-footer-year").forEach(function(el){ el.textContent = new Date().getFullYear(); });
 
         var modal = document.getElementById("appMessageModalBase");
         var titleEl = document.getElementById("appMsgBaseTitle");
