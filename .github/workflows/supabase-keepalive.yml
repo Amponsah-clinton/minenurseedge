@@ -1,0 +1,33 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # 09:00 UTC every Monday, Wednesday, Friday — keeps the free-tier
+    # Supabase project from auto-pausing after a week of inactivity.
+    - cron: "0 9 * * 1,3,5"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install supabase client
+        run: pip install supabase
+
+      - name: Ping via supabase-py client
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python scripts/keepalive_client_ping.py
+
+      - name: Ping via raw REST call
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python scripts/keepalive_rest_ping.py
