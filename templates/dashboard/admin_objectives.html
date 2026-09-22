@@ -1,0 +1,485 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Objectives (MCQ) by Topic - Admin{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body">
+        <h4 class="mb-2">Objectives (MCQ) by Topic</h4>
+        <p class="text-muted mb-0">
+          Step 1: add topics. Step 2: add MCQ questions tagged to a topic (single form or bulk JSON paste).
+          Duplicate questions (same topic + question text) are rejected automatically.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {% if success %}<div class="col-12"><div class="alert alert-success mb-0">{{ success }}</div></div>{% endif %}
+  {% if warning %}<div class="col-12"><div class="alert alert-warning mb-0">{{ warning }}</div></div>{% endif %}
+  {% if error %}<div class="col-12"><div class="alert alert-danger mb-0">{{ error }}</div></div>{% endif %}
+
+  <!-- ============== STEP 1: TOPICS ============== -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h5 class="mb-0">Step 1 — Topics</h5>
+          <small class="text-muted">{{ topics|length }} topic(s)</small>
+        </div>
+        <button class="btn btn-primary btn-sm" type="button" id="topicAddBtn" data-bs-toggle="modal" data-bs-target="#topicModal">
+          Add Topic
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-4">
+          <div class="col-lg-6">
+            <label class="form-label fw-semibold">Bulk Upload Topics (JSON)</label>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="upload_topics_json" />
+              <textarea name="topics_json_payload" id="topics_json_payload" class="form-control mb-2" rows="8">{{ topics_json_payload }}</textarea>
+              <button class="btn btn-outline-primary btn-sm" type="submit">Upload Topics JSON</button>
+            </form>
+          </div>
+          <div class="col-lg-6">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <label class="form-label fw-semibold mb-0">Sample JSON</label>
+              <div class="d-flex gap-1">
+                <button type="button" class="btn btn-xs btn-outline-secondary sample-copy-btn" data-sample-target="topicsSampleJson">Copy</button>
+                <button type="button" class="btn btn-xs btn-outline-primary sample-use-btn" data-sample-target="topicsSampleJson" data-fill-target="topics_json_payload">Use Sample</button>
+              </div>
+            </div>
+            <pre class="mb-0 small border rounded p-2" id="topicsSampleJson" style="white-space:pre-wrap;">{{ topics_json_sample }}</pre>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Description</th>
+                <th style="width:110px;">Questions</th>
+                <th style="width:100px;">Status</th>
+                <th style="width:150px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in topics %}
+              <tr>
+                <td>{{ t.name }}</td>
+                <td class="text-muted small">{{ t.description|truncatechars:90 }}</td>
+                <td><span class="badge bg-label-secondary">{{ t.question_count }}</span></td>
+                <td>
+                  {% if t.is_active %}
+                  <span class="badge bg-label-success">Active</span>
+                  {% else %}
+                  <span class="badge bg-label-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+                <td class="d-flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-outline-primary topic-edit-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#topicModal"
+                    data-topic-id="{{ t.id }}"
+                    data-topic-name="{{ t.name }}"
+                    data-topic-description="{{ t.description|default:'' }}"
+                    data-topic-display-order="{{ t.display_order|default:'0' }}"
+                    data-topic-is-active="{% if t.is_active %}true{% else %}false{% endif %}"
+                  >
+                    Manage
+                  </button>
+                  <a class="btn btn-xs btn-outline-secondary" href="?topic_id={{ t.id }}">View Qs</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No topics yet. Add one above.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== STEP 2: QUESTIONS ============== -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">Step 2 — Bulk Upload Questions (JSON)</h5></div>
+      <div class="card-body">
+        <p class="text-muted small">Paste one or many questions across different topics at once. Each item references its <code>topic</code> by name (must already exist above).</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="upload_questions_json" />
+          <textarea name="questions_json_payload" id="questions_json_payload" class="form-control mb-2" rows="12">{{ questions_json_payload }}</textarea>
+          <button class="btn btn-primary" type="submit">Upload Questions JSON</button>
+        </form>
+        <hr />
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="form-label mb-0">Sample JSON</label>
+          <div class="d-flex gap-1">
+            <button type="button" class="btn btn-xs btn-outline-secondary sample-copy-btn" data-sample-target="questionsSampleJson">Copy</button>
+            <button type="button" class="btn btn-xs btn-outline-primary sample-use-btn" data-sample-target="questionsSampleJson" data-fill-target="questions_json_payload">Use Sample</button>
+          </div>
+        </div>
+        <pre class="mb-0 small" id="questionsSampleJson" style="white-space:pre-wrap;">{{ questions_json_sample }}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0">Add a Single Question</h5></div>
+      <div class="card-body">
+        <p class="text-muted small">Use this for one-off questions. For bulk adding, use the JSON panel on the left.</p>
+        <button class="btn btn-outline-primary" type="button" id="questionAddBtn" data-bs-toggle="modal" data-bs-target="#questionModal">
+          Add Question
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+          <h5 class="mb-0">Existing Questions (CRUD)</h5>
+          <small class="text-muted">
+            Total: <strong>{{ total_questions_count }}</strong>
+            {% if pagination %}
+            &nbsp;|&nbsp; Showing <strong>{{ pagination.start_index }}-{{ pagination.end_index }}</strong>
+            {% endif %}
+            {% if filter_topic_id %}
+            &nbsp;|&nbsp; <a href="?">Clear topic filter</a>
+            {% endif %}
+          </small>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Question</th>
+                <th>Status</th>
+                <th style="width: 160px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in questions %}
+              <tr>
+                <td>
+                  <span class="badge bg-label-primary">{{ item.topic_name }}</span>
+                  {% if item.is_new %}<span class="nav-new-badge" style="animation:none;">New</span>{% endif %}
+                </td>
+                <td>{{ item.question_text|truncatechars:130 }}</td>
+                <td>
+                  {% if item.is_active %}
+                  <span class="badge bg-label-success">Active</span>
+                  {% else %}
+                  <span class="badge bg-label-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary question-edit-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#questionModal"
+                    data-question-id="{{ item.id }}"
+                    data-topic-id="{{ item.topic_id }}"
+                    data-question-text="{{ item.question_text }}"
+                    data-options-raw="{{ item.options_text }}"
+                    data-correct-answer="{{ item.correct_answer|default:'' }}"
+                    data-rationale="{{ item.rationale|default:'' }}"
+                    data-difficulty="{{ item.difficulty|default:'medium' }}"
+                    data-display-order="{{ item.display_order|default:'0' }}"
+                    data-is-active="{% if item.is_active %}true{% else %}false{% endif %}"
+                  >
+                    Manage
+                  </button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted py-4">No questions found{% if filter_topic_id %} for this topic{% endif %}.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if pagination and pagination.total_pages > 1 %}
+        <nav aria-label="Objective question pages" class="mt-3">
+          <ul class="pagination mb-0">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+              <a class="page-link" href="?page={{ pagination.prev_page }}{% if filter_topic_id %}&topic_id={{ filter_topic_id }}{% endif %}">Previous</a>
+            </li>
+            {% for page_num in pagination.page_numbers %}
+            <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+              <a class="page-link" href="?page={{ page_num }}{% if filter_topic_id %}&topic_id={{ filter_topic_id }}{% endif %}">{{ page_num }}</a>
+            </li>
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+              <a class="page-link" href="?page={{ pagination.next_page }}{% if filter_topic_id %}&topic_id={{ filter_topic_id }}{% endif %}">Next</a>
+            </li>
+          </ul>
+        </nav>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOPIC MODAL -->
+<div class="modal fade" id="topicModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="topicModalTitle">Add Topic</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="topicForm" class="row g-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" id="tpAction" value="create_topic" />
+          <input type="hidden" name="topic_id" id="tpTopicId" value="" />
+          <input type="hidden" name="topic_is_active" id="tpIsActive" value="true" />
+          <div class="col-12">
+            <label class="form-label">Topic Name</label>
+            <input class="form-control" name="topic_name" id="tpName" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Description (optional)</label>
+            <textarea class="form-control" name="topic_description" id="tpDescription" rows="2"></textarea>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Display Order</label>
+            <input class="form-control" name="topic_display_order" id="tpDisplayOrder" value="0" />
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit" id="tpSaveBtn">Create Topic</button>
+            <button class="btn btn-outline-secondary" type="button" id="tpResetBtn">Reset</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <form method="post" id="tpDeleteForm" class="d-none" onsubmit="return confirm('Delete this topic AND all its questions? This cannot be undone.');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_topic" />
+          <input type="hidden" name="topic_id" id="tpDeleteId" value="" />
+          <button class="btn btn-outline-danger" type="submit">Delete Topic</button>
+        </form>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUESTION MODAL -->
+<div class="modal fade" id="questionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="questionModalTitle">Add Question</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="questionForm" class="row g-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" id="qqAction" value="create_question" />
+          <input type="hidden" name="question_id" id="qqQuestionId" value="" />
+          <input type="hidden" name="is_active" id="qqIsActive" value="true" />
+          <div class="col-md-6">
+            <label class="form-label">Topic</label>
+            <select class="form-select" name="topic_id" id="qqTopic" required>
+              {% for t in topics %}
+              <option value="{{ t.id }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Difficulty</label>
+            <select class="form-select" name="difficulty" id="qqDifficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Display Order</label>
+            <input class="form-control" name="display_order" id="qqDisplayOrder" value="0" />
+          </div>
+          <div class="col-12">
+            <label class="form-label">Question Text</label>
+            <textarea class="form-control" name="question_text" id="qqQuestionText" rows="2" required></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Options (one per line, min 2)</label>
+            <textarea class="form-control" name="options_raw" id="qqOptionsRaw" rows="5" required></textarea>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Correct Answer (must match one option exactly)</label>
+            <textarea class="form-control" name="correct_answer" id="qqCorrectAnswer" rows="5" required></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Rationale (optional)</label>
+            <textarea class="form-control" name="rationale" id="qqRationale" rows="2"></textarea>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit" id="qqSaveBtn">Create Question</button>
+            <button class="btn btn-outline-secondary" type="button" id="qqResetBtn">Reset</button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <form method="post" id="qqDeleteForm" class="d-none" onsubmit="return confirm('Delete this question?');">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete_question" />
+          <input type="hidden" name="question_id" id="qqDeleteId" value="" />
+          <button class="btn btn-outline-danger" type="submit">Delete Question</button>
+        </form>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    // ---- Topic modal ----
+    const tpAction = document.getElementById("tpAction");
+    const tpTopicId = document.getElementById("tpTopicId");
+    const tpIsActive = document.getElementById("tpIsActive");
+    const tpName = document.getElementById("tpName");
+    const tpDescription = document.getElementById("tpDescription");
+    const tpDisplayOrder = document.getElementById("tpDisplayOrder");
+    const tpModalTitle = document.getElementById("topicModalTitle");
+    const tpSaveBtn = document.getElementById("tpSaveBtn");
+    const tpDeleteForm = document.getElementById("tpDeleteForm");
+    const tpDeleteId = document.getElementById("tpDeleteId");
+    const tpResetBtn = document.getElementById("tpResetBtn");
+    const topicAddBtn = document.getElementById("topicAddBtn");
+
+    function resetTopicModal() {
+      tpAction.value = "create_topic";
+      tpTopicId.value = "";
+      tpIsActive.value = "true";
+      tpName.value = "";
+      tpDescription.value = "";
+      tpDisplayOrder.value = "0";
+      tpModalTitle.textContent = "Add Topic";
+      tpSaveBtn.textContent = "Create Topic";
+      tpDeleteForm.classList.add("d-none");
+      tpDeleteId.value = "";
+    }
+    if (topicAddBtn) topicAddBtn.addEventListener("click", resetTopicModal);
+    if (tpResetBtn) tpResetBtn.addEventListener("click", resetTopicModal);
+
+    document.querySelectorAll(".topic-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        tpAction.value = "update_topic";
+        tpTopicId.value = this.dataset.topicId || "";
+        tpIsActive.value = this.dataset.topicIsActive || "true";
+        tpName.value = this.dataset.topicName || "";
+        tpDescription.value = this.dataset.topicDescription || "";
+        tpDisplayOrder.value = this.dataset.topicDisplayOrder || "0";
+        tpModalTitle.textContent = "Edit Topic";
+        tpSaveBtn.textContent = "Update Topic";
+        tpDeleteForm.classList.remove("d-none");
+        tpDeleteId.value = this.dataset.topicId || "";
+      });
+    });
+
+    // ---- Question modal ----
+    const qqAction = document.getElementById("qqAction");
+    const qqQuestionId = document.getElementById("qqQuestionId");
+    const qqIsActive = document.getElementById("qqIsActive");
+    const qqTopic = document.getElementById("qqTopic");
+    const qqDifficulty = document.getElementById("qqDifficulty");
+    const qqDisplayOrder = document.getElementById("qqDisplayOrder");
+    const qqQuestionText = document.getElementById("qqQuestionText");
+    const qqOptionsRaw = document.getElementById("qqOptionsRaw");
+    const qqCorrectAnswer = document.getElementById("qqCorrectAnswer");
+    const qqRationale = document.getElementById("qqRationale");
+    const qqModalTitle = document.getElementById("questionModalTitle");
+    const qqSaveBtn = document.getElementById("qqSaveBtn");
+    const qqDeleteForm = document.getElementById("qqDeleteForm");
+    const qqDeleteId = document.getElementById("qqDeleteId");
+    const qqResetBtn = document.getElementById("qqResetBtn");
+    const questionAddBtn = document.getElementById("questionAddBtn");
+
+    function resetQuestionModal() {
+      qqAction.value = "create_question";
+      qqQuestionId.value = "";
+      qqIsActive.value = "true";
+      qqDifficulty.value = "medium";
+      qqDisplayOrder.value = "0";
+      qqQuestionText.value = "";
+      qqOptionsRaw.value = "";
+      qqCorrectAnswer.value = "";
+      qqRationale.value = "";
+      qqModalTitle.textContent = "Add Question";
+      qqSaveBtn.textContent = "Create Question";
+      qqDeleteForm.classList.add("d-none");
+      qqDeleteId.value = "";
+    }
+    if (questionAddBtn) questionAddBtn.addEventListener("click", resetQuestionModal);
+    if (qqResetBtn) qqResetBtn.addEventListener("click", resetQuestionModal);
+
+    document.querySelectorAll(".question-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        qqAction.value = "update_question";
+        qqQuestionId.value = this.dataset.questionId || "";
+        qqIsActive.value = this.dataset.isActive || "true";
+        qqTopic.value = this.dataset.topicId || "";
+        qqDifficulty.value = this.dataset.difficulty || "medium";
+        qqDisplayOrder.value = this.dataset.displayOrder || "0";
+        qqQuestionText.value = this.dataset.questionText || "";
+        qqOptionsRaw.value = this.dataset.optionsRaw || "";
+        qqCorrectAnswer.value = this.dataset.correctAnswer || "";
+        qqRationale.value = this.dataset.rationale || "";
+        qqModalTitle.textContent = "Edit Question";
+        qqSaveBtn.textContent = "Update Question";
+        qqDeleteForm.classList.remove("d-none");
+        qqDeleteId.value = this.dataset.questionId || "";
+      });
+    });
+
+    // ---- Sample JSON: copy / use-sample helpers ----
+    document.querySelectorAll(".sample-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const src = document.getElementById(this.dataset.sampleTarget);
+        if (!src) return;
+        const text = src.textContent || "";
+        const done = () => { const original = this.textContent; this.textContent = "Copied!"; setTimeout(() => { this.textContent = original; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(() => { fallbackCopy(text); done(); });
+        } else {
+          fallbackCopy(text);
+          done();
+        }
+      });
+    });
+    function fallbackCopy(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    document.querySelectorAll(".sample-use-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        const src = document.getElementById(this.dataset.sampleTarget);
+        const dest = document.getElementById(this.dataset.fillTarget);
+        if (!src || !dest) return;
+        dest.value = src.textContent || "";
+        dest.focus();
+      });
+    });
+  })();
+</script>
+{% endblock %}

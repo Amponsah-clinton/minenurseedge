@@ -1,0 +1,116 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}Prep by Topics - NursesEdge{% endblock %}
+
+{% block content %}
+<style>
+  .obj-shell { max-width: 1080px; margin: 0 auto; }
+  .obj-hero, .obj-panel, .obj-topic-section, .obj-group-card, .obj-perf-card {
+    background: #fff; border: 1px solid #e5e9f2; border-radius: 14px;
+  }
+  .obj-hero { padding: 20px; }
+  .obj-badge { font-size: 12px; font-weight: 700; color: #1f4d9a; background: #f1f6ff; border: 1px solid #d8e6ff; border-radius: 999px; padding: 5px 10px; }
+
+  .obj-topic-section { padding: 18px; margin-bottom: 16px; }
+  .obj-topic-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .obj-topic-title { font-weight: 700; font-size: 1.05rem; margin: 0; }
+  .obj-topic-desc { color: #6b7280; font-size: 0.85rem; margin: 4px 0 0; max-width: 640px; }
+  .new-pill {
+    font-size: 0.6rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: #fff; background: #7c3aed; border-radius: 4px; padding: 2px 6px; flex-shrink: 0;
+  }
+
+  .obj-group-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .obj-group-card { padding: 14px; border: 1px solid #e5e9f2; }
+  .obj-group-card .set-label { font-weight: 700; font-size: 0.9rem; color: #1f2937; }
+  .obj-group-card .set-meta { color: #6b7280; font-size: 0.78rem; margin: 3px 0 10px; }
+  .obj-group-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  @media (max-width: 960px) { .obj-group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .obj-group-grid { grid-template-columns: 1fr; } }
+
+  .obj-perf-card { padding: 16px; margin-bottom: 16px; }
+  .obj-perf-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f3f7; }
+  .obj-perf-row:last-child { border-bottom: none; }
+  .obj-perf-topic { font-weight: 600; font-size: 0.9rem; }
+  .obj-perf-pct { font-weight: 700; }
+</style>
+
+<div class="obj-shell">
+  <div class="row g-4">
+    <div class="col-12">
+      <div class="obj-hero">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+          <h4 class="mb-0">Prep by Topics</h4>
+          <span class="obj-badge">{{ topics|length }} topic{{ topics|length|pluralize }}</span>
+        </div>
+        <p class="text-muted mb-0">
+          Each topic is split into sets of {{ questions_per_group }} questions ({{ seconds_per_question }} seconds per question).
+          Choose a set below, then start it <strong>Timed</strong> (exam-style, countdown clock) or <strong>Untimed</strong> (no clock, learn at your pace).
+        </p>
+      </div>
+    </div>
+
+    {% if weak_topics %}
+    <div class="col-12">
+      <div class="obj-perf-card">
+        <h6 class="mb-1">Where You're Lacking</h6>
+        <p class="text-muted small mb-2">Based on your Prep by Topics attempts, weakest average first.</p>
+        {% for row in weak_topics %}
+        <div class="obj-perf-row">
+          <div>
+            <div class="obj-perf-topic">{{ row.topic_name }}</div>
+            <div class="text-muted small">{{ row.attempts_count }} attempt{{ row.attempts_count|pluralize }} &middot; best {{ row.best_pct|floatformat:0 }}%</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="obj-perf-pct text-{{ row.band.css }}">{{ row.avg_pct|floatformat:0 }}%</span>
+            <span class="badge bg-label-{{ row.band.css }}">{{ row.band.label }}</span>
+            <a href="{{ row.practice_link }}" class="btn btn-sm btn-outline-primary">Practice</a>
+          </div>
+        </div>
+        {% endfor %}
+        <div class="mt-2">
+          <a href="/dashboard/performance/" class="small">View full performance breakdown &rarr;</a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if topics %}
+    <div class="col-12">
+      {% for topic in topics %}
+      <section class="obj-topic-section">
+        <div class="obj-topic-head">
+          <div>
+            <h6 class="obj-topic-title">
+              {{ topic.name }}
+              {% if topic.is_new %}<span class="new-pill">New</span>{% endif %}
+            </h6>
+            {% if topic.description %}<p class="obj-topic-desc">{{ topic.description }}</p>{% endif %}
+          </div>
+          <span class="badge bg-label-secondary">{{ topic.question_count }} question{{ topic.question_count|pluralize }}</span>
+        </div>
+
+        <div class="obj-group-grid">
+          {% for group in topic.groups %}
+          <div class="obj-group-card">
+            <div class="set-label">Set {{ group.index }}</div>
+            <div class="set-meta">{{ group.question_count }} question{{ group.question_count|pluralize }} &middot; ~{{ group.minutes }} min if timed</div>
+            <div class="obj-group-actions">
+              <a class="btn btn-sm btn-primary" href="{{ group.timed_link }}">Timed</a>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ group.untimed_link }}">Untimed</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="col-12">
+      <div class="obj-panel text-center text-muted py-5">
+        No topics are available yet. Your admin will add objective (MCQ) questions here soon.
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

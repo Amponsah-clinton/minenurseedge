@@ -338,6 +338,27 @@
       flex-shrink: 0;
       margin-left: auto;
     }
+    .nav-new-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.6rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #fff;
+      background: #7c3aed;
+      border: 1px solid #7c3aed;
+      border-radius: 4px;
+      padding: 1px 5px;
+      line-height: 1.5;
+      flex-shrink: 0;
+      margin-left: 6px;
+      animation: nav-new-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes nav-new-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.45); }
+      50% { box-shadow: 0 0 0 4px rgba(124, 58, 237, 0); }
+    }
     /* dim the link text slightly for locked items */
     .menu-item--locked > .menu-link {
       opacity: 0.82;
@@ -566,7 +587,7 @@
             <span class="menu-header-text">Content</span>
           </li>
 
-          <li class="menu-item {% if active_page == 'upload_questions' or active_page == 'manage_questions' or active_page == 'mock_exams' %}active open{% endif %}">
+          <li class="menu-item {% if active_page == 'upload_questions' or active_page == 'manage_questions' or active_page == 'mock_exams' or active_page == 'admin_nclex' or active_page == 'admin_objectives' %}active open{% endif %}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-book"></i>
               <div data-i18n="Question Bank">Question Bank</div>
@@ -586,6 +607,9 @@
               </li>
               <li class="menu-item {% if active_page == 'admin_nclex' %}active{% endif %}">
                 <a href="/admin-panel/nclex/" class="menu-link"><div data-i18n="NCLEX Questions">NCLEX Questions</div></a>
+              </li>
+              <li class="menu-item {% if active_page == 'admin_objectives' %}active{% endif %}">
+                <a href="/admin-panel/objectives/" class="menu-link"><div data-i18n="Objectives (MCQ) by Topic">Objectives (MCQ) by Topic</div></a>
               </li>
             </ul>
           </li>
@@ -790,6 +814,20 @@
               {% if not is_subscribed %}<span class="nav-pro-badge"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
             </a>
           </li>
+
+          {% if objectives_available %}
+          <li class="menu-item {% if active_page == 'objectives_prep' %}active{% endif %}{% if not is_subscribed %} menu-item--locked{% endif %}">
+            <a href="/dashboard/prep-by-topics/" class="menu-link d-flex align-items-center">
+              <i class="menu-icon tf-icons bx bx-task"></i>
+              <div class="flex-grow-1">Prep by Topics</div>
+              {% if not is_subscribed %}
+                <span class="nav-pro-badge"><i class="bx bxs-crown"></i>PRO</span>
+              {% elif objectives_is_new %}
+                <span class="nav-new-badge">New</span>
+              {% endif %}
+            </a>
+          </li>
+          {% endif %}
 
           <li class="menu-item {% if active_page == 'quizzes' %}active{% endif %}{% if not is_subscribed %} menu-item--locked{% endif %}">
             <a href="/dashboard/quizzes/" class="menu-link d-flex align-items-center">

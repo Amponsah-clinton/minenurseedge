@@ -104,6 +104,111 @@ NCLEX_JSON_SAMPLE = json.dumps(
     indent=2,
 )
 
+OBJECTIVE_TOPICS_JSON_SAMPLE = json.dumps(
+    {
+        "topics": [
+            {"name": "Fundamentals of Nursing", "description": "Core nursing principles, vital signs, and basic patient care."},
+            {"name": "Maternal & Child Health", "description": "Pregnancy, labour, newborn care, and paediatric nursing."},
+            {"name": "Pharmacology", "description": "Drug classifications, dosage calculations, and administration."},
+        ]
+    },
+    ensure_ascii=False,
+    indent=2,
+)
+
+OBJECTIVE_QUESTIONS_JSON_SAMPLE = json.dumps(
+    {
+        "questions": [
+            {
+                "topic": "Fundamentals of Nursing",
+                "question_text": "Which vital sign is measured first in a rapidly deteriorating patient?",
+                "options": [
+                    "Temperature",
+                    "Airway and breathing status",
+                    "Weight",
+                    "Reflexes",
+                ],
+                "correct_answer": "Airway and breathing status",
+                "rationale": "Airway and breathing take priority over all other assessments (ABC principle).",
+                "difficulty": "easy",
+            },
+            {
+                "topic": "Pharmacology",
+                "question_text": "A drug ordered 'PRN' means the nurse should administer it:",
+                "options": [
+                    "At a fixed time every day",
+                    "Only as needed, based on assessment",
+                    "Only once, then discontinue",
+                    "Immediately after every meal",
+                ],
+                "correct_answer": "Only as needed, based on assessment",
+                "rationale": "'PRN' (pro re nata) means the medication is given as needed within prescribed limits.",
+                "difficulty": "medium",
+            },
+        ]
+    },
+    ensure_ascii=False,
+    indent=2,
+)
+
+OBJECTIVE_NEW_TAG_WINDOW_DAYS = 21
+OBJECTIVE_QUESTIONS_PER_GROUP = 50
+OBJECTIVE_SECONDS_PER_QUESTION = 50
+
+
+def _objective_mastery_band(pct):
+    """Classify a topic average score into a mastery band for the weak-topics panel."""
+    pct = float(pct or 0)
+    if pct >= 80:
+        return {"key": "strong", "label": "Strong", "css": "success"}
+    if pct >= 60:
+        return {"key": "moderate", "label": "Needs Practice", "css": "warning"}
+    return {"key": "weak", "label": "Weak Area", "css": "danger"}
+
+
+def _objective_topic_performance(admin, user_id, topic_name_by_id):
+    """
+    Per-topic performance summary for a student, built from objective_attempts.
+    Returns a list sorted weakest-first so students see where they're lacking.
+    """
+    try:
+        attempts = (
+            admin.table("objective_attempts")
+            .select("topic_id, percentage, correct_count, total_questions, submitted_at")
+            .eq("student_id", str(user_id))
+            .order("submitted_at", desc=True)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        attempts = []
+
+    by_topic = {}
+    for a in attempts:
+        tid = a.get("topic_id")
+        by_topic.setdefault(tid, []).append(a)
+
+    performance = []
+    for tid, rows in by_topic.items():
+        pct_values = [float(r.get("percentage") or 0) for r in rows]
+        best_pct = max(pct_values)
+        avg_pct = round(sum(pct_values) / len(pct_values), 1)
+        latest = rows[0]
+        performance.append({
+            "topic_id": tid,
+            "topic_name": topic_name_by_id.get(tid, "Unknown Topic"),
+            "attempts_count": len(rows),
+            "best_pct": round(best_pct, 1),
+            "avg_pct": avg_pct,
+            "last_attempt_at": latest.get("submitted_at"),
+            "band": _objective_mastery_band(avg_pct),
+            "practice_link": f"/dashboard/prep-by-topics/{tid}/",
+        })
+
+    performance.sort(key=lambda r: r["avg_pct"])
+    return performance
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +447,196 @@ def _filter_duplicate_nclex_questions(supabase_client, rows, exclude_ids=None):
         seen_in_batch.add(key)
         unique_rows.append(row)
 
+    return unique_rows, skipped
+
+
+# ---------------------------------------------------------------------------
+# Objectives (MCQ by Topic) helpers
+# ---------------------------------------------------------------------------
+
+def _normalize_objective_topic_payload(raw):
+    if not isinstance(raw, dict):
+        raise ValueError("Each topic item must be an object.")
+    name = str(raw.get("name") or raw.get("topic") or raw.get("title") or "").strip()
+    if not name:
+        raise ValueError("Topic name is required.")
+    description = str(raw.get("description") or "").strip()
+    try:
+        display_order = int(raw.get("display_order", 0) or 0)
+    except Exception:
+        display_order = 0
+    return {
+        "name": name,
+        "description": description,
+        "display_order": display_order,
+        "is_active": bool(raw.get("is_active", True)),
+    }
+
+
+def _filter_duplicate_objective_topics(supabase_client, rows, exclude_ids=None):
+    """De-duplicate topics by normalized (casefolded, whitespace-collapsed) name."""
+    if not rows:
+        return [], []
+    exclude_ids = {str(v) for v in (exclude_ids or []) if v}
+
+    existing = (
+        supabase_client
+        .table("objective_topics")
+        .select("id, name")
+        .limit(5000)
+        .execute()
+        .data
+        or []
+    )
+    existing_keys = {
+        _normalize_nclex_text(row.get("name"))
+        for row in existing
+        if str(row.get("id") or "") not in exclude_ids
+    }
+
+    seen_in_batch = set()
+    unique_rows, skipped = [], []
+    for row in rows:
+        key = _normalize_nclex_text(row.get("name"))
+        snippet = str(row.get("name") or "")[:80]
+        if key in seen_in_batch:
+            skipped.append((snippet, "duplicate in the uploaded batch"))
+            continue
+        if key in existing_keys:
+            skipped.append((snippet, "topic already exists"))
+            continue
+        seen_in_batch.add(key)
+        unique_rows.append(row)
+    return unique_rows, skipped
+
+
+def _normalize_objective_question_payload(raw, topic_lookup):
+    """
+    topic_lookup: dict mapping normalized topic name -> topic_id (str).
+    Resolves the item's topic (by name or explicit topic_id) and normalizes
+    it into a single-answer MCQ row for the objective_questions table.
+    """
+    if not isinstance(raw, dict):
+        raise ValueError("Each question item must be an object.")
+
+    topic_id = str(raw.get("topic_id") or "").strip()
+    if not topic_id:
+        topic_name = str(raw.get("topic") or raw.get("topic_name") or "").strip()
+        if not topic_name:
+            raise ValueError("topic (or topic_id) is required.")
+        topic_id = topic_lookup.get(_normalize_nclex_text(topic_name))
+        if not topic_id:
+            raise ValueError(f"Unknown topic: '{topic_name}'. Add this topic first.")
+
+    question_text = str(raw.get("question_text") or raw.get("question") or "").strip()
+    if not question_text:
+        raise ValueError("question_text is required.")
+
+    options = raw.get("options", [])
+    normalized_options = []
+    if isinstance(options, dict):
+        for key in sorted(options.keys()):
+            value = str(options.get(key) or "").strip()
+            if value:
+                normalized_options.append(value)
+    elif isinstance(options, list):
+        normalized_options = [str(o).strip() for o in options if str(o).strip()]
+
+    if len(normalized_options) < 2:
+        raise ValueError("Each MCQ requires at least 2 options.")
+
+    correct_answer = str(
+        raw.get("correct_answer") or raw.get("correct_option") or raw.get("answer") or ""
+    ).strip()
+    if not correct_answer:
+        provided = raw.get("correct_answers")
+        if isinstance(provided, list) and provided:
+            correct_answer = str(provided[0]).strip()
+    if len(correct_answer) == 1 and correct_answer.upper() in {"A", "B", "C", "D", "E", "F"} and normalized_options:
+        idx = ord(correct_answer.upper()) - ord("A")
+        if 0 <= idx < len(normalized_options):
+            correct_answer = normalized_options[idx]
+    if not correct_answer:
+        raise ValueError("correct_answer is required.")
+    if not any(_normalize_nclex_text(o) == _normalize_nclex_text(correct_answer) for o in normalized_options):
+        raise ValueError("correct_answer must match one of the provided options.")
+
+    # Use the option's own casing/text so the stored answer matches an option exactly.
+    for opt in normalized_options:
+        if _normalize_nclex_text(opt) == _normalize_nclex_text(correct_answer):
+            correct_answer = opt
+            break
+
+    rationale = str(raw.get("rationale") or raw.get("explanation") or "").strip()
+    difficulty = str(raw.get("difficulty") or "medium").strip().lower()
+    if difficulty not in {"easy", "medium", "hard"}:
+        difficulty = "medium"
+
+    try:
+        display_order = int(raw.get("display_order", 0) or 0)
+    except Exception:
+        display_order = 0
+
+    return {
+        "topic_id": topic_id,
+        "question_text": question_text,
+        "options": normalized_options,
+        "correct_answer": correct_answer,
+        "rationale": rationale,
+        "difficulty": difficulty,
+        "display_order": display_order,
+        "is_active": bool(raw.get("is_active", True)),
+    }
+
+
+def _filter_duplicate_objective_questions(supabase_client, rows, exclude_ids=None):
+    """De-duplicate rows by (topic_id + normalized question_text)."""
+    if not rows:
+        return [], []
+    exclude_ids = {str(v) for v in (exclude_ids or []) if v}
+
+    topic_ids = {str(r.get("topic_id") or "") for r in rows if r.get("topic_id")}
+    existing_keys = set()
+    for topic_id in topic_ids:
+        offset = 0
+        chunk_size = 1000
+        while True:
+            resp = (
+                supabase_client
+                .table("objective_questions")
+                .select("id, topic_id, question_text")
+                .eq("topic_id", topic_id)
+                .range(offset, offset + chunk_size - 1)
+                .execute()
+            )
+            data = resp.data or []
+            if not data:
+                break
+            for item in data:
+                row_id = str(item.get("id") or "")
+                if row_id in exclude_ids:
+                    continue
+                existing_keys.add((
+                    str(item.get("topic_id") or ""),
+                    _normalize_nclex_text(item.get("question_text")),
+                ))
+            if len(data) < chunk_size:
+                break
+            offset += chunk_size
+
+    seen_in_batch = set()
+    unique_rows, skipped = [], []
+    for row in rows:
+        key = (str(row.get("topic_id") or ""), _normalize_nclex_text(row.get("question_text")))
+        snippet = str(row.get("question_text") or "")[:80]
+        if key in seen_in_batch:
+            skipped.append((snippet, "duplicate in the uploaded batch"))
+            continue
+        if key in existing_keys:
+            skipped.append((snippet, "already exists for this topic"))
+            continue
+        seen_in_batch.add(key)
+        unique_rows.append(row)
     return unique_rows, skipped
 
 
@@ -3528,6 +3823,7 @@ _DASHBOARD_SEARCH_NAV_STUDENT = [
     {"title": "General Tests", "url": "/dashboard/general-tests/", "keywords": "general test practice questions"},
     {"title": "Free Test", "url": "/dashboard/free-test/", "keywords": "free trial sample test"},
     {"title": "NCLEX Practice", "url": "/dashboard/nclex/", "keywords": "nclex questions practice"},
+    {"title": "Prep by Topics", "url": "/dashboard/prep-by-topics/", "keywords": "objectives mcq topics prep"},
     {"title": "NCLEX Guide", "url": "/dashboard/nclex-guide/", "keywords": "nclex guide tips"},
     {"title": "Quizzes", "url": "/dashboard/quizzes/", "keywords": "quiz competitive"},
     {"title": "Flashcards", "url": "/dashboard/flashcards/", "keywords": "flashcards revision cards"},
@@ -3551,6 +3847,7 @@ _DASHBOARD_SEARCH_NAV_ADMIN = [
     {"title": "Manage Questions", "url": "/admin-panel/manage-questions/", "keywords": "question bank edit delete"},
     {"title": "Build Mock Exams", "url": "/admin-panel/mock-exams/", "keywords": "mock exams build"},
     {"title": "NCLEX Questions", "url": "/admin-panel/nclex/", "keywords": "nclex admin"},
+    {"title": "Objectives (MCQ) by Topic", "url": "/admin-panel/objectives/", "keywords": "objectives mcq topics admin"},
     {"title": "Quizzes", "url": "/admin-panel/quizzes/", "keywords": "quizzes admin"},
     {"title": "Lecture Notes", "url": "/admin-panel/lecture-notes/", "keywords": "lecture notes create"},
     {"title": "Drug Cards", "url": "/admin-panel/drug-cards/", "keywords": "drug cards pharmacology"},
@@ -5338,6 +5635,302 @@ def admin_nclex_questions(request):
     return render(request, "dashboard/admin_nclex_questions.html", context)
 
 
+def admin_objectives(request):
+    """Admin section: Topics + Objective (MCQ) questions, with bulk JSON upload for both."""
+    guard = _require_admin(request)
+    if guard:
+        return guard
+
+    admin = _supabase_admin()
+    try:
+        filter_topic_id = (request.GET.get("topic_id") or "").strip()
+        page = int((request.GET.get("page") or "1").strip())
+    except Exception:
+        filter_topic_id = ""
+        page = 1
+    page = max(1, page)
+    page_size = 50
+
+    context = {
+        "full_name": request.session.get("full_name", "Admin"),
+        "email": request.session.get("email", ""),
+        "role": "admin",
+        "active_page": "admin_objectives",
+        "topics_json_sample": OBJECTIVE_TOPICS_JSON_SAMPLE,
+        "questions_json_sample": OBJECTIVE_QUESTIONS_JSON_SAMPLE,
+        "topics": [],
+        "questions": [],
+        "filter_topic_id": filter_topic_id,
+        "topic_form": {"topic_id": "", "name": "", "description": "", "display_order": "0"},
+        "topics_json_payload": "",
+        "questions_json_payload": "",
+        "total_questions_count": 0,
+        "pagination": None,
+    }
+
+    try:
+        if request.method == "POST":
+            action = (request.POST.get("action") or "").strip()
+
+            if action == "upload_topics_json":
+                payload = (request.POST.get("topics_json_payload") or "").strip()
+                parsed = _parse_lenient_json_payload(payload)
+                items = parsed.get("topics") if isinstance(parsed, dict) else parsed
+                if not isinstance(items, list) or not items:
+                    raise ValueError("JSON must be an array or an object with a 'topics' array.")
+                rows = []
+                for idx, item in enumerate(items, start=1):
+                    try:
+                        normalized = _normalize_objective_topic_payload(item)
+                    except ValueError as exc:
+                        raise ValueError(f"Topic #{idx}: {exc}") from exc
+                    normalized["created_by"] = request.session.get("user_id")
+                    rows.append(normalized)
+                unique_rows, skipped = _filter_duplicate_objective_topics(admin, rows)
+                if not unique_rows:
+                    raise ValueError("No new topics saved: all submitted items are duplicates.")
+                admin.table("objective_topics").insert(unique_rows).execute()
+                context["success"] = f"Uploaded {len(unique_rows)} topic(s)."
+                if skipped:
+                    context["warning"] = f"Skipped {len(skipped)} duplicate topic(s)."
+
+            elif action == "create_topic":
+                normalized = _normalize_objective_topic_payload(
+                    {
+                        "name": request.POST.get("topic_name"),
+                        "description": request.POST.get("topic_description"),
+                        "display_order": request.POST.get("topic_display_order"),
+                        "is_active": True,
+                    }
+                )
+                normalized["created_by"] = request.session.get("user_id")
+                unique_rows, skipped = _filter_duplicate_objective_topics(admin, [normalized])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"This topic was not created: {reason}.")
+                admin.table("objective_topics").insert(unique_rows[0]).execute()
+                context["success"] = "Topic created."
+
+            elif action == "update_topic":
+                topic_id = (request.POST.get("topic_id") or "").strip()
+                if not topic_id:
+                    raise ValueError("topic_id is required.")
+                normalized = _normalize_objective_topic_payload(
+                    {
+                        "name": request.POST.get("topic_name"),
+                        "description": request.POST.get("topic_description"),
+                        "display_order": request.POST.get("topic_display_order"),
+                        "is_active": (request.POST.get("topic_is_active") == "true"),
+                    }
+                )
+                unique_rows, skipped = _filter_duplicate_objective_topics(admin, [normalized], exclude_ids=[topic_id])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"Update blocked: {reason}.")
+                admin.table("objective_topics").update(normalized).eq("id", topic_id).execute()
+                context["success"] = "Topic updated."
+
+            elif action == "delete_topic":
+                topic_id = (request.POST.get("topic_id") or "").strip()
+                if not topic_id:
+                    raise ValueError("topic_id is required.")
+                admin.table("objective_questions").delete().eq("topic_id", topic_id).execute()
+                admin.table("objective_topics").delete().eq("id", topic_id).execute()
+                context["success"] = "Topic and its questions deleted."
+
+            elif action == "toggle_topic_active":
+                topic_id = (request.POST.get("topic_id") or "").strip()
+                next_state = (request.POST.get("next_state") or "false").strip().lower() == "true"
+                admin.table("objective_topics").update({"is_active": next_state}).eq("id", topic_id).execute()
+                context["success"] = "Topic status updated."
+
+            elif action == "upload_questions_json":
+                payload = (request.POST.get("questions_json_payload") or "").strip()
+                parsed = _parse_lenient_json_payload(payload)
+                items = parsed.get("questions") if isinstance(parsed, dict) else parsed
+                if not isinstance(items, list) or not items:
+                    raise ValueError("JSON must be an array or an object with a 'questions' array.")
+
+                topic_rows = admin.table("objective_topics").select("id, name").limit(5000).execute().data or []
+                topic_lookup = {_normalize_nclex_text(t.get("name")): t.get("id") for t in topic_rows}
+
+                rows = []
+                for idx, item in enumerate(items, start=1):
+                    try:
+                        normalized = _normalize_objective_question_payload(item, topic_lookup)
+                    except ValueError as exc:
+                        raise ValueError(f"Question #{idx}: {exc}") from exc
+                    normalized["created_by"] = request.session.get("user_id")
+                    rows.append(normalized)
+                unique_rows, skipped = _filter_duplicate_objective_questions(admin, rows)
+                if not unique_rows:
+                    raise ValueError("No new questions saved: all submitted items are duplicates.")
+                admin.table("objective_questions").insert(unique_rows).execute()
+                context["success"] = f"Uploaded {len(unique_rows)} question(s)."
+                if skipped:
+                    context["warning"] = f"Skipped {len(skipped)} duplicate question(s)."
+
+            elif action == "create_question":
+                options_raw = (request.POST.get("options_raw") or "").strip()
+                options_list = [line.strip() for line in options_raw.splitlines() if line.strip()]
+                normalized = _normalize_objective_question_payload(
+                    {
+                        "topic_id": request.POST.get("topic_id"),
+                        "question_text": request.POST.get("question_text"),
+                        "options": options_list,
+                        "correct_answer": request.POST.get("correct_answer"),
+                        "rationale": request.POST.get("rationale"),
+                        "difficulty": request.POST.get("difficulty"),
+                        "display_order": request.POST.get("display_order"),
+                        "is_active": True,
+                    },
+                    {},
+                )
+                normalized["created_by"] = request.session.get("user_id")
+                unique_rows, skipped = _filter_duplicate_objective_questions(admin, [normalized])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"This question was not created: {reason}.")
+                admin.table("objective_questions").insert(unique_rows[0]).execute()
+                context["success"] = "Question created."
+
+            elif action == "update_question":
+                question_id = (request.POST.get("question_id") or "").strip()
+                if not question_id:
+                    raise ValueError("question_id is required.")
+                options_list = [line.strip() for line in (request.POST.get("options_raw") or "").splitlines() if line.strip()]
+                normalized = _normalize_objective_question_payload(
+                    {
+                        "topic_id": request.POST.get("topic_id"),
+                        "question_text": request.POST.get("question_text"),
+                        "options": options_list,
+                        "correct_answer": request.POST.get("correct_answer"),
+                        "rationale": request.POST.get("rationale"),
+                        "difficulty": request.POST.get("difficulty"),
+                        "display_order": request.POST.get("display_order"),
+                        "is_active": (request.POST.get("is_active") == "true"),
+                    },
+                    {},
+                )
+                unique_rows, skipped = _filter_duplicate_objective_questions(admin, [normalized], exclude_ids=[question_id])
+                if not unique_rows:
+                    reason = skipped[0][1] if skipped else "duplicate"
+                    raise ValueError(f"Update blocked: {reason}.")
+                admin.table("objective_questions").update(normalized).eq("id", question_id).execute()
+                context["success"] = "Question updated."
+
+            elif action == "delete_question":
+                question_id = (request.POST.get("question_id") or "").strip()
+                if not question_id:
+                    raise ValueError("question_id is required.")
+                admin.table("objective_questions").delete().eq("id", question_id).execute()
+                context["success"] = "Question deleted."
+
+            elif action == "toggle_question_active":
+                question_id = (request.POST.get("question_id") or "").strip()
+                next_state = (request.POST.get("next_state") or "false").strip().lower() == "true"
+                admin.table("objective_questions").update({"is_active": next_state}).eq("id", question_id).execute()
+                context["success"] = "Question status updated."
+
+            context["topics_json_payload"] = "" if action == "upload_topics_json" and context.get("success") else request.POST.get("topics_json_payload", "")
+            context["questions_json_payload"] = "" if action == "upload_questions_json" and context.get("success") else request.POST.get("questions_json_payload", "")
+    except Exception as exc:
+        context["error"] = str(exc)
+        context["topics_json_payload"] = request.POST.get("topics_json_payload", "")
+        context["questions_json_payload"] = request.POST.get("questions_json_payload", "")
+
+    try:
+        topic_rows = (
+            admin.table("objective_topics")
+            .select("*")
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        topic_rows = []
+        if not context.get("error"):
+            context["error"] = "Could not load topics. Ensure table objective_topics exists in Supabase."
+
+    now_utc = datetime.now(timezone.utc)
+    new_cutoff = now_utc - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
+
+    try:
+        question_counts_resp = (
+            admin.table("objective_questions").select("topic_id").limit(20000).execute()
+        )
+        counts = {}
+        for row in (question_counts_resp.data or []):
+            tid = row.get("topic_id")
+            counts[tid] = counts.get(tid, 0) + 1
+    except Exception:
+        counts = {}
+
+    for row in topic_rows:
+        row["question_count"] = counts.get(row.get("id"), 0)
+    context["topics"] = topic_rows
+
+    try:
+        query = admin.table("objective_questions").select("*", count="exact")
+        if filter_topic_id:
+            query = query.eq("topic_id", filter_topic_id)
+        count_resp = query.limit(1).execute()
+        total_questions_count = int(count_resp.count or 0)
+        total_pages = max(1, math.ceil(total_questions_count / page_size)) if total_questions_count else 1
+        page = min(page, total_pages)
+        offset = (page - 1) * page_size
+        end = offset + page_size - 1
+
+        row_query = admin.table("objective_questions").select("*")
+        if filter_topic_id:
+            row_query = row_query.eq("topic_id", filter_topic_id)
+        rows = (
+            row_query
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .range(offset, end)
+            .execute()
+            .data
+            or []
+        )
+        page_window_start = max(1, page - 2)
+        page_window_end = min(total_pages, page + 2)
+        context["total_questions_count"] = total_questions_count
+        context["pagination"] = {
+            "page": page,
+            "page_size": page_size,
+            "total_count": total_questions_count,
+            "total_pages": total_pages,
+            "has_prev": page > 1,
+            "has_next": page < total_pages,
+            "prev_page": max(1, page - 1),
+            "next_page": min(total_pages, page + 1),
+            "start_index": (offset + 1) if total_questions_count else 0,
+            "end_index": min(offset + len(rows), total_questions_count),
+            "page_numbers": list(range(page_window_start, page_window_end + 1)),
+        }
+    except Exception:
+        rows = []
+        if not context.get("error"):
+            context["error"] = "Could not load questions. Ensure table objective_questions exists in Supabase."
+
+    topic_name_by_id = {t.get("id"): t.get("name") for t in topic_rows}
+    for row in rows:
+        row["topic_name"] = topic_name_by_id.get(row.get("topic_id"), "Unknown Topic")
+        row["options_text"] = "\n".join(row.get("options") or [])
+        try:
+            created_at = row.get("created_at")
+            row["is_new"] = bool(created_at) and datetime.fromisoformat(str(created_at).replace("Z", "+00:00")) >= new_cutoff
+        except Exception:
+            row["is_new"] = False
+    context["questions"] = rows
+
+    return render(request, "dashboard/admin_objectives.html", context)
+
+
 def admin_manage_questions(request):
     guard = _require_admin(request)
     if guard:
@@ -6756,6 +7349,260 @@ def _quiz_admin_sample_question_items():
 
 _QUIZ_ADMIN_ITEMS = _quiz_admin_sample_question_items()
 QUIZ_ADMIN_JSON_PLACEHOLDER = json.dumps(_QUIZ_ADMIN_ITEMS, ensure_ascii=False, separators=(",", ":"))
+
+
+def student_objectives_topics(request):
+    """
+    Prep by Topics lobby: sections questions by topic, each topic chunked
+    into groups of OBJECTIVE_QUESTIONS_PER_GROUP (like an NMC-style paper),
+    plus a per-topic performance panel so students see where they're lacking.
+    """
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/objectives/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    now_utc = datetime.now(timezone.utc)
+    new_cutoff = now_utc - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
+
+    try:
+        topic_rows = (
+            admin.table("objective_topics")
+            .select("id, name, description, display_order, created_at")
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        topic_rows = []
+
+    try:
+        question_rows = (
+            admin.table("objective_questions")
+            .select("id, topic_id, display_order, created_at")
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(20000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        question_rows = []
+
+    questions_by_topic = {}
+    newest_by_topic = {}
+    for q in question_rows:
+        tid = q.get("topic_id")
+        questions_by_topic.setdefault(tid, []).append(q)
+        created_at = q.get("created_at")
+        if created_at and (tid not in newest_by_topic or created_at > newest_by_topic[tid]):
+            newest_by_topic[tid] = created_at
+
+    topics = []
+    any_new = False
+    for row in topic_rows:
+        tid = row.get("id")
+        topic_questions = questions_by_topic.get(tid, [])
+        question_count = len(topic_questions)
+        if question_count < 1:
+            continue
+
+        is_new = False
+        try:
+            newest = newest_by_topic.get(tid)
+            if newest:
+                is_new = datetime.fromisoformat(str(newest).replace("Z", "+00:00")) >= new_cutoff
+        except Exception:
+            is_new = False
+        if is_new:
+            any_new = True
+
+        groups = []
+        for group_index, start in enumerate(range(0, question_count, OBJECTIVE_QUESTIONS_PER_GROUP), start=1):
+            chunk_count = min(OBJECTIVE_QUESTIONS_PER_GROUP, question_count - start)
+            total_seconds = chunk_count * OBJECTIVE_SECONDS_PER_QUESTION
+            groups.append({
+                "index": group_index,
+                "question_count": chunk_count,
+                "minutes": max(1, math.ceil(total_seconds / 60)),
+                "total_seconds": total_seconds,
+                "timed_link": f"/dashboard/prep-by-topics/{tid}/?group={group_index}&mode=timed",
+                "untimed_link": f"/dashboard/prep-by-topics/{tid}/?group={group_index}&mode=untimed",
+            })
+
+        topics.append({
+            "id": tid,
+            "name": row.get("name") or "Untitled Topic",
+            "description": row.get("description") or "",
+            "question_count": question_count,
+            "is_new": is_new,
+            "groups": groups,
+        })
+
+    topic_name_by_id = {t["id"]: t["name"] for t in topics}
+    topic_performance = _objective_topic_performance(admin, user_id, topic_name_by_id)
+    weak_topics = [p for p in topic_performance if p["band"]["key"] != "strong"][:5]
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "objectives_prep",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "topics": topics,
+        "any_new_topic": any_new,
+        "questions_per_group": OBJECTIVE_QUESTIONS_PER_GROUP,
+        "seconds_per_question": OBJECTIVE_SECONDS_PER_QUESTION,
+        "topic_performance": topic_performance,
+        "weak_topics": weak_topics,
+    }
+    return render(request, "dashboard/student_objectives_topics.html", context)
+
+
+def student_objectives_practice(request, topic_id):
+    """
+    MCQ practice run for one 50-question group of a topic.
+    ?group=<n> selects which 50-question block (default 1).
+    ?mode=timed|untimed toggles the countdown timer (default untimed).
+    """
+    guard = _require_login(request)
+    if guard:
+        return guard
+    if request.session.get("role") == "admin":
+        return redirect("/admin-panel/objectives/")
+
+    admin = _supabase_admin()
+    user_id = request.session.get("user_id")
+    unread_count = _student_unread_count(user_id)
+
+    try:
+        requested_group = max(1, int((request.GET.get("group") or "1").strip()))
+    except Exception:
+        requested_group = 1
+    mode = (request.GET.get("mode") or "untimed").strip().lower()
+    if mode not in {"timed", "untimed"}:
+        mode = "untimed"
+
+    try:
+        topic_row = (
+            admin.table("objective_topics")
+            .select("id, name, description")
+            .eq("id", str(topic_id))
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        topic_row = []
+    topic = topic_row[0] if topic_row else None
+
+    try:
+        all_questions = (
+            admin.table("objective_questions")
+            .select("id, question_text, options, correct_answer, rationale, difficulty, display_order")
+            .eq("topic_id", str(topic_id))
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        all_questions = []
+
+    total_groups = max(1, math.ceil(len(all_questions) / OBJECTIVE_QUESTIONS_PER_GROUP)) if all_questions else 1
+    group_index = min(requested_group, total_groups)
+    start = (group_index - 1) * OBJECTIVE_QUESTIONS_PER_GROUP
+    questions = all_questions[start:start + OBJECTIVE_QUESTIONS_PER_GROUP]
+
+    for q in questions:
+        raw_options = q.get("options")
+        if isinstance(raw_options, list):
+            q["options"] = [str(v).strip() for v in raw_options if str(v).strip()]
+        else:
+            q["options"] = []
+        q["correct_answers"] = [q.get("correct_answer")] if q.get("correct_answer") else []
+
+    total_seconds = len(questions) * OBJECTIVE_SECONDS_PER_QUESTION
+
+    context = {
+        "full_name": request.session.get("full_name", "Student"),
+        "email": request.session.get("email", ""),
+        "role": "student",
+        "active_page": "objectives_prep",
+        "hide_assistant_bot": True,
+        "student_unread_notifications": unread_count,
+        "has_unread_notifications": unread_count > 0,
+        "topic": topic,
+        "topic_id": str(topic_id),
+        "questions": questions,
+        "group_index": group_index,
+        "total_groups": total_groups,
+        "mode": mode,
+        "is_timed": mode == "timed",
+        "total_seconds": total_seconds,
+        "seconds_per_question": OBJECTIVE_SECONDS_PER_QUESTION,
+    }
+    return render(request, "dashboard/student_objectives_practice.html", context)
+
+
+@require_POST
+def student_objectives_submit_result(request):
+    """POST JSON: best-effort persistence of a topic practice score."""
+    guard = _require_login(request)
+    if guard:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+    if request.session.get("role") == "admin":
+        return JsonResponse({"ok": False, "error": "Forbidden"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    topic_id = str(payload.get("topic_id") or "").strip()
+    try:
+        correct_count = int(payload.get("correct_count") or 0)
+        total_questions = int(payload.get("total_questions") or 0)
+        percentage = float(payload.get("percentage") or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "Invalid test data"}, status=400)
+
+    if not topic_id or total_questions < 1:
+        return JsonResponse({"ok": False, "error": "Invalid test data"}, status=400)
+    if correct_count < 0 or correct_count > total_questions:
+        return JsonResponse({"ok": False, "error": "Invalid score"}, status=400)
+
+    user_id = request.session.get("user_id")
+    admin = _supabase_admin()
+    try:
+        admin.table("objective_attempts").insert({
+            "student_id": str(user_id),
+            "topic_id": topic_id,
+            "correct_count": correct_count,
+            "total_questions": total_questions,
+            "percentage": round(percentage, 2),
+            "submitted_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass
+    return JsonResponse({"ok": True})
 
 
 def student_nclex_questions(request):
@@ -9748,6 +10595,13 @@ def student_performance(request):
     all_attempts.sort(key=lambda x: x.get("submitted_at") or "", reverse=True)
     avg_score = round(sum(float(a.get("percentage") or 0) for a in all_attempts) / len(all_attempts), 1) if all_attempts else 0
 
+    try:
+        topic_rows = admin.table("objective_topics").select("id, name").limit(2000).execute().data or []
+    except Exception:
+        topic_rows = []
+    topic_name_by_id = {t.get("id"): t.get("name") or "Untitled Topic" for t in topic_rows}
+    topic_performance = _objective_topic_performance(admin, user_id, topic_name_by_id)
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -9757,6 +10611,7 @@ def student_performance(request):
         "has_unread_notifications": unread_count > 0,
         "all_attempts": all_attempts,
         "avg_score": avg_score,
+        "topic_performance": topic_performance,
     }
     return render(request, "dashboard/student_performance.html", context)
 

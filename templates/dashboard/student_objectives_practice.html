@@ -1,0 +1,234 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}{{ topic.name|default:"Prep by Topics" }} - NursesEdge{% endblock %}
+
+{% block content %}
+<style>
+  .obj-shell { max-width: 920px; margin: 0 auto; }
+  .obj-hero, .obj-panel { background: #fff; border: 1px solid #e5e9f2; border-radius: 14px; }
+  .obj-hero { padding: 18px 20px; margin-bottom: 14px; }
+  .obj-hero .eyebrow { color: #6b7280; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .obj-hero h4 { margin: 2px 0 0; }
+  .timer-pill { font-size: 13px; font-weight: 700; border: 1px solid #d8e6ff; background: #f1f6ff; color: #1f4d9a; border-radius: 999px; padding: 6px 12px; }
+  .timer-pill.is-low { color: #8a1c1c; border-color: #f2c9c9; background: #fff4f4; }
+  .mode-pill { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; border-radius: 999px; padding: 4px 10px; }
+  .mode-pill.timed { color: #7c2d12; background: #ffedd5; border: 1px solid #fdba74; }
+  .mode-pill.untimed { color: #166534; background: #dcfce7; border: 1px solid #86efac; }
+
+  .obj-progress { height: 8px; background: #eef2fa; border-radius: 999px; overflow: hidden; }
+  .obj-progress > div { height: 100%; background: #1f4d9a; width: 0%; transition: width .2s ease; }
+  .obj-panel { padding: 20px; }
+  .obj-qcounter { font-size: 0.82rem; color: #6b7280; font-weight: 600; }
+  .obj-qtext { font-size: 1.05rem; font-weight: 600; color: #1f2937; }
+
+  .obj-option { border: 1px solid #d9e2f0; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+  .obj-option:hover { border-color: #9fb7e6; background: #f7faff; }
+  .obj-option input[type="radio"] { margin-top: 2px; width: 16px; height: 16px; flex: 0 0 auto; accent-color: #1f4d9a; }
+  .obj-option-text { display: block; line-height: 1.45; }
+  .obj-option.is-selected { border-color: #1f4d9a; background: #f1f6ff; }
+  .obj-hidden { display: none !important; }
+
+  .review-block { border: 1px solid #e5e9f2; border-radius: 10px; padding: 14px; margin-bottom: 10px; }
+</style>
+
+<div class="obj-shell">
+  <div class="obj-hero d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div>
+      <div class="eyebrow">Prep by Topics{% if topic.name %} &middot; {{ topic.name }}{% endif %}</div>
+      <h4>Set {{ group_index }} of {{ total_groups }}</h4>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="mode-pill {{ mode }}">{% if is_timed %}Timed{% else %}Untimed{% endif %}</span>
+      {% if is_timed %}<span class="timer-pill" id="examTimer">00:00</span>{% endif %}
+      <a href="/dashboard/prep-by-topics/" class="btn btn-outline-secondary btn-sm">Back to Topics</a>
+    </div>
+  </div>
+
+  {% if questions %}
+  <div class="obj-panel">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-2 flex-wrap">
+      <span class="obj-qcounter" id="qCounter">Question 1 of {{ questions|length }}</span>
+    </div>
+    <div class="obj-progress mb-3"><div id="objProgressBar"></div></div>
+    <h5 id="qText" class="obj-qtext mb-3"></h5>
+    <div id="qInputArea"></div>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <button type="button" class="btn btn-outline-secondary" id="btnPrev">Previous</button>
+      <button type="button" class="btn btn-primary" id="btnNext">Next</button>
+      <button type="button" class="btn btn-success obj-hidden" id="btnSubmit">Submit</button>
+    </div>
+  </div>
+  {% else %}
+  <div class="obj-panel text-center text-muted py-5">No active questions in this set yet.</div>
+  {% endif %}
+</div>
+
+{% if questions %}
+{{ questions|json_script:"objQuestionsData" }}
+<script id="objMeta" type="application/json">{"topic_id":"{{ topic_id|escapejs }}","group_index":{{ group_index|default:1 }},"is_timed":{% if is_timed %}true{% else %}false{% endif %},"total_seconds":{{ total_seconds|default:0 }},"csrf_token":"{{ csrf_token }}"}</script>
+<div class="modal fade" id="objScoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ topic.name|default:"Topic" }} — Set {{ group_index }} Result</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+          <h5 class="mb-0" id="resultScore"></h5>
+          <span class="badge bg-label-primary" id="resultBreakdown"></span>
+        </div>
+        <div id="resultReview"></div>
+      </div>
+      <div class="modal-footer">
+        <a href="/dashboard/prep-by-topics/" class="btn btn-outline-secondary">Back to Topics</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if questions %}
+<script>
+  (function () {
+    const questions = JSON.parse(document.getElementById("objQuestionsData").textContent || "[]");
+    const meta = JSON.parse(document.getElementById("objMeta").textContent || "{}");
+    if (!questions.length) return;
+
+    function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+    questions.forEach((q) => {
+      q.options = Array.isArray(q.options) ? shuffle([...q.options]) : [];
+      q.correct_answers = Array.isArray(q.correct_answers) ? q.correct_answers : [];
+    });
+
+    function resultStorageKey() {
+      return "objectives_result_" + meta.topic_id + "_g" + meta.group_index + "_" + meta.is_timed + "_" +
+        questions.map((q) => String(q.id || q.question_text || "")).join("|");
+    }
+
+    const qCounter = document.getElementById("qCounter");
+    const qText = document.getElementById("qText");
+    const qInputArea = document.getElementById("qInputArea");
+    const btnPrev = document.getElementById("btnPrev");
+    const btnNext = document.getElementById("btnNext");
+    const btnSubmit = document.getElementById("btnSubmit");
+    const progressBar = document.getElementById("objProgressBar");
+    const examTimer = document.getElementById("examTimer");
+    const scoreModalEl = document.getElementById("objScoreModal");
+    let scoreModal = null;
+    function getScoreModal() {
+      if (!scoreModalEl) return null;
+      if (!scoreModal && window.bootstrap && window.bootstrap.Modal) scoreModal = new window.bootstrap.Modal(scoreModalEl);
+      return scoreModal;
+    }
+    const resultScore = document.getElementById("resultScore");
+    const resultBreakdown = document.getElementById("resultBreakdown");
+    const resultReview = document.getElementById("resultReview");
+
+    let idx = 0;
+    const answers = {};
+    const solvedKey = resultStorageKey();
+    let timerSeconds = Number(meta.total_seconds || 0);
+    let timerHandle = null;
+
+    function fmtTime(seconds) { const s = Math.max(0, Number(seconds || 0)); const m = Math.floor(s / 60); const r = s % 60; return String(m).padStart(2, "0") + ":" + String(r).padStart(2, "0"); }
+    function updateTimerUi() { if (!examTimer) return; examTimer.textContent = fmtTime(timerSeconds); examTimer.classList.toggle("is-low", timerSeconds <= 60); }
+    function stopTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+    function startTimer() {
+      if (!meta.is_timed || !examTimer) return;
+      stopTimer();
+      updateTimerUi();
+      timerHandle = setInterval(() => {
+        timerSeconds -= 1;
+        updateTimerUi();
+        if (timerSeconds <= 0) { stopTimer(); submitTest(true); }
+      }, 1000);
+    }
+
+    function renderQuestion() {
+      const q = questions[idx];
+      qCounter.textContent = "Question " + (idx + 1) + " of " + questions.length;
+      qText.textContent = q.question_text || "";
+      progressBar.style.width = (((idx + 1) / questions.length) * 100) + "%";
+      qInputArea.innerHTML = "";
+      q.options.forEach((opt) => {
+        const wrap = document.createElement("label");
+        wrap.className = "obj-option d-flex align-items-start gap-2" + (answers[idx] === opt ? " is-selected" : "");
+        const input = document.createElement("input");
+        input.type = "radio"; input.name = "mcq_" + idx; input.value = opt; input.checked = answers[idx] === opt;
+        input.addEventListener("change", () => { answers[idx] = opt; renderQuestion(); });
+        const span = document.createElement("span"); span.className = "obj-option-text"; span.textContent = opt;
+        wrap.appendChild(input); wrap.appendChild(span); qInputArea.appendChild(wrap);
+      });
+      btnPrev.disabled = idx === 0;
+      const isLast = idx === questions.length - 1;
+      btnNext.classList.toggle("obj-hidden", isLast);
+      btnSubmit.classList.toggle("obj-hidden", !isLast);
+    }
+
+    function buildResultPayload() {
+      let correctCount = 0; const reviewRows = [];
+      questions.forEach((q, i) => {
+        const userAnswer = answers[i];
+        const correct = q.correct_answers || [];
+        const ok = correct.some((c) => String(c).trim().toLowerCase() === String(userAnswer || "").trim().toLowerCase());
+        if (ok) correctCount += 1;
+        reviewRows.push(
+          "<div class='d-flex justify-content-between gap-2'><strong>Q" + (i + 1) + "</strong><span class='badge " + (ok ? "bg-label-success" : "bg-label-danger") + "'>" + (ok ? "Correct" : "Incorrect") + "</span></div>" +
+          "<div class='mt-2'>" + (q.question_text || "") + "</div>" +
+          "<div class='small text-muted mt-2'><strong>Your Answer:</strong> " + (userAnswer || "<em>No answer</em>") + "</div>" +
+          "<div class='small text-muted mt-1'><strong>Correct Answer:</strong> " + (q.correct_answers || []).join(", ") + "</div>" +
+          (q.rationale ? "<div class='small text-muted mt-1'><strong>Rationale:</strong> " + q.rationale + "</div>" : "")
+        );
+      });
+      const pct = Math.round((correctCount / questions.length) * 100);
+      return { correctCount, total: questions.length, pct, reviewRows };
+    }
+
+    function showResult(payload) {
+      resultReview.innerHTML = "";
+      (payload.reviewRows || []).forEach((html) => { const block = document.createElement("div"); block.className = "review-block"; block.innerHTML = html; resultReview.appendChild(block); });
+      resultScore.textContent = "Score: " + payload.correctCount + " / " + payload.total + " (" + payload.pct + "%)";
+      resultBreakdown.textContent = payload.pct >= 75 ? "Great performance" : "Keep practicing";
+      const modal = getScoreModal();
+      if (modal) modal.show();
+      else alert(resultScore.textContent);
+    }
+
+    function submitTest(isAutoTimeout) {
+      stopTimer();
+      const payload = buildResultPayload();
+      try { localStorage.setItem(solvedKey, JSON.stringify(payload)); } catch (e) {}
+      fetch("/dashboard/prep-by-topics/submit/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": meta.csrf_token || "" },
+        body: JSON.stringify({
+          topic_id: meta.topic_id,
+          correct_count: payload.correctCount,
+          total_questions: payload.total,
+          percentage: payload.pct,
+        }),
+      }).catch(function () {});
+      showResult(payload);
+      if (isAutoTimeout && window.showAppMessageModal) window.showAppMessageModal("Time is up. Your set was submitted automatically.", "Prep by Topics Timer");
+    }
+
+    btnPrev.addEventListener("click", () => { if (idx > 0) { idx -= 1; renderQuestion(); } });
+    btnNext.addEventListener("click", () => { if (idx < questions.length - 1) { idx += 1; renderQuestion(); } });
+    btnSubmit.addEventListener("click", () => submitTest(false));
+
+    try {
+      const saved = localStorage.getItem(solvedKey);
+      if (saved) {
+        const payload = JSON.parse(saved);
+        if (payload && typeof payload === "object") { showResult(payload); return; }
+      }
+    } catch (e) {}
+
+    renderQuestion();
+    startTimer();
+  })();
+</script>
+{% endif %}
+{% endblock %}

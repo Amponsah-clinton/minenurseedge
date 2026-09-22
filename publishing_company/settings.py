@@ -104,6 +104,7 @@ TEMPLATES = [
                 "website.context_processors.gemini_key",
                 "website.context_processors.groq_key",
                 "website.context_processors.reported_questions_badge",
+                "website.context_processors.objectives_sidebar_ctx",
                 "website.context_processors.academic_profile_gate",
                 "website.context_processors.subscription_status_ctx",
                 "website.context_processors.dashboard_search_nav",

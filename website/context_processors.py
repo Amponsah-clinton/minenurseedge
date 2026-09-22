@@ -135,6 +135,64 @@ def dashboard_search_nav(request):
         return {"dashboard_search_nav": []}
 
 
+def objectives_sidebar_ctx(request):
+    """
+    Adds `objectives_available` and `objectives_is_new` to every dashboard
+    template so the student sidebar can show/hide "Prep by Topics" and its
+    NEW tag without every view needing to pass it. Cached in the session
+    for 60 seconds to avoid a DB hit on every request.
+    """
+    import time
+
+    if request.session.get("role") != "student":
+        return {"objectives_available": False, "objectives_is_new": False}
+
+    now = time.time()
+    cached_at = request.session.get("_obj_sidebar_ts", 0)
+    if now - cached_at < 60:
+        return {
+            "objectives_available": bool(request.session.get("_obj_sidebar_available", False)),
+            "objectives_is_new": bool(request.session.get("_obj_sidebar_is_new", False)),
+        }
+
+    available = False
+    is_new = False
+    try:
+        from datetime import datetime, timedelta, timezone
+        from website.views import OBJECTIVE_NEW_TAG_WINDOW_DAYS
+
+        client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+        rows = (
+            client.table("objective_questions")
+            .select("created_at")
+            .eq("is_active", True)
+            .limit(2000)
+            .execute()
+            .data
+            or []
+        )
+        available = len(rows) > 0
+        cutoff = datetime.now(timezone.utc) - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
+        for row in rows:
+            created_at = row.get("created_at")
+            if not created_at:
+                continue
+            try:
+                if datetime.fromisoformat(str(created_at).replace("Z", "+00:00")) >= cutoff:
+                    is_new = True
+                    break
+            except Exception:
+                continue
+    except Exception:
+        available = False
+        is_new = False
+
+    request.session["_obj_sidebar_available"] = available
+    request.session["_obj_sidebar_is_new"] = is_new
+    request.session["_obj_sidebar_ts"] = now
+    return {"objectives_available": available, "objectives_is_new": is_new}
+
+
 def reported_questions_badge(request):
     """Provides pending report count for the admin sidebar badge.
     Only queries Supabase when the session role is 'admin'."""
