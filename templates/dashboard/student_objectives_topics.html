@@ -32,6 +32,20 @@
   .obj-perf-row:last-child { border-bottom: none; }
   .obj-perf-topic { font-weight: 600; font-size: 0.9rem; }
   .obj-perf-pct { font-weight: 700; }
+
+  .obj-toolbar { padding: 14px 16px; margin-bottom: 4px; }
+  .obj-search-wrap { position: relative; flex: 1 1 260px; min-width: 220px; }
+  .obj-search-wrap .bx { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9aa5b5; font-size: 16px; }
+  .obj-search-input { width: 100%; border: 1px solid #d9e2f0; border-radius: 10px; padding: 9px 12px 9px 36px; font-size: 0.9rem; color: #1f2937; background: #fff; }
+  .obj-search-input:focus { outline: none; border-color: #1f4d9a; }
+  .obj-filter-chip {
+    border: 1px solid #d9e2f0; background: #fff; color: #4b5563; border-radius: 999px;
+    padding: 6px 14px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+  }
+  .obj-filter-chip:hover { border-color: #9fb7e6; }
+  .obj-filter-chip.is-active { background: #1f4d9a; border-color: #1f4d9a; color: #fff; }
+  .obj-no-results { display: none; }
+  .obj-topic-section.is-hidden { display: none; }
 </style>
 
 <div class="obj-shell">
@@ -76,8 +90,31 @@
 
     {% if topics %}
     <div class="col-12">
+      <div class="obj-panel obj-toolbar d-flex flex-wrap align-items-center gap-2">
+        <div class="obj-search-wrap">
+          <i class="bx bx-search"></i>
+          <input type="text" class="obj-search-input" id="topicSearchInput" placeholder="Search topics by name or description&hellip;" autocomplete="off" />
+        </div>
+        <div class="d-flex flex-wrap gap-2" id="topicFilterChips">
+          <button type="button" class="obj-filter-chip is-active" data-filter="all">All</button>
+          <button type="button" class="obj-filter-chip" data-filter="new">New</button>
+          <button type="button" class="obj-filter-chip" data-filter="weak">Weak Areas</button>
+          <button type="button" class="obj-filter-chip" data-filter="strong">Mastered</button>
+          <button type="button" class="obj-filter-chip" data-filter="unattempted">Not Started</button>
+        </div>
+        <div class="text-muted small ms-auto" id="topicVisibleCount"></div>
+      </div>
+    </div>
+
+    <div class="col-12">
       {% for topic in topics %}
-      <section class="obj-topic-section">
+      <section
+        class="obj-topic-section"
+        data-topic-name="{{ topic.name|lower }}"
+        data-topic-desc="{{ topic.description|default:''|lower }}"
+        data-is-new="{% if topic.is_new %}1{% else %}0{% endif %}"
+        data-band="{{ topic.band_key }}"
+      >
         <div class="obj-topic-head">
           <div>
             <h6 class="obj-topic-title">
@@ -103,6 +140,10 @@
         </div>
       </section>
       {% endfor %}
+
+      <div class="obj-panel text-center text-muted py-5 obj-no-results" id="topicNoResults">
+        No topics match your search or filter. Try a different keyword or choose "All".
+      </div>
     </div>
     {% else %}
     <div class="col-12">
@@ -113,4 +154,55 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if topics %}
+<script>
+  (function () {
+    const searchInput = document.getElementById("topicSearchInput");
+    const chips = Array.from(document.querySelectorAll(".obj-filter-chip"));
+    const sections = Array.from(document.querySelectorAll(".obj-topic-section"));
+    const noResults = document.getElementById("topicNoResults");
+    const visibleCount = document.getElementById("topicVisibleCount");
+    let activeFilter = "all";
+
+    function matchesFilter(section) {
+      if (activeFilter === "all") return true;
+      if (activeFilter === "new") return section.dataset.isNew === "1";
+      if (activeFilter === "weak") return section.dataset.band === "weak" || section.dataset.band === "moderate";
+      if (activeFilter === "strong") return section.dataset.band === "strong";
+      if (activeFilter === "unattempted") return section.dataset.band === "unattempted";
+      return true;
+    }
+
+    function applyFilters() {
+      const query = (searchInput.value || "").trim().toLowerCase();
+      let shown = 0;
+      sections.forEach((section) => {
+        const name = section.dataset.topicName || "";
+        const desc = section.dataset.topicDesc || "";
+        const matchesQuery = !query || name.includes(query) || desc.includes(query);
+        const visible = matchesQuery && matchesFilter(section);
+        section.classList.toggle("is-hidden", !visible);
+        if (visible) shown += 1;
+      });
+      noResults.style.display = shown === 0 ? "block" : "none";
+      visibleCount.textContent = shown === sections.length ? sections.length + " topic" + (sections.length === 1 ? "" : "s") : "Showing " + shown + " of " + sections.length;
+    }
+
+    if (searchInput) searchInput.addEventListener("input", applyFilters);
+    chips.forEach((chip) => {
+      chip.addEventListener("click", function () {
+        chips.forEach((c) => c.classList.remove("is-active"));
+        this.classList.add("is-active");
+        activeFilter = this.dataset.filter || "all";
+        applyFilters();
+      });
+    });
+
+    applyFilters();
+  })();
+</script>
+{% endif %}
 {% endblock %}

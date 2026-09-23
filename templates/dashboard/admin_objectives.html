@@ -54,52 +54,10 @@
           </div>
         </div>
 
-        <div class="table-responsive">
-          <table class="table align-middle">
-            <thead>
-              <tr>
-                <th>Topic</th>
-                <th>Description</th>
-                <th style="width:110px;">Questions</th>
-                <th style="width:100px;">Status</th>
-                <th style="width:150px;">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for t in topics %}
-              <tr>
-                <td>{{ t.name }}</td>
-                <td class="text-muted small">{{ t.description|truncatechars:90 }}</td>
-                <td><span class="badge bg-label-secondary">{{ t.question_count }}</span></td>
-                <td>
-                  {% if t.is_active %}
-                  <span class="badge bg-label-success">Active</span>
-                  {% else %}
-                  <span class="badge bg-label-secondary">Inactive</span>
-                  {% endif %}
-                </td>
-                <td class="d-flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    class="btn btn-xs btn-outline-primary topic-edit-btn"
-                    data-bs-toggle="modal"
-                    data-bs-target="#topicModal"
-                    data-topic-id="{{ t.id }}"
-                    data-topic-name="{{ t.name }}"
-                    data-topic-description="{{ t.description|default:'' }}"
-                    data-topic-display-order="{{ t.display_order|default:'0' }}"
-                    data-topic-is-active="{% if t.is_active %}true{% else %}false{% endif %}"
-                  >
-                    Manage
-                  </button>
-                  <a class="btn btn-xs btn-outline-secondary" href="?topic_id={{ t.id }}">View Qs</a>
-                </td>
-              </tr>
-              {% empty %}
-              <tr><td colspan="5" class="text-center text-muted py-4">No topics yet. Add one above.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#topicsListModal">
+            View / Manage Topics ({{ topics|length }})
+          </button>
         </div>
       </div>
     </div>
@@ -144,21 +102,103 @@
 
   <div class="col-12">
     <div class="card">
-      <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
-          <h5 class="mb-0">Existing Questions (CRUD)</h5>
+          <h5 class="mb-1">Existing Questions (CRUD)</h5>
           <small class="text-muted">
             Total: <strong>{{ total_questions_count }}</strong>
-            {% if pagination %}
-            &nbsp;|&nbsp; Showing <strong>{{ pagination.start_index }}-{{ pagination.end_index }}</strong>
-            {% endif %}
-            {% if filter_topic_id %}
-            &nbsp;|&nbsp; <a href="?">Clear topic filter</a>
-            {% endif %}
+            {% if filter_topic_id %}&nbsp;|&nbsp; filtered by topic{% endif %}
           </small>
         </div>
+        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#questionsListModal">
+          View / Manage Questions
+        </button>
       </div>
-      <div class="card-body">
+    </div>
+  </div>
+</div>
+
+<!-- TOPICS LIST MODAL -->
+<div class="modal fade" id="topicsListModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Topics ({{ topics|length }})</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Topic</th>
+                <th>Description</th>
+                <th style="width:110px;">Questions</th>
+                <th style="width:100px;">Status</th>
+                <th style="width:170px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in topics %}
+              <tr>
+                <td>{{ t.name }}</td>
+                <td class="text-muted small">{{ t.description|truncatechars:90 }}</td>
+                <td><span class="badge bg-label-secondary">{{ t.question_count }}</span></td>
+                <td>
+                  {% if t.is_active %}
+                  <span class="badge bg-label-success">Active</span>
+                  {% else %}
+                  <span class="badge bg-label-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+                <td class="d-flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-outline-primary topic-edit-btn"
+                    data-bs-toggle="modal"
+                    data-bs-target="#topicModal"
+                    data-topic-id="{{ t.id }}"
+                    data-topic-name="{{ t.name }}"
+                    data-topic-description="{{ t.description|default:'' }}"
+                    data-topic-display-order="{{ t.display_order|default:'0' }}"
+                    data-topic-is-active="{% if t.is_active %}true{% else %}false{% endif %}"
+                  >
+                    Manage
+                  </button>
+                  <a class="btn btn-xs btn-outline-secondary" href="?topic_id={{ t.id }}#questions">View Qs</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted py-4">No topics yet. Add one above.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="button" id="topicAddBtnInModal" data-bs-toggle="modal" data-bs-target="#topicModal">Add Topic</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUESTIONS LIST MODAL -->
+<div class="modal fade" id="questionsListModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Existing Questions
+          <small class="text-muted d-block" style="font-size:0.75rem; font-weight:400;">
+            Total: {{ total_questions_count }}
+            {% if pagination %}&nbsp;|&nbsp; Showing {{ pagination.start_index }}-{{ pagination.end_index }}{% endif %}
+            {% if filter_topic_id %}&nbsp;|&nbsp; <a href="?">Clear topic filter</a>{% endif %}
+          </small>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
         <div class="table-responsive">
           <table class="table align-middle">
             <thead>
@@ -227,6 +267,10 @@
           </ul>
         </nav>
         {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="button" id="questionAddBtnInModal" data-bs-toggle="modal" data-bs-target="#questionModal">Add Question</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -350,6 +394,13 @@
 {% block scripts %}
 <script>
   (function () {
+    function getModalInstance(el) {
+      if (!el || !window.bootstrap || !window.bootstrap.Modal) return null;
+      return window.bootstrap.Modal.getOrCreateInstance(el);
+    }
+    const topicsListModalEl = document.getElementById("topicsListModal");
+    const questionsListModalEl = document.getElementById("questionsListModal");
+
     // ---- Topic modal ----
     const tpAction = document.getElementById("tpAction");
     const tpTopicId = document.getElementById("tpTopicId");
@@ -363,6 +414,7 @@
     const tpDeleteId = document.getElementById("tpDeleteId");
     const tpResetBtn = document.getElementById("tpResetBtn");
     const topicAddBtn = document.getElementById("topicAddBtn");
+    const topicAddBtnInModal = document.getElementById("topicAddBtnInModal");
 
     function resetTopicModal() {
       tpAction.value = "create_topic";
@@ -378,9 +430,16 @@
     }
     if (topicAddBtn) topicAddBtn.addEventListener("click", resetTopicModal);
     if (tpResetBtn) tpResetBtn.addEventListener("click", resetTopicModal);
+    if (topicAddBtnInModal) {
+      topicAddBtnInModal.addEventListener("click", function () {
+        getModalInstance(topicsListModalEl)?.hide();
+        resetTopicModal();
+      });
+    }
 
     document.querySelectorAll(".topic-edit-btn").forEach((btn) => {
       btn.addEventListener("click", function () {
+        getModalInstance(topicsListModalEl)?.hide();
         tpAction.value = "update_topic";
         tpTopicId.value = this.dataset.topicId || "";
         tpIsActive.value = this.dataset.topicIsActive || "true";
@@ -411,6 +470,7 @@
     const qqDeleteId = document.getElementById("qqDeleteId");
     const qqResetBtn = document.getElementById("qqResetBtn");
     const questionAddBtn = document.getElementById("questionAddBtn");
+    const questionAddBtnInModal = document.getElementById("questionAddBtnInModal");
 
     function resetQuestionModal() {
       qqAction.value = "create_question";
@@ -429,9 +489,16 @@
     }
     if (questionAddBtn) questionAddBtn.addEventListener("click", resetQuestionModal);
     if (qqResetBtn) qqResetBtn.addEventListener("click", resetQuestionModal);
+    if (questionAddBtnInModal) {
+      questionAddBtnInModal.addEventListener("click", function () {
+        getModalInstance(questionsListModalEl)?.hide();
+        resetQuestionModal();
+      });
+    }
 
     document.querySelectorAll(".question-edit-btn").forEach((btn) => {
       btn.addEventListener("click", function () {
+        getModalInstance(questionsListModalEl)?.hide();
         qqAction.value = "update_question";
         qqQuestionId.value = this.dataset.questionId || "";
         qqIsActive.value = this.dataset.isActive || "true";
@@ -480,6 +547,15 @@
         dest.focus();
       });
     });
+
+    // ---- Reopen the Questions modal automatically after a pagination /
+    // topic-filter link reloads the page (those are plain <a href> links). ----
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("page") || params.has("topic_id")) {
+        getModalInstance(questionsListModalEl)?.show();
+      }
+    } catch (e) {}
   })();
 </script>
 {% endblock %}

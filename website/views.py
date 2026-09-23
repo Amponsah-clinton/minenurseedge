@@ -152,7 +152,7 @@ OBJECTIVE_QUESTIONS_JSON_SAMPLE = json.dumps(
 )
 
 OBJECTIVE_NEW_TAG_WINDOW_DAYS = 21
-OBJECTIVE_QUESTIONS_PER_GROUP = 50
+OBJECTIVE_QUESTIONS_PER_GROUP = 20
 OBJECTIVE_SECONDS_PER_QUESTION = 50
 
 
@@ -473,20 +473,33 @@ def _normalize_objective_topic_payload(raw):
     }
 
 
+def _supabase_fetch_all(query_factory, chunk_size=1000, max_rows=100000):
+    """
+    Fetch every row matching a query, bypassing Supabase's default
+    max-rows cap (commonly 1000) which silently truncates a single
+    `.limit(N>1000)` call. `query_factory` is a zero-arg callable that
+    returns a FRESH, unexecuted query (already filtered/ordered) each
+    time it's invoked, so `.range()` can be applied per page.
+    """
+    rows = []
+    offset = 0
+    while True:
+        page = query_factory().range(offset, offset + chunk_size - 1).execute().data or []
+        rows.extend(page)
+        if len(page) < chunk_size or len(rows) >= max_rows:
+            break
+        offset += chunk_size
+    return rows
+
+
 def _filter_duplicate_objective_topics(supabase_client, rows, exclude_ids=None):
     """De-duplicate topics by normalized (casefolded, whitespace-collapsed) name."""
     if not rows:
         return [], []
     exclude_ids = {str(v) for v in (exclude_ids or []) if v}
 
-    existing = (
-        supabase_client
-        .table("objective_topics")
-        .select("id, name")
-        .limit(5000)
-        .execute()
-        .data
-        or []
+    existing = _supabase_fetch_all(
+        lambda: supabase_client.table("objective_topics").select("id, name")
     )
     existing_keys = {
         _normalize_nclex_text(row.get("name"))
@@ -5751,7 +5764,7 @@ def admin_objectives(request):
                 if not isinstance(items, list) or not items:
                     raise ValueError("JSON must be an array or an object with a 'questions' array.")
 
-                topic_rows = admin.table("objective_topics").select("id, name").limit(5000).execute().data or []
+                topic_rows = _supabase_fetch_all(lambda: admin.table("objective_topics").select("id, name"))
                 topic_lookup = {_normalize_nclex_text(t.get("name")): t.get("id") for t in topic_rows}
 
                 rows = []
@@ -5840,15 +5853,11 @@ def admin_objectives(request):
         context["questions_json_payload"] = request.POST.get("questions_json_payload", "")
 
     try:
-        topic_rows = (
-            admin.table("objective_topics")
+        topic_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_topics")
             .select("*")
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(2000)
-            .execute()
-            .data
-            or []
         )
     except Exception:
         topic_rows = []
@@ -5859,11 +5868,11 @@ def admin_objectives(request):
     new_cutoff = now_utc - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
 
     try:
-        question_counts_resp = (
-            admin.table("objective_questions").select("topic_id").limit(20000).execute()
+        question_count_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_questions").select("topic_id")
         )
         counts = {}
-        for row in (question_counts_resp.data or []):
+        for row in question_count_rows:
             tid = row.get("topic_id")
             counts[tid] = counts.get(tid, 0) + 1
     except Exception:
@@ -7371,31 +7380,23 @@ def student_objectives_topics(request):
     new_cutoff = now_utc - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
 
     try:
-        topic_rows = (
-            admin.table("objective_topics")
+        topic_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_topics")
             .select("id, name, description, display_order, created_at")
             .eq("is_active", True)
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(2000)
-            .execute()
-            .data
-            or []
         )
     except Exception:
         topic_rows = []
 
     try:
-        question_rows = (
-            admin.table("objective_questions")
+        question_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_questions")
             .select("id, topic_id, display_order, created_at")
             .eq("is_active", True)
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(20000)
-            .execute()
-            .data
-            or []
         )
     except Exception:
         question_rows = []
@@ -7454,6 +7455,11 @@ def student_objectives_topics(request):
     topic_performance = _objective_topic_performance(admin, user_id, topic_name_by_id)
     weak_topics = [p for p in topic_performance if p["band"]["key"] != "strong"][:5]
 
+    performance_by_topic_id = {p["topic_id"]: p for p in topic_performance}
+    for t in topics:
+        perf = performance_by_topic_id.get(t["id"])
+        t["band_key"] = perf["band"]["key"] if perf else "unattempted"
+
     context = {
         "full_name": request.session.get("full_name", "Student"),
         "email": request.session.get("email", ""),
@@ -7474,8 +7480,8 @@ def student_objectives_topics(request):
 
 def student_objectives_practice(request, topic_id):
     """
-    MCQ practice run for one 50-question group of a topic.
-    ?group=<n> selects which 50-question block (default 1).
+    MCQ practice run for one question-set of a topic (OBJECTIVE_QUESTIONS_PER_GROUP per set).
+    ?group=<n> selects which set (default 1).
     ?mode=timed|untimed toggles the countdown timer (default untimed).
     """
     guard = _require_login(request)
@@ -7511,17 +7517,13 @@ def student_objectives_practice(request, topic_id):
     topic = topic_row[0] if topic_row else None
 
     try:
-        all_questions = (
-            admin.table("objective_questions")
+        all_questions = _supabase_fetch_all(
+            lambda: admin.table("objective_questions")
             .select("id, question_text, options, correct_answer, rationale, difficulty, display_order")
             .eq("topic_id", str(topic_id))
             .eq("is_active", True)
             .order("display_order", desc=False)
             .order("created_at", desc=True)
-            .limit(2000)
-            .execute()
-            .data
-            or []
         )
     except Exception:
         all_questions = []
@@ -10596,7 +10598,7 @@ def student_performance(request):
     avg_score = round(sum(float(a.get("percentage") or 0) for a in all_attempts) / len(all_attempts), 1) if all_attempts else 0
 
     try:
-        topic_rows = admin.table("objective_topics").select("id, name").limit(2000).execute().data or []
+        topic_rows = _supabase_fetch_all(lambda: admin.table("objective_topics").select("id, name"))
     except Exception:
         topic_rows = []
     topic_name_by_id = {t.get("id"): t.get("name") or "Untitled Topic" for t in topic_rows}
