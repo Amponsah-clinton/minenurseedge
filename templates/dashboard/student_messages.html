@@ -22,9 +22,9 @@
 
 <div class="card">
   <div class="card-body">
-    {% if messages %}
+    {% if inbox_messages %}
       <div class="d-flex flex-column gap-3">
-        {% for item in messages %}
+        {% for item in inbox_messages %}
         <div class="border rounded p-3 {% if not item.is_read %}border-primary{% endif %}">
           <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
             <h6 class="mb-0">{{ item.title }}</h6>
@@ -40,8 +40,8 @@
               {% endif %}
             </div>
           </div>
-          <p class="mb-1">{{ item.message_body }}</p>
-          <small class="text-muted">Sent {{ item.created_at|slice:":16"|cut:"T" }}</small>
+          <p class="mb-1">{{ item.message_body|linebreaksbr }}</p>
+          <small class="text-muted">Sent {{ item.created_at|slice:":10" }} {{ item.created_at|slice:"11:16" }}</small>
         </div>
         {% endfor %}
       </div>

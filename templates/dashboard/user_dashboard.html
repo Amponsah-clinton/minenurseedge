@@ -1331,7 +1331,7 @@
               <p class="msg-title">{{ m.title }}</p>
               <p class="msg-excerpt">{{ m.message_body }}</p>
               <div class="msg-meta">
-                <span class="msg-date">{{ m.created_at|slice:":16"|cut:"T" }}</span>
+                <span class="msg-date">{{ m.created_at|slice:":10" }} {{ m.created_at|slice:"11:16" }}</span>
                 <span class="msg-badge {% if m.is_read %}read{% else %}unread{% endif %}">
                   {% if m.is_read %}Read{% else %}Unread{% endif %}
                 </span>

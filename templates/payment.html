@@ -108,8 +108,10 @@
       <div>
         <p class="apb-plan">Annual Access</p>
         <p class="apb-sub">
-          {% if latest_subscription.status == 'active' %}
+          {% if latest_subscription.status == 'active' and subscription_access_ok %}
             Active until {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
+          {% elif latest_subscription.status == 'active' %}
+            Expired on {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
           {% elif latest_subscription.status == 'pending_payment' %}
             Awaiting payment verification
           {% else %}
@@ -119,12 +121,13 @@
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <span class="apb-pill {% if latest_subscription.status == 'active' %}active{% elif latest_subscription.status == 'pending_payment' %}pending{% else %}inactive{% endif %}">
-        {% if latest_subscription.status == 'pending_payment' %}Pending{% else %}{{ latest_subscription.status|title }}{% endif %}
+      <span class="apb-pill {% if latest_subscription.status == 'active' and subscription_access_ok %}active{% elif latest_subscription.status == 'pending_payment' %}pending{% else %}inactive{% endif %}">
+        {% if latest_subscription.status == 'pending_payment' %}Pending{% elif latest_subscription.status == 'active' and not subscription_access_ok %}Expired{% else %}{{ latest_subscription.status|title }}{% endif %}
       </span>
       {% if latest_subscription.status != 'active' %}
       <a href="/subscribe/" class="btn-subscribe">Complete Payment →</a>
-      {% else %}
+      {% elif not subscription_access_ok %}
+      {# /subscribe/ sends students with valid access back to the dashboard, so only offer Renew once access has lapsed. #}
       <a href="/subscribe/" class="btn-subscribe">Renew Subscription</a>
       {% endif %}
     </div>

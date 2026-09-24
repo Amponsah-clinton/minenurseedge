@@ -925,8 +925,9 @@
             <span class="menu-header-text">Account</span>
           </li>
 
-          <li class="menu-item {% if active_page == 'payment' %}active{% endif %}">
-            <a href="/subscribe/" class="menu-link">
+          {# Subscribers get their plan/history page; /subscribe/ redirects them back to the dashboard. #}
+          <li class="menu-item {% if active_page == 'payment' or active_page == 'subscribe' %}active{% endif %}">
+            <a href="{% if is_subscribed %}/payment/{% else %}/subscribe/{% endif %}" class="menu-link">
               <i class="menu-icon tf-icons bx bx-credit-card"></i>
               <div>{% if is_subscribed %}Payment / Subscription{% else %}Subscribe{% endif %}</div>
             </a>

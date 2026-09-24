@@ -4235,7 +4235,7 @@ def student_messages(request):
 
     user_id = request.session.get("user_id")
     try:
-        messages = (
+        inbox_messages = (
             _supabase_admin()
             .table("student_notifications")
             .select("*")
@@ -4247,7 +4247,7 @@ def student_messages(request):
             or []
         )
     except Exception:
-        messages = []
+        inbox_messages = []
 
     unread_count = _student_unread_count(user_id)
     context = {
@@ -4255,7 +4255,8 @@ def student_messages(request):
         "email": request.session.get("email", ""),
         "role": "student",
         "active_page": "student_messages",
-        "messages": messages,
+        # Not "messages": base_dashboard.html renders that name as Django alert banners.
+        "inbox_messages": inbox_messages,
         "student_unread_notifications": unread_count,
     }
     return render(request, "dashboard/student_messages.html", context)
