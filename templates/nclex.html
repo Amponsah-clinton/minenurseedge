@@ -1,308 +1,533 @@
 {% extends "base.html" %}
-{% block title %}NCLEX - nursesedge {% endblock %}
+{% block title %}NCLEX Guide - NursesEdge{% endblock %}
 {% block head_extra %}
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,600,700,800" rel="stylesheet" type="text/css">
 <style>
-    .nclex-wrap {
-        background: #ffffff;
-        min-height: calc(100vh - 140px);
-        padding: 36px 16px 42px;
+    body { background: #ffffff; font-family: "Open Sans", Arial, sans-serif; color: #111; }
+
+    .nx {
+        --ink: #111111;
+        --ink-soft: #3f3f3b;
+        --muted: #6f6e68;
+        --gold: #d2b356;
+        --paper: #f7f5ef;
+        --line: #e2ded1;
+        --navy: #010729;
     }
-    .nclex-container {
-        width: 100%;
-        max-width: 980px;
-        margin: 0 auto;
+    .nx h1, .nx h2, .nx h3 { text-transform: none; }
+    .nx h1, .nx h2, .nx h3 { padding: 0; color: var(--ink); letter-spacing: -.015em; }
+    .nx-wrap { max-width: 1060px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+    .nx-band { margin: 0 -15px; }            /* full-bleed inside #wrapper's 15px side margins */
+    @media (max-width: 1024px) { .nx-band { margin: 0; } }   /* theme drops #wrapper's side margin at this width */
+    .nx-band--paper { background: var(--paper); }
+    .nx-band--ink   { background: var(--navy); }
+    .nx-section { padding-top: 84px; padding-bottom: 84px; }
+
+    .nx-kicker {
+        margin: 0 0 14px;
+        font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--muted);
     }
-    .nclex-hero {
-        background: #ffffff;
-        border: 1px solid #e5e9f2;
-        border-radius: 16px;
-        padding: 34px 26px;
-        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-        margin-bottom: 22px;
+    .nx-kicker::before {
+        content: ""; display: inline-block; width: 22px; height: 4px; margin-right: 10px;
+        background: var(--gold); vertical-align: 3px;
     }
-    .nclex-badge {
-        display: inline-block;
-        font-size: 12px;
-        letter-spacing: 0.8px;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: #1f4d9a;
-        background: #ebf2ff;
-        border: 1px solid #cfe0ff;
-        border-radius: 999px;
-        padding: 6px 12px;
-        margin-bottom: 14px;
+    .nx-h2 { margin: 0 0 14px; font-size: 32px; line-height: 1.18; font-weight: 800; }
+    .nx-lede { margin: 0; max-width: 40em; font-size: 16.5px; line-height: 1.75; color: var(--ink-soft); }
+
+    .nx-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        height: 46px; padding: 0 24px;
+        border: 2px solid var(--ink); border-radius: 8px;
+        font-family: inherit; font-size: 14px; font-weight: 700; letter-spacing: .03em;
+        text-decoration: none; cursor: pointer;
+        transition: background-color .15s, color .15s, border-color .15s;
     }
-    .nclex-title {
-        margin: 0 0 8px;
-        font-size: clamp(30px, 4vw, 42px);
-        font-weight: 800;
-        color: #0f172a;
-        line-height: 1.15;
+    .nx-btn--solid { background: var(--ink); color: #fff; }
+    .nx-btn--solid:hover { background: #fff; color: var(--ink); }
+    .nx-btn--line { background: transparent; color: var(--ink); }
+    .nx-btn--line:hover { background: var(--ink); color: #fff; }
+    .nx-btn:focus-visible { outline: 3px solid rgba(210,179,86,.7); outline-offset: 2px; }
+
+    /* ── Hero ─────────────────────────────────────────── */
+    .nx-hero { padding: 60px 0 76px; }
+    .nx-hero-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; align-items: center; }
+    .nx-hero h1 { margin: 0 0 20px; font-size: 50px; line-height: 1.08; font-weight: 800; letter-spacing: -.025em; }
+    .nx-hero .nx-lede { font-size: 17.5px; }
+    .nx-cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+
+    .nx-glance {
+        display: grid; grid-template-columns: 1fr 1fr;
+        background: var(--paper); border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
     }
-    .nclex-intro {
-        margin: 0;
-        max-width: 820px;
-        font-size: 17px;
-        line-height: 1.8;
-        color: #334155;
+    .nx-glance > div { padding: 26px 24px 24px; }
+    .nx-glance > div:nth-child(odd)  { border-right: 1px solid var(--line); }
+    .nx-glance > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    .nx-glance strong { display: block; font-size: 32px; line-height: 1.05; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+    .nx-glance span { display: block; margin-top: 8px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+
+    /* ── Two exams ────────────────────────────────────── */
+    .nx-exams { display: grid; grid-template-columns: 1.25fr 1fr; gap: 22px; margin-top: 38px; }
+    .nx-exam { border: 1px solid var(--line); border-radius: 12px; padding: 30px 30px 28px; background: #fff; }
+    .nx-exam--main { border: 2px solid var(--ink); }
+    .nx-exam h3 { margin: 0 0 8px; font-size: 26px; font-weight: 800; }
+    .nx-exam p { margin: 0; font-size: 15.5px; line-height: 1.7; color: var(--ink-soft); }
+    .nx-tag {
+        display: inline-block; margin-bottom: 16px; padding: 4px 10px;
+        font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+        background: var(--gold); color: var(--ink); border-radius: 4px;
     }
-    .nclex-cta-row {
-        margin-top: 20px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
+    .nx-tag--quiet { background: transparent; color: var(--muted); padding-left: 0; }
+
+    /* ── Adaptive testing ─────────────────────────────── */
+    .nx-cat { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 60px; align-items: center; }
+    .nx-rules { margin-top: 30px; }
+    .nx-rule { display: grid; grid-template-columns: 44px 1fr; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+    .nx-rule:last-child { border-bottom: 1px solid var(--line); }
+    .nx-rule-mark {
+        width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--ink);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; font-weight: 800; line-height: 1; background: #fff; color: var(--ink);
     }
-    .nclex-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        height: 44px;
-        padding: 0 16px;
-        border-radius: 10px;
-        font-size: 14px;
-        font-weight: 700;
-        text-decoration: none;
-        border: 1px solid transparent;
-        transition: 0.2s ease;
+    .nx-rule p { margin: 0; font-size: 15.5px; line-height: 1.65; color: var(--ink-soft); }
+    .nx-rule strong { color: var(--ink); }
+    .nx-chart { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px 22px 16px; }
+    .nx-chart svg { display: block; width: 100%; height: auto; }
+    .nx-chart-key { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 12px 4px 0; font-size: 12.5px; color: var(--muted); }
+    .nx-chart-key i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; border: 2px solid var(--ink); background: var(--ink); }
+    .nx-chart-key i.o { background: #fff; }
+    .nx-dash { display: inline-block; width: 22px; height: 0; border-top: 2px dashed #a88a25; margin-right: 7px; vertical-align: 3px; }
+    .nx-line { stroke-dasharray: 900; stroke-dashoffset: 0; }
+    .nx-chart.is-armed .nx-line { stroke-dashoffset: 900; }
+    .nx-chart.is-armed.is-in .nx-line { stroke-dashoffset: 0; transition: stroke-dashoffset 2.2s ease; }
+    .nx-chart.is-armed .nx-dot { opacity: 0; }
+    .nx-chart.is-armed.is-in .nx-dot { opacity: 1; transition: opacity .3s ease; }
+
+    /* ── What's tested ────────────────────────────────── */
+    .nx-tested { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 60px; }
+    .nx-areas { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--ink); }
+    .nx-area { padding: 26px 26px 26px 0; border-bottom: 1px solid var(--line); }
+    .nx-area:nth-child(even) { padding-left: 26px; padding-right: 0; border-left: 1px solid var(--line); }
+    .nx-area-no { font-size: 13px; font-weight: 800; letter-spacing: .1em; color: #a88a25; }
+    .nx-area h3 { margin: 8px 0 8px; font-size: 19px; line-height: 1.3; font-weight: 800; }
+    .nx-area p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--ink-soft); }
+
+    /* ── Question types ───────────────────────────────── */
+    .nx-types { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-top: 38px; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
+    .nx-type { padding: 24px 20px 26px; border-right: 1px solid var(--line); }
+    .nx-type:last-child { border-right: 0; }
+    .nx-type-abbr { display: block; margin-bottom: 14px; font-size: 22px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+    .nx-type h3 { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+    .nx-type p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+    /* ── Route to the exam ────────────────────────────── */
+    .nx-route-intro { max-width: 46em; }
+    .nx-steps { list-style: none; margin: 46px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); counter-reset: step; }
+    .nx-steps li { position: relative; padding: 58px 18px 0 0; counter-increment: step; }
+    .nx-steps li::before {
+        content: counter(step);
+        position: absolute; top: 0; left: 0; z-index: 1;
+        width: 40px; height: 40px; border-radius: 50%;
+        background: var(--ink); color: #fff; font-size: 16px; font-weight: 800;
+        display: flex; align-items: center; justify-content: center;
     }
-    .nclex-btn-primary {
-        background: #1f4d9a;
-        color: #ffffff;
-        border-color: #1f4d9a;
+    .nx-steps li::after { content: ""; position: absolute; top: 19px; left: 40px; right: 0; height: 2px; background: var(--ink); }
+    .nx-steps li:last-child::after { display: none; }
+    .nx-steps h3 { margin: 0 0 5px; font-size: 16px; line-height: 1.35; font-weight: 700; }
+    .nx-steps p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+
+    /* ── Practicalities ───────────────────────────────── */
+    .nx-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-top: 38px; }
+    .nx-fact { border-top: 4px solid var(--gold); padding-top: 22px; }
+    .nx-fact-label { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .nx-fact strong { display: block; font-size: 34px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; margin-bottom: 10px; }
+    .nx-fact p { margin: 0; font-size: 15px; line-height: 1.7; color: var(--ink-soft); }
+
+    /* ── Why ──────────────────────────────────────────── */
+    .nx-why { padding-top: 84px; padding-bottom: 12px; }
+    .nx-why-lines { margin: 0; max-width: 16em; font-size: 46px; line-height: 1.16; font-weight: 800; letter-spacing: -.025em; }
+    .nx-why-lines span { display: block; }
+    .nx-why-lines span:nth-child(even) { color: #a88a25; }
+
+    /* ── Habits (dark band) ───────────────────────────── */
+    .nx-habits-head { max-width: 30em; }
+    .nx-band--ink .nx-kicker { color: #9aa6c4; }
+    .nx-band--ink h2 { color: #fff; }
+    .nx-habits { margin-top: 40px; border-top: 1px solid rgba(255,255,255,.22); }
+    .nx-habit { display: grid; grid-template-columns: 72px minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; align-items: baseline; padding: 24px 0; border-bottom: 1px solid rgba(255,255,255,.14); }
+    .nx-habit-no { font-size: 15px; font-weight: 800; letter-spacing: .1em; color: var(--gold); }
+    .nx-habit h3 { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; color: #fff; }
+    .nx-habit p { margin: 0; font-size: 15px; line-height: 1.7; color: #b9c2dc; }
+
+    /* ── Closing ──────────────────────────────────────── */
+    .nx-close { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 48px; align-items: center; }
+    .nx-close .nx-cta-row { margin-top: 0; justify-content: flex-start; }
+    .nx-close-side { display: flex; flex-direction: column; gap: 12px; }
+    .nx-close-side .nx-btn { width: 100%; }
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media (max-width: 1000px) {
+        .nx-types { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .nx-type:nth-child(3) { border-right: 0; }
+        .nx-type:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
+        .nx-habit { grid-template-columns: 56px 1fr; }
+        .nx-habit p { grid-column: 2; }
     }
-    .nclex-btn-primary:hover {
-        background: #173e7f;
-        border-color: #173e7f;
+    @media (max-width: 900px) {
+        .nx-section { padding-top: 60px; padding-bottom: 60px; }
+        .nx-hero { padding: 38px 0 56px; }
+        .nx-hero-grid, .nx-cat, .nx-tested, .nx-close { grid-template-columns: 1fr; gap: 38px; }
+        .nx-hero h1 { font-size: 38px; }
+        .nx-exams { grid-template-columns: 1fr; }
+        .nx-why-lines { font-size: 34px; }
+        .nx-facts { grid-template-columns: 1fr; gap: 30px; }
+        .nx-steps { grid-template-columns: 1fr; margin-top: 34px; }
+        .nx-steps li { padding: 0 0 30px 60px; min-height: 40px; }
+        .nx-steps li::after { top: 40px; bottom: 0; left: 19px; right: auto; width: 2px; height: auto; }
+        .nx-steps li:last-child { padding-bottom: 0; }
     }
-    .nclex-btn-secondary {
-        background: #ffffff;
-        color: #0f172a;
-        border-color: #d7deea;
+    @media (max-width: 600px) {
+        .nx-wrap { padding-left: 20px; padding-right: 20px; }
+        .nx-h2 { font-size: 27px; }
+        .nx-hero h1 { font-size: 32px; }
+        .nx-glance strong { font-size: 27px; }
+        .nx-glance > div { padding: 20px 18px; }
+        .nx-areas { grid-template-columns: 1fr; }
+        .nx-area, .nx-area:nth-child(even) { padding: 22px 0; border-left: 0; }
+        .nx-types { grid-template-columns: 1fr 1fr; }
+        .nx-type, .nx-type:nth-child(3) { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+        .nx-type:nth-child(even) { border-right: 0; }
+        .nx-type:last-child { grid-column: 1 / -1; border-right: 0; border-bottom: 0; }
+        .nx-why-lines { font-size: 28px; }
+        .nx-habit { grid-template-columns: 1fr; gap: 6px; }
+        .nx-habit p { grid-column: 1; }
+        .nx-cta-row .nx-btn, .nx-close-side .nx-btn { width: 100%; }
     }
-    .nclex-btn-secondary:hover {
-        background: #f8fafc;
-    }
-    .nclex-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 18px;
-    }
-    .nclex-card {
-        background: #ffffff;
-        border: 1px solid #e5e9f2;
-        border-radius: 14px;
-        padding: 18px 18px;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-    }
-    .nclex-card:hover {
-        transform: translateY(-2px);
-        border-color: #cfd9ea;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-    }
-    .nclex-card h2 {
-        margin: 0 0 12px;
-        font-size: 19px;
-        color: #0f172a;
-        line-height: 1.35;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e5e9f2;
-    }
-    .nclex-card p,
-    .nclex-card li {
-        color: #334155;
-        font-size: 15.5px;
-        line-height: 1.7;
-    }
-    .nclex-card p {
-        margin: 0 0 10px;
-    }
-    .nclex-card li + li {
-        margin-top: 6px;
-    }
-    .nclex-card ul,
-    .nclex-card ol {
-        margin: 0;
-        padding-left: 20px;
-    }
-    .nclex-note {
-        margin-top: 14px;
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 1px solid #dbe7ff;
-        background: #f3f7ff;
-        font-size: 14px;
-        color: #274b86;
-    }
-    .nclex-back {
-        margin-top: 18px;
-    }
-    @media (max-width: 860px) {
-        .nclex-grid {
-            grid-template-columns: 1fr;
-        }
-        .nclex-hero {
-            padding: 24px 18px;
-        }
+    @media (prefers-reduced-motion: reduce) {
+        .nx-chart.is-armed .nx-line { stroke-dashoffset: 0; }
+        .nx-chart.is-armed .nx-dot { opacity: 1; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<main class="nclex-wrap">
-    <div class="nclex-container">
-        <section class="nclex-hero" aria-labelledby="nclex-title">
-            <span class="nclex-badge">nursesedge  NCLEX Guide</span>
-            <h1 class="nclex-title" id="nclex-title">What Is the NCLEX?</h1>
-            <p class="nclex-intro">
-                The National Council Licensure Examination (NCLEX) is the official licensing exam
-                for nurses who want to practice in countries such as the United States and Canada.
-                It is designed to test whether a nurse is competent, safe, and ready for real-world
-                clinical practice.
-            </p>
-            <div class="nclex-cta-row">
-                <a
-                    href="https://drive.google.com/file/d/1aY08JIVph99nt620B4rzA9111IABq3PR/preview"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="nclex-btn nclex-btn-primary"
-                >
-                    Download Official NCLEX Book
-                </a>
-                <a href="/" class="nclex-btn nclex-btn-secondary">Back to Home</a>
-            </div>
-       
-        </section>
+<main class="nx">
 
-        <section class="nclex-grid" aria-label="NCLEX Information Sections">
-            <article class="nclex-card">
-                <h2>Types of NCLEX Exams</h2>
-                <ol>
-                    <li><strong>NCLEX-RN:</strong> For Registered Nurses (RN). Most Ghanaian nurses will take this.</li>
-                    <li><strong>NCLEX-PN:</strong> For Practical/Vocational Nurses. Less common for Ghana-trained nurses.</li>
-                </ol>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Exam Format (Very Important)</h2>
-                <p>The NCLEX uses Computer Adaptive Testing (CAT).</p>
-                <ul>
-                    <li>The exam adjusts to your level.</li>
-                    <li>Questions get harder if you answer correctly.</li>
-                    <li>Questions get easier if you answer incorrectly.</li>
-                    <li>The goal is to determine your competency level.</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Key Details</h2>
-                <ul>
-                    <li>Duration: Up to 5 hours</li>
-                    <li>Questions: 75 - 145</li>
-                    <li>Computer-based (CBT)</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Question Types</h2>
-                <ul>
-                    <li>Multiple Choice</li>
-                    <li>Select All That Apply (SATA)</li>
-                    <li>Fill-in-the-blank (calculations)</li>
-                    <li>Drag and Drop</li>
-                    <li>Case-based scenarios</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Areas Tested (Exam Content)</h2>
-                <p>The exam is based on the Client Needs Framework:</p>
-                <ol>
-                    <li><strong>Safe and Effective Care Environment:</strong> Management of care, safety, infection control</li>
-                    <li><strong>Health Promotion and Maintenance:</strong> Growth and development, prevention, screening</li>
-                    <li><strong>Psychosocial Integrity:</strong> Mental health, coping and adaptation</li>
-                    <li><strong>Physiological Integrity:</strong> Basic care, pharmacology, risk reduction, complex care</li>
-                </ol>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Scoring System</h2>
-                <ul>
-                    <li>The NCLEX is Pass or Fail.</li>
-                    <li>You are not graded based on percentage.</li>
-                    <li>You pass when you reach the required competency level.</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Eligibility Requirements</h2>
-                <p>To take the NCLEX, you must:</p>
-                <ul>
-                    <li>Graduate from a recognized nursing school</li>
-                    <li>Apply through a nursing board (e.g., a U.S. state board)</li>
-                    <li>Get Authorization to Test (ATT)</li>
-                    <li>Provide identification documents</li>
-                    <li>Meet English requirements (if required)</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Registration Process</h2>
-                <ol>
-                    <li>Apply to a nursing board (e.g., Texas, New York)</li>
-                    <li>Register with Pearson VUE</li>
-                    <li>Receive ATT (Authorization to Test)</li>
-                    <li>Schedule exam</li>
-                    <li>Take exam</li>
-                </ol>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Exam Fee</h2>
-                <p><strong>$200 USD</strong> (base fee)</p>
-                <p>Additional costs may include application fees, credential evaluation, and travel/testing center fees.</p>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Where You Can Write the NCLEX</h2>
-                <p>
-                    NCLEX is written at Pearson VUE test centers worldwide, including Africa and nearby countries.
+    {# ── Hero ─────────────────────────────────────────────────────────── #}
+    <section class="nx-hero">
+        <div class="nx-wrap nx-hero-grid">
+            <div>
+                <p class="nx-kicker">NCLEX guide</p>
+                <h1>What is the NCLEX?</h1>
+                <p class="nx-lede">
+                    The National Council Licensure Examination is the official licensing exam for nurses who want
+                    to practise in countries such as the United States and Canada. It exists to check that a nurse
+                    is competent, safe and ready for real clinical work.
                 </p>
-            </article>
+                <div class="nx-cta-row">
+                    <a href="https://drive.google.com/file/d/1aY08JIVph99nt620B4rzA9111IABq3PR/preview" target="_blank" rel="noopener noreferrer" class="nx-btn nx-btn--solid">Download the official NCLEX book</a>
+                    <a href="/signup/" class="nx-btn nx-btn--line">Start practising</a>
+                </div>
+            </div>
 
-            <article class="nclex-card">
-                <h2>Results</h2>
-                <ul>
-                    <li>Quick results available in 48 hours (optional paid service)</li>
-                    <li>Official results are sent by the nursing board</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Why Take the NCLEX?</h2>
-                <ul>
-                    <li>Work abroad</li>
-                    <li>Earn higher salaries</li>
-                    <li>Gain international experience</li>
-                    <li>Access better career opportunities</li>
-                </ul>
-            </article>
-
-            <article class="nclex-card">
-                <h2>Tips to Pass NCLEX</h2>
-                <ul>
-                    <li>Practice NCLEX-style questions daily</li>
-                    <li>Focus on critical thinking, not memorization</li>
-                    <li>Master priority questions (ABC, Maslow)</li>
-                    <li>Understand rationales for each answer</li>
-                    <li>Take timed mock exams</li>
-                </ul>
-            </article>
-        </section>
-        <div class="nclex-back">
-            <a href="/" class="nclex-btn nclex-btn-secondary">Back to Home</a>
+            <div class="nx-glance" aria-label="The exam at a glance">
+                <div><strong>75&ndash;145</strong><span>questions, depending on how you do</span></div>
+                <div><strong>5 hours</strong><span>at most, on a computer</span></div>
+                <div><strong>Pass / Fail</strong><span>no percentage score</span></div>
+                <div><strong>$200</strong><span>base exam fee, in US dollars</span></div>
+            </div>
         </div>
+    </section>
+
+    {# ── Two exams ────────────────────────────────────────────────────── #}
+    <div class="nx-band nx-band--paper">
+        <section class="nx-section nx-wrap" aria-labelledby="exams-h">
+            <p class="nx-kicker">Which one</p>
+            <h2 class="nx-h2" id="exams-h">There are two NCLEX exams.</h2>
+            <p class="nx-lede">Which one you take depends on the kind of nurse you trained to be.</p>
+
+            <div class="nx-exams">
+                <article class="nx-exam nx-exam--main">
+                    <span class="nx-tag">Most likely yours</span>
+                    <h3>NCLEX-RN</h3>
+                    <p>For Registered Nurses. This is the exam most Ghanaian nurses will take, and the one this guide is mainly about.</p>
+                </article>
+                <article class="nx-exam">
+                    <span class="nx-tag nx-tag--quiet">Less common here</span>
+                    <h3>NCLEX-PN</h3>
+                    <p>For Practical and Vocational Nurses. Not often taken by Ghana-trained nurses.</p>
+                </article>
+            </div>
+        </section>
     </div>
+
+    {# ── Adaptive testing ─────────────────────────────────────────────── #}
+    <section class="nx-section nx-wrap" aria-labelledby="cat-h">
+        <div class="nx-cat">
+            <div>
+                <p class="nx-kicker">The format</p>
+                <h2 class="nx-h2" id="cat-h">The exam adapts to you.</h2>
+                <p class="nx-lede">The NCLEX uses Computer Adaptive Testing. There is no fixed paper. Each question is picked based on how you answered the one before.</p>
+
+                <div class="nx-rules">
+                    <div class="nx-rule">
+                        <span class="nx-rule-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15V3M3.5 8.5L9 3l5.5 5.5"/></svg></span>
+                        <p><strong>Answer correctly</strong> and the next question gets harder.</p>
+                    </div>
+                    <div class="nx-rule">
+                        <span class="nx-rule-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v12M3.5 9.5L9 15l5.5-5.5"/></svg></span>
+                        <p><strong>Answer incorrectly</strong> and the next one gets easier.</p>
+                    </div>
+                    <div class="nx-rule">
+                        <span class="nx-rule-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#111" stroke-width="2.6" stroke-linecap="round"><path d="M3.5 6.5h11M3.5 11.5h11"/></svg></span>
+                        <p>The aim is to find your competency level, which is why the exam can end anywhere between 75 and 145 questions.</p>
+                    </div>
+                </div>
+            </div>
+
+            <figure class="nx-chart" id="nxChart" style="margin:0;">
+                <svg viewBox="0 0 520 250" role="img" aria-label="Diagram: each correct answer makes the next question harder and each wrong answer makes it easier, until the questions settle around your competency level.">
+                    <text x="6" y="16" font-size="11" font-weight="700" fill="#6f6e68" letter-spacing="1.2">HARDER</text>
+                    <text x="6" y="244" font-size="11" font-weight="700" fill="#6f6e68" letter-spacing="1.2">EASIER</text>
+                    <line x1="6" y1="112" x2="514" y2="112" stroke="#a88a25" stroke-width="2" stroke-dasharray="6 6"/>
+                    <polyline class="nx-line" fill="none" stroke="#111" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"
+                              points="34,176 90,128 146,66 202,108 258,164 314,96 370,132 426,104 482,116"/>
+                    <g stroke="#111" stroke-width="3">
+                        <circle class="nx-dot" cx="34"  cy="176" r="7" fill="#fff"/>
+                        <circle class="nx-dot" cx="90"  cy="128" r="7" fill="#111"/>
+                        <circle class="nx-dot" cx="146" cy="66"  r="7" fill="#111"/>
+                        <circle class="nx-dot" cx="202" cy="108" r="7" fill="#fff"/>
+                        <circle class="nx-dot" cx="258" cy="164" r="7" fill="#fff"/>
+                        <circle class="nx-dot" cx="314" cy="96"  r="7" fill="#111"/>
+                        <circle class="nx-dot" cx="370" cy="132" r="7" fill="#fff"/>
+                        <circle class="nx-dot" cx="426" cy="104" r="7" fill="#111"/>
+                        <circle class="nx-dot" cx="482" cy="116" r="7" fill="#fff"/>
+                    </g>
+                    <text x="34" y="216" font-size="11" fill="#6f6e68" text-anchor="middle">Question 1</text>
+                    <text x="482" y="216" font-size="11" fill="#6f6e68" text-anchor="middle">Later on</text>
+                </svg>
+                <figcaption class="nx-chart-key">
+                    <span><i></i>Correct answer</span>
+                    <span><i class="o"></i>Incorrect answer</span>
+                    <span><b class="nx-dash"></b>Your competency level</span>
+                </figcaption>
+            </figure>
+        </div>
+    </section>
+
+    {# ── What is tested ───────────────────────────────────────────────── #}
+    <div class="nx-band nx-band--paper">
+        <section class="nx-section nx-wrap" aria-labelledby="tested-h">
+            <div class="nx-tested">
+                <div>
+                    <p class="nx-kicker">The content</p>
+                    <h2 class="nx-h2" id="tested-h">What you'll be tested on.</h2>
+                    <p class="nx-lede">Every question maps to one of four areas of the Client Needs framework.</p>
+                </div>
+                <div class="nx-areas">
+                    <article class="nx-area">
+                        <span class="nx-area-no">01</span>
+                        <h3>Safe and Effective Care Environment</h3>
+                        <p>Management of care, safety and infection control.</p>
+                    </article>
+                    <article class="nx-area">
+                        <span class="nx-area-no">02</span>
+                        <h3>Health Promotion and Maintenance</h3>
+                        <p>Growth and development, prevention and screening.</p>
+                    </article>
+                    <article class="nx-area">
+                        <span class="nx-area-no">03</span>
+                        <h3>Psychosocial Integrity</h3>
+                        <p>Mental health, coping and adaptation.</p>
+                    </article>
+                    <article class="nx-area">
+                        <span class="nx-area-no">04</span>
+                        <h3>Physiological Integrity</h3>
+                        <p>Basic care, pharmacology, reduction of risk and complex care.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    {# ── Question types ───────────────────────────────────────────────── #}
+    <section class="nx-section nx-wrap" aria-labelledby="types-h">
+        <p class="nx-kicker">The questions</p>
+        <h2 class="nx-h2" id="types-h">Five kinds of question.</h2>
+        <p class="nx-lede">It isn't all multiple choice. Practise every format before exam day.</p>
+
+        <div class="nx-types">
+            <article class="nx-type">
+                <span class="nx-type-abbr">MCQ</span>
+                <h3>Multiple choice</h3>
+                <p>Pick the one best answer.</p>
+            </article>
+            <article class="nx-type">
+                <span class="nx-type-abbr">SATA</span>
+                <h3>Select all that apply</h3>
+                <p>Choose every correct option, however many there are.</p>
+            </article>
+            <article class="nx-type">
+                <span class="nx-type-abbr">1.5</span>
+                <h3>Fill in the blank</h3>
+                <p>Type a calculated answer, such as a dosage or a drip rate.</p>
+            </article>
+            <article class="nx-type">
+                <span class="nx-type-abbr">A&rarr;B</span>
+                <h3>Drag and drop</h3>
+                <p>Put steps or priorities into the right order.</p>
+            </article>
+            <article class="nx-type">
+                <span class="nx-type-abbr">Case</span>
+                <h3>Case-based scenarios</h3>
+                <p>Read a patient case, then answer questions about it.</p>
+            </article>
+        </div>
+    </section>
+
+    {# ── Route to the exam ────────────────────────────────────────────── #}
+    <div class="nx-band nx-band--paper">
+        <section class="nx-section nx-wrap" aria-labelledby="route-h">
+            <div class="nx-route-intro">
+                <p class="nx-kicker">Getting to the exam</p>
+                <h2 class="nx-h2" id="route-h">From graduate to test day.</h2>
+                <p class="nx-lede">
+                    You need to have graduated from a recognised nursing school, and you apply through a nursing
+                    board, for example a U.S. state board. Once the board approves you, you receive your
+                    Authorization to Test. You'll also need to show identification and, where it's required,
+                    proof of English.
+                </p>
+            </div>
+
+            <ol class="nx-steps">
+                <li>
+                    <h3>Apply to a nursing board</h3>
+                    <p>For example Texas or New York.</p>
+                </li>
+                <li>
+                    <h3>Register with Pearson VUE</h3>
+                    <p>They run the exam and the test centres.</p>
+                </li>
+                <li>
+                    <h3>Receive your ATT</h3>
+                    <p>Your Authorization to Test.</p>
+                </li>
+                <li>
+                    <h3>Schedule the exam</h3>
+                    <p>Pick a date and a test centre.</p>
+                </li>
+                <li>
+                    <h3>Take the exam</h3>
+                    <p>Up to five hours, on a computer.</p>
+                </li>
+            </ol>
+        </section>
+    </div>
+
+    {# ── Cost, place, results ─────────────────────────────────────────── #}
+    <section class="nx-section nx-wrap" aria-labelledby="facts-h">
+        <p class="nx-kicker">Practical details</p>
+        <h2 class="nx-h2" id="facts-h">Cost, place and results.</h2>
+
+        <div class="nx-facts">
+            <div class="nx-fact">
+                <p class="nx-fact-label">Exam fee</p>
+                <strong>$200 USD</strong>
+                <p>That's the base fee. Budget for application fees, credential evaluation and travel to a testing centre on top.</p>
+            </div>
+            <div class="nx-fact">
+                <p class="nx-fact-label">Where</p>
+                <strong>Pearson VUE</strong>
+                <p>The NCLEX is written at Pearson VUE test centres around the world, including in Africa and nearby countries.</p>
+            </div>
+            <div class="nx-fact">
+                <p class="nx-fact-label">Results</p>
+                <strong>48 hours</strong>
+                <p>Quick results are an optional paid service. Your official result is sent by the nursing board.</p>
+            </div>
+        </div>
+    </section>
+
+    {# ── Why ──────────────────────────────────────────────────────────── #}
+    <section class="nx-wrap nx-why" aria-labelledby="why-h">
+        <p class="nx-kicker" id="why-h">Why nurses take it</p>
+        <p class="nx-why-lines">
+            <span>Work abroad.</span>
+            <span>Earn higher salaries.</span>
+            <span>Gain international experience.</span>
+            <span>Open better career doors.</span>
+        </p>
+    </section>
+
+    {# ── Habits ───────────────────────────────────────────────────────── #}
+    <div class="nx-band nx-band--ink" style="margin-top:84px;">
+        <section class="nx-section nx-wrap" aria-labelledby="habits-h">
+            <div class="nx-habits-head">
+                <p class="nx-kicker">How to pass</p>
+                <h2 class="nx-h2" id="habits-h">Five habits that get nurses through.</h2>
+            </div>
+
+            <div class="nx-habits">
+                <article class="nx-habit">
+                    <span class="nx-habit-no">01</span>
+                    <h3>Practise every day</h3>
+                    <p>Work through NCLEX-style questions daily. Little and often beats one long session at the weekend.</p>
+                </article>
+                <article class="nx-habit">
+                    <span class="nx-habit-no">02</span>
+                    <h3>Think, don't memorise</h3>
+                    <p>Most questions ask what to do first or next. You have to reason it out from what you know.</p>
+                </article>
+                <article class="nx-habit">
+                    <span class="nx-habit-no">03</span>
+                    <h3>Learn to prioritise</h3>
+                    <p>Airway, breathing, circulation and Maslow's hierarchy settle many "which patient first" questions.</p>
+                </article>
+                <article class="nx-habit">
+                    <span class="nx-habit-no">04</span>
+                    <h3>Read every rationale</h3>
+                    <p>Right or wrong, the explanation is where the learning is. Ask why each of the other options is wrong.</p>
+                </article>
+                <article class="nx-habit">
+                    <span class="nx-habit-no">05</span>
+                    <h3>Sit timed mock exams</h3>
+                    <p>Build the stamina for a long computer-based exam and get used to the pace.</p>
+                </article>
+            </div>
+        </section>
+    </div>
+
+    {# ── Closing ──────────────────────────────────────────────────────── #}
+    <section class="nx-section nx-wrap" aria-labelledby="close-h">
+        <div class="nx-close">
+            <div>
+                <p class="nx-kicker">Start today</p>
+                <h2 class="nx-h2" id="close-h">Ready to start practising?</h2>
+                <p class="nx-lede">Work through NCLEX-style questions on NursesEdge, and keep the official NCLEX book open beside you.</p>
+            </div>
+            <div class="nx-close-side">
+                <a href="/signup/" class="nx-btn nx-btn--solid">Create your account</a>
+                <a href="https://drive.google.com/file/d/1aY08JIVph99nt620B4rzA9111IABq3PR/preview" target="_blank" rel="noopener noreferrer" class="nx-btn nx-btn--line">Download the official NCLEX book</a>
+            </div>
+        </div>
+    </section>
+
 </main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var chart = document.getElementById("nxChart");
+    if (!chart) return;
+    if (!("IntersectionObserver" in window)) return;   /* no observer: leave the chart fully drawn */
+    chart.classList.add("is-armed");
+    var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+            if (en.isIntersecting) { chart.classList.add("is-in"); io.disconnect(); }
+        });
+    }, { threshold: 0.35 });
+    io.observe(chart);
+})();
+</script>
 {% endblock %}

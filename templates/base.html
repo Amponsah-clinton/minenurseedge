@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/namari-color.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    {% include "partials/nav_buttons.html" %}
     {% block head_extra %}{% endblock %}
     <style>
         /* ── NursesEdge Footer ── */
@@ -19,6 +20,10 @@
             margin-right: -15px;
             width: calc(100% + 30px);
             box-sizing: border-box;
+        }
+        @media (max-width: 1024px) {
+            /* style.css removes #wrapper's 15px side margins at this width, so no breakout is needed */
+            .ne-footer { margin-left: 0; margin-right: 0; width: 100%; }
         }
         .ne-footer-inner {
             max-width: 1200px;
@@ -194,32 +199,6 @@
                 height: 50px !important;
             }
         }
-        @media only screen and (max-width: 767px) {
-            #nav-mobile a[href="/login/"],
-            #nav-mobile a[href="/signup/"] {
-                text-align: center !important;
-                font-weight: 700 !important;
-                border-radius: 9px !important;
-                margin: 10px 0 !important;
-                padding: 11px 14px !important;
-                border: 1px solid transparent !important;
-                background-image: none !important;
-            }
-            #nav-mobile a[href="/login/"] {
-                background: #ffffff !important;
-                color: #111111 !important;
-                border-color: #d4d4d8 !important;
-            }
-            #nav-mobile a[href="/signup/"] {
-                background: #111111 !important;
-                color: #ffffff !important;
-                border-color: #111111 !important;
-            }
-            #nav-mobile a[href="/login/"]:hover,
-            #nav-mobile a[href="/signup/"]:hover {
-                opacity: 0.92;
-            }
-        }
     </style>
 </head>
 <body>
@@ -241,8 +220,8 @@
                             <li><a href="/about/">About</a></li>
                             <li><a href="/nclex/">NCLEX</a></li>
                             <li><a href="/contact/">Contact</a></li>
-                            <li><a href="/login/">Login</a></li>
-                            <li><a href="/signup/">Signup</a></li>
+                            <li class="nav-cta nav-cta-login"><a href="/login/" class="nav-btn nav-btn-outline">Login</a></li>
+                            <li class="nav-cta nav-cta-signup"><a href="/signup/" class="nav-btn nav-btn-solid">Sign Up</a></li>
                         </ul>
                     </nav>
                 </aside>
