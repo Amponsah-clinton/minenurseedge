@@ -68,6 +68,97 @@
                 height: 50px !important;
             }
         }
+        /* Header Login / Sign Up buttons: flat, monochrome, no gradients */
+        #header nav ul li.nav-cta {
+            margin-left: 12px;
+        }
+        #header nav ul li.nav-cta-login {
+            margin-left: 22px;
+        }
+        #header nav ul li a.nav-btn {
+            display: inline-block;
+            height: 42px;
+            line-height: 38px;
+            margin-top: 14px;
+            padding: 0 22px;
+            border: 2px solid #111111;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-align: center;
+            text-decoration: none;
+            box-sizing: border-box;
+            vertical-align: top;
+            transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+        }
+        #header nav ul li a.nav-btn-outline {
+            background: transparent;
+            color: #111111;
+        }
+        #header nav ul li a.nav-btn-solid {
+            background: #111111;
+            color: #ffffff;
+        }
+        #header nav ul li a.nav-btn-outline:hover {
+            background: #111111;
+            color: #ffffff;
+            opacity: 1;
+        }
+        #header nav ul li a.nav-btn-solid:hover {
+            background: #ffffff;
+            color: #111111;
+            opacity: 1;
+        }
+        #header nav ul li a.nav-btn:active {
+            transform: translateY(1px);
+        }
+        #header nav ul li a.nav-btn:focus-visible {
+            outline: 2px solid #111111;
+            outline-offset: 3px;
+        }
+        /* Mobile menu: full-width stacked buttons */
+        @media all and (max-width: 1024px) {
+            nav#nav-mobile li.nav-cta,
+            .nav-solid nav#nav-mobile li.nav-cta {
+                margin: 10px 20px 0;
+                border: none;
+            }
+            nav#nav-mobile li.nav-cta:last-child {
+                margin-bottom: 6px;
+            }
+            nav#nav-mobile li.nav-cta a.nav-btn {
+                display: block;
+                width: 100%;
+                height: 46px;
+                line-height: 42px;
+                padding: 0 16px;
+                border: 2px solid #111111 !important;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-align: center;
+                text-transform: uppercase;
+                box-sizing: border-box;
+            }
+            nav#nav-mobile li.nav-cta a.nav-btn-outline {
+                background: #ffffff;
+                color: #111111;
+            }
+            nav#nav-mobile li.nav-cta a.nav-btn-solid {
+                background: #111111;
+                color: #ffffff;
+            }
+            nav#nav-mobile li.nav-cta a.nav-btn-outline:hover {
+                background: #111111;
+                color: #ffffff;
+            }
+            nav#nav-mobile li.nav-cta a.nav-btn-solid:hover {
+                background: #ffffff;
+                color: #111111;
+            }
+        }
         .landing-disclaimer-wrap {
             padding: 44px 0 16px;
             background: #ffffff;
@@ -899,11 +990,11 @@
                                 <li>
                                     <a href="/contact/">Contact</a>
                                 </li>
-                                <li>
-                                    <a href="/login/">Login</a>
+                                <li class="nav-cta nav-cta-login">
+                                    <a href="/login/" class="nav-btn nav-btn-outline">Login</a>
                                 </li>
-                                <li>
-                                    <a href="/signup/">Signup</a>
+                                <li class="nav-cta nav-cta-signup">
+                                    <a href="/signup/" class="nav-btn nav-btn-solid">Sign Up</a>
                                 </li>
                             </ul>
                         </nav>
