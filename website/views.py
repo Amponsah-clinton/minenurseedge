@@ -3249,32 +3249,37 @@ def _notify_admin_new_contact_message(name, email, phone, subject, message):
 
 def contact_page(request):
     if request.method == "POST":
-        name = request.POST.get("name", "").strip()
-        email = request.POST.get("email", "").strip()
-        phone = request.POST.get("phone", "").strip()
-        subject = request.POST.get("subject", "").strip()
-        message = request.POST.get("message", "").strip()
+        form = {
+            "name": request.POST.get("name", "").strip(),
+            "email": request.POST.get("email", "").strip(),
+            "phone": request.POST.get("phone", "").strip(),
+            "subject": request.POST.get("subject", "").strip() or "General enquiry",
+            "message": request.POST.get("message", "").strip(),
+        }
 
-        if not all([name, email, phone, message]):
-            return render(request, "contact.html", {"error": "Name, email, phone number, and message are required."})
+        if not all([form["name"], form["email"], form["phone"], form["message"]]):
+            return render(request, "contact.html", {
+                "error": "Please fill in your name, email, phone number and message.",
+                "form": form,
+            })
 
         try:
-            _supabase_admin().table("contact_messages").insert({
-                "name": name,
-                "email": email,
-                "phone": phone,
-                "subject": subject,
-                "message": message,
-            }).execute()
-            try:
-                _notify_admin_new_contact_message(name, email, phone, subject, message)
-            except Exception:
-                logger.exception("Failed to send new contact message alert email.")
-            return render(request, "contact.html", {"success": "Your message has been sent. We'll get back to you shortly."})
+            _supabase_admin().table("contact_messages").insert(form).execute()
         except Exception:
-            return render(request, "contact.html", {"error": "Failed to send message. Please try again."})
+            return render(request, "contact.html", {
+                "error": "We couldn't send your message just now. Please try again, or email us directly.",
+                "form": form,
+            })
+        try:
+            _notify_admin_new_contact_message(
+                form["name"], form["email"], form["phone"], form["subject"], form["message"]
+            )
+        except Exception:
+            logger.exception("Failed to send new contact message alert email.")
+        # Redirect so a refresh doesn't submit the same message twice.
+        return redirect("/contact/?sent=1")
 
-    return render(request, "contact.html")
+    return render(request, "contact.html", {"sent": request.GET.get("sent") == "1"})
 
 
 # ---------------------------------------------------------------------------
