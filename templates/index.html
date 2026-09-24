@@ -69,6 +69,38 @@
             }
         }
         /* Header Login / Sign Up buttons: flat, monochrome, no gradients */
+        #header nav ul li {
+            vertical-align: top;
+        }
+        /* Over the hero image the links sit on the model's hair and vanish, so they get a white capsule */
+        #header:not(.nav-solid) nav#nav-main ul {
+            display: flex;
+            align-items: flex-start;
+        }
+        #header:not(.nav-solid) nav#nav-main ul li:not(.nav-cta) a {
+            height: 42px;
+            line-height: 40px;
+            margin-top: 14px;
+            padding: 0 16px;
+            background: #ffffff;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+            box-sizing: border-box;
+        }
+        #header:not(.nav-solid) nav#nav-main ul li:first-child a {
+            padding-left: 22px;
+            border-left: 1px solid #e5e7eb;
+            border-radius: 999px 0 0 999px;
+        }
+        #header:not(.nav-solid) nav#nav-main ul li:nth-child(4) a {
+            padding-right: 22px;
+            border-right: 1px solid #e5e7eb;
+            border-radius: 0 999px 999px 0;
+        }
+        #header:not(.nav-solid) nav#nav-main ul li:not(.nav-cta) a:hover {
+            opacity: 1;
+            background: #f4f4f5;
+        }
         #header nav ul li.nav-cta {
             margin-left: 12px;
         }
@@ -76,7 +108,7 @@
             margin-left: 22px;
         }
         #header nav ul li a.nav-btn {
-            display: inline-block;
+            display: block;
             height: 42px;
             line-height: 38px;
             margin-top: 14px;
@@ -89,7 +121,6 @@
             text-align: center;
             text-decoration: none;
             box-sizing: border-box;
-            vertical-align: top;
             transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
         }
         #header nav ul li a.nav-btn-outline {
