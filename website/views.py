@@ -211,6 +211,123 @@ def _objective_topic_performance(admin, user_id, topic_name_by_id):
     return performance
 
 
+def _dashboard_prep_topics_summary(admin, user_id):
+    """
+    Compact Prep by Topics snapshot for the student dashboard card.
+    Returns None when there are no topics with questions (card is hidden).
+    """
+    try:
+        topic_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_topics")
+            .select("id, name, display_order, created_at")
+            .eq("is_active", True)
+            .order("display_order", desc=False)
+            .order("created_at", desc=True)
+        )
+        question_rows = _supabase_fetch_all(
+            lambda: admin.table("objective_questions")
+            .select("id, topic_id, created_at")
+            .eq("is_active", True)
+        )
+    except Exception:
+        return None
+
+    new_cutoff = datetime.now(timezone.utc) - timedelta(days=OBJECTIVE_NEW_TAG_WINDOW_DAYS)
+    counts = {}
+    newest = {}
+    for q in question_rows:
+        tid = q.get("topic_id")
+        counts[tid] = counts.get(tid, 0) + 1
+        created_at = q.get("created_at")
+        if created_at and (tid not in newest or created_at > newest[tid]):
+            newest[tid] = created_at
+
+    topics = []
+    for row in topic_rows:
+        tid = row.get("id")
+        question_count = counts.get(tid, 0)
+        if question_count < 1:
+            continue
+        is_new = False
+        try:
+            if newest.get(tid):
+                is_new = datetime.fromisoformat(str(newest[tid]).replace("Z", "+00:00")) >= new_cutoff
+        except Exception:
+            is_new = False
+        topics.append({
+            "id": tid,
+            "name": row.get("name") or "Untitled Topic",
+            "question_count": question_count,
+            "sets_count": math.ceil(question_count / OBJECTIVE_QUESTIONS_PER_GROUP),
+            "is_new": is_new,
+        })
+    if not topics:
+        return None
+
+    topic_by_id = {t["id"]: t for t in topics}
+    performance = [
+        p for p in _objective_topic_performance(admin, user_id, {t["id"]: t["name"] for t in topics})
+        if p["topic_id"] in topic_by_id
+    ]  # weakest first
+    perf_by_id = {p["topic_id"]: p for p in performance}
+
+    def _item(topic, perf):
+        item = {
+            "name": topic["name"],
+            "question_count": topic["question_count"],
+            "sets_count": topic["sets_count"],
+            "is_new": topic["is_new"],
+            "link": f"/dashboard/prep-by-topics/{topic['id']}/",
+            "attempted": perf is not None,
+        }
+        if perf:
+            item.update({
+                "band_key": perf["band"]["key"],
+                "band_label": perf["band"]["label"],
+                "avg_pct": int(round(perf["avg_pct"])),
+                "best_pct": int(round(perf["best_pct"])),
+                "attempts_count": perf["attempts_count"],
+            })
+        else:
+            item.update({"band_key": "new", "band_label": "Not started", "avg_pct": 0})
+        return item
+
+    needs_work = [p for p in performance if p["band"]["key"] != "strong"]
+    strong = [p for p in performance if p["band"]["key"] == "strong"]
+    not_started = sorted(
+        (t for t in topics if t["id"] not in perf_by_id),
+        key=lambda t: not t["is_new"],  # stable: new topics first, else admin display order
+    )
+
+    focus = [_item(topic_by_id[p["topic_id"]], p) for p in needs_work]
+    focus += [_item(t, None) for t in not_started]
+    focus += [_item(topic_by_id[p["topic_id"]], p) for p in strong]
+    if needs_work or not_started:
+        focus_heading = "Focus on these"
+    else:
+        focus_heading = "Keep sharpening"
+
+    attempted_count = len(performance)
+    avg_pct = (
+        int(round(sum(p["avg_pct"] for p in performance) / attempted_count))
+        if attempted_count else None
+    )
+    return {
+        "topic_count": len(topics),
+        "question_count": sum(t["question_count"] for t in topics),
+        "attempted_count": attempted_count,
+        "coverage_pct": int(round(attempted_count * 100 / len(topics))),
+        "avg_pct": avg_pct,
+        "strong_count": len(strong),
+        "needs_work_count": len(needs_work),
+        "has_attempts": attempted_count > 0,
+        "focus_heading": focus_heading,
+        "focus_items": focus[:3],
+        "questions_per_group": OBJECTIVE_QUESTIONS_PER_GROUP,
+        "seconds_per_question": OBJECTIVE_SECONDS_PER_QUESTION,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Supabase helpers
 # ---------------------------------------------------------------------------
@@ -3690,6 +3807,14 @@ def user_dashboard(request):
     except Exception:
         pass
 
+    # Prep by Topics card (student dashboard only; hidden when there are no topics)
+    prep_topics = None
+    if request.session.get("role") != "admin":
+        try:
+            prep_topics = _dashboard_prep_topics_summary(_supabase_admin(), user_id)
+        except Exception:
+            prep_topics = None
+
     # Refresh plan_slug in session — catches upgrades made since last login
     request.session["plan_slug"] = plan_slug
 
@@ -3778,6 +3903,7 @@ def user_dashboard(request):
         "best_mock_percentage": best_mock_percentage,
         "total_questions_available": total_questions_available,
         "recent_messages": recent_messages,
+        "prep_topics": prep_topics,
         "joined_communities": joined_communities,
         "community_unread": community_unread,
         "subscription": subscription,

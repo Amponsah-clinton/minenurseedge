@@ -176,6 +176,214 @@
     color: #a8b0c0;
     font-size: 0.85rem;
   }
+  /* ── Prep by Topics card ── */
+  .pt-card {
+    border-radius: 14px;
+    border: 1px solid #e2e6ef;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
+    overflow: hidden;
+  }
+  .pt-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .pt-stat {
+    background: #f8f9fc;
+    border: 1px solid #edf0f7;
+    border-radius: 10px;
+    padding: 10px 6px 9px;
+    text-align: center;
+  }
+  .pt-stat__value {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #1f2d40;
+    line-height: 1.1;
+    margin: 0;
+  }
+  .pt-stat__label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: #9098b0;
+    margin: 4px 0 0;
+  }
+  .pt-cover { margin-bottom: 18px; }
+  .pt-cover__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 7px;
+    font-size: 0.78rem;
+  }
+  .pt-cover__row strong { color: #1f2d40; font-weight: 700; }
+  .pt-cover__row span { color: #9098b0; font-weight: 600; }
+  .pt-track {
+    height: 8px;
+    border-radius: 999px;
+    background: #eceff6;
+    overflow: hidden;
+  }
+  .pt-track > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #1a1a2e;
+    transition: width .5s ease;
+  }
+  .pt-focus-head {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: #9098b0;
+    margin: 0 0 8px;
+  }
+  .pt-list { display: flex; flex-direction: column; gap: 8px; }
+  .pt-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 12px;
+    border: 1px solid #eceff5;
+    border-radius: 12px;
+    background: #fff;
+    text-decoration: none;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .pt-row:hover {
+    border-color: #cfd5e6;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .07);
+    transform: translateY(-1px);
+  }
+  .pt-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: -.2px;
+  }
+  .pt-badge .bx { font-size: 20px; }
+  .pt-main { flex: 1; min-width: 0; }
+  .pt-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.87rem;
+    font-weight: 700;
+    color: #1f2d40;
+    line-height: 1.3;
+  }
+  .pt-name > span:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pt-new {
+    flex-shrink: 0;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: #fff;
+    background: #7c3aed;
+    border-radius: 4px;
+    padding: 2px 5px;
+  }
+  .pt-meta {
+    margin: 2px 0 0;
+    font-size: 0.74rem;
+    color: #8d96ab;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pt-meta b { font-weight: 700; }
+  .pt-mini {
+    height: 5px;
+    border-radius: 999px;
+    background: #eceff6;
+    overflow: hidden;
+    margin-top: 7px;
+  }
+  .pt-mini > span { display: block; height: 100%; border-radius: 999px; }
+  .pt-go { flex-shrink: 0; color: #c0c8d8; font-size: 20px; transition: color .15s, transform .15s; }
+  .pt-row:hover .pt-go { color: #1a1a2e; transform: translateX(2px); }
+
+  .pt-weak      .pt-badge { background: #fef2f2; color: #dc2626; }
+  .pt-weak      .pt-mini > span { background: #ef4444; }
+  .pt-weak      .pt-meta b { color: #dc2626; }
+  .pt-moderate  .pt-badge { background: #fffbeb; color: #b45309; }
+  .pt-moderate  .pt-mini > span { background: #f59e0b; }
+  .pt-moderate  .pt-meta b { color: #b45309; }
+  .pt-strong    .pt-badge { background: #ecfdf5; color: #059669; }
+  .pt-strong    .pt-mini > span { background: #10b981; }
+  .pt-strong    .pt-meta b { color: #059669; }
+  .pt-new-topic .pt-badge { background: #f0f2ff; color: #5a5ce8; }
+
+  .pt-tip {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    padding: 11px 13px;
+    border: 1px dashed #d5daea;
+    border-radius: 10px;
+    background: #fafbff;
+    font-size: 0.79rem;
+    line-height: 1.5;
+    color: #5f6b83;
+  }
+  .pt-tip .bx { font-size: 1.15rem; color: #5a5ce8; margin-top: 1px; flex-shrink: 0; }
+  .pt-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    height: 44px;
+    margin-top: 16px;
+    border-radius: 10px;
+    border: 2px solid #1a1a2e;
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .15s, color .15s;
+  }
+  .pt-cta:hover { background: #fff; color: #1a1a2e; }
+  .pt-sub-link {
+    display: block;
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #5a6070;
+    text-decoration: none;
+  }
+  .pt-sub-link:hover { color: #1a1a2e; }
+  .pt-lock {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 0.77rem;
+    font-weight: 600;
+  }
   .best-score-card {
     background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
     border: 1px solid #e3ebfb;
@@ -1144,6 +1352,111 @@
 
       </div>
     </div>
+
+    {% if prep_topics %}
+    <!-- Prep by Topics -->
+    {% url 'student_objectives_topics' as prep_url %}
+    <div class="card pt-card mt-3">
+      <div class="card-body" style="padding:20px 22px;">
+
+        <div class="dash-section-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
+              <i class="bx bx-task"></i>
+            </span>
+            <div>
+              <p class="dash-section-label" style="margin-bottom:0;">Prep by Topics</p>
+              <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">Objective MCQs, subject by subject</p>
+            </div>
+          </div>
+          <a href="{% if is_subscribed %}{{ prep_url }}{% else %}/subscribe/{% endif %}" class="dash-section-link">
+            {% if is_subscribed %}Open{% else %}Unlock{% endif %} <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
+          </a>
+        </div>
+
+        {# ── At-a-glance numbers ─────────────────────────────────────────── #}
+        <div class="pt-stats">
+          <div class="pt-stat">
+            <p class="pt-stat__value">{{ prep_topics.topic_count }}</p>
+            <p class="pt-stat__label">Topics</p>
+          </div>
+          <div class="pt-stat">
+            <p class="pt-stat__value">{{ prep_topics.question_count }}</p>
+            <p class="pt-stat__label">Questions</p>
+          </div>
+          <div class="pt-stat">
+            {% if prep_topics.has_attempts %}
+              <p class="pt-stat__value">{{ prep_topics.avg_pct }}%</p>
+              <p class="pt-stat__label">Avg score</p>
+            {% else %}
+              <p class="pt-stat__value">{{ prep_topics.questions_per_group }}</p>
+              <p class="pt-stat__label">Qs per set</p>
+            {% endif %}
+          </div>
+        </div>
+
+        {# ── Coverage ────────────────────────────────────────────────────── #}
+        {% if prep_topics.has_attempts %}
+        <div class="pt-cover">
+          <div class="pt-cover__row">
+            <strong>Topic coverage</strong>
+            <span>{{ prep_topics.attempted_count }} of {{ prep_topics.topic_count }} started</span>
+          </div>
+          <div class="pt-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ prep_topics.coverage_pct }}" aria-label="Topic coverage">
+            <span style="width:{{ prep_topics.coverage_pct }}%;"></span>
+          </div>
+        </div>
+        {% else %}
+        <div class="pt-tip">
+          <i class="bx bx-bulb"></i>
+          <span>Every topic is split into sets of {{ prep_topics.questions_per_group }} questions. Go <strong>timed</strong> ({{ prep_topics.seconds_per_question }}s each) for exam feel, or <strong>untimed</strong> to learn at your pace.</span>
+        </div>
+        {% endif %}
+
+        {# ── Where to work next ──────────────────────────────────────────── #}
+        <p class="pt-focus-head">{{ prep_topics.focus_heading }}</p>
+        <div class="pt-list">
+          {% for t in prep_topics.focus_items %}
+          <a href="{% if is_subscribed %}{{ t.link }}{% else %}/subscribe/{% endif %}"
+             class="pt-row {% if t.attempted %}pt-{{ t.band_key }}{% else %}pt-new-topic{% endif %}">
+            <div class="pt-badge">
+              {% if t.attempted %}{{ t.avg_pct }}%{% else %}<i class="bx bx-play"></i>{% endif %}
+            </div>
+            <div class="pt-main">
+              <p class="pt-name">
+                <span>{{ t.name }}</span>
+                {% if t.is_new %}<span class="pt-new">New</span>{% endif %}
+              </p>
+              {% if t.attempted %}
+                <p class="pt-meta"><b>{{ t.band_label }}</b> &middot; {{ t.attempts_count }} attempt{{ t.attempts_count|pluralize }} &middot; best {{ t.best_pct }}%</p>
+                <div class="pt-mini"><span style="width:{{ t.avg_pct }}%;"></span></div>
+              {% else %}
+                <p class="pt-meta">Not started &middot; {{ t.question_count }} question{{ t.question_count|pluralize }} &middot; {{ t.sets_count }} set{{ t.sets_count|pluralize }}</p>
+              {% endif %}
+            </div>
+            <i class="bx {% if is_subscribed %}bx-chevron-right{% else %}bx-lock-alt{% endif %} pt-go"></i>
+          </a>
+          {% endfor %}
+        </div>
+
+        {% if is_subscribed %}
+          <a href="{{ prep_url }}" class="pt-cta">
+            {% if prep_topics.has_attempts %}Open Prep by Topics{% else %}Start practising{% endif %}
+            <i class="bx bx-right-arrow-alt" style="font-size:1.2rem;"></i>
+          </a>
+          {% if prep_topics.has_attempts %}
+          <a href="/dashboard/performance/" class="pt-sub-link">View full performance breakdown</a>
+          {% endif %}
+        {% else %}
+          <div class="pt-lock"><i class="bx bx-lock-alt" style="font-size:1.1rem;"></i> Prep by Topics is included with a subscription.</div>
+          <a href="/subscribe/" class="pt-cta" style="margin-top:12px;">
+            Unlock with a subscription <i class="bx bx-right-arrow-alt" style="font-size:1.2rem;"></i>
+          </a>
+        {% endif %}
+
+      </div>
+    </div>
+    {% endif %}
   </div>
 
 </div>

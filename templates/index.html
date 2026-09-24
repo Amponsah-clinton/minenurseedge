@@ -72,40 +72,19 @@
         #header nav ul li {
             vertical-align: top;
         }
-        /* Over the hero image the links sit on the model's hair and vanish, so they get a white capsule */
-        #header:not(.nav-solid) nav#nav-main ul {
+        /* Tighter link spacing, group pushed toward the buttons so it clears the hero image */
+        #header nav#nav-main ul {
             display: flex;
             align-items: flex-start;
         }
-        #header:not(.nav-solid) nav#nav-main ul li:not(.nav-cta) a {
-            height: 42px;
-            line-height: 40px;
-            margin-top: 14px;
-            padding: 0 16px;
-            background: #ffffff;
-            border-top: 1px solid #e5e7eb;
-            border-bottom: 1px solid #e5e7eb;
-            box-sizing: border-box;
-        }
-        #header:not(.nav-solid) nav#nav-main ul li:first-child a {
-            padding-left: 22px;
-            border-left: 1px solid #e5e7eb;
-            border-radius: 999px 0 0 999px;
-        }
-        #header:not(.nav-solid) nav#nav-main ul li:nth-child(4) a {
-            padding-right: 22px;
-            border-right: 1px solid #e5e7eb;
-            border-radius: 0 999px 999px 0;
-        }
-        #header:not(.nav-solid) nav#nav-main ul li:not(.nav-cta) a:hover {
-            opacity: 1;
-            background: #f4f4f5;
+        #header nav#nav-main ul li:not(.nav-cta) a {
+            padding: 0 7px;
         }
         #header nav ul li.nav-cta {
-            margin-left: 12px;
+            margin-left: 10px;
         }
         #header nav ul li.nav-cta-login {
-            margin-left: 22px;
+            margin-left: 12px;
         }
         #header nav ul li a.nav-btn {
             display: block;
