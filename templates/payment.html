@@ -1,285 +1,239 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}Payment History - nursesedge {% endblock %}
+{% block title %}Subscription - NursesEdge{% endblock %}
 
 {% block content %}
 <style>
-  .pay-wrap { max-width: 860px; margin: 0 auto; }
-
-  .pay-page-header { margin-bottom: 24px; }
-  .pay-page-header h4 { font-size: 1.25rem; font-weight: 800; color: #1f2d40; margin: 0 0 4px; }
-  .pay-page-header p  { font-size: 0.87rem; color: #7b8599; margin: 0; }
-
-  /* Active plan banner */
-  .active-plan-banner {
-    background: #1a1a2e; color: #fff; border-radius: 12px;
-    padding: 20px 24px; margin-bottom: 20px;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;
+  .pay {
+    --ink: #1f2d40;
+    --ink-soft: #4a5468;
+    --muted: #7a8398;
+    --line: #e6e9f0;
+    --brand: #1a1a2e;
+    --ok: #2f9e63;
+    --warn: #c98a12;
+    --bad: #d64545;
+    max-width: 760px;
+    margin: 0 auto;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
   }
-  .apb-left { display: flex; align-items: center; gap: 14px; }
-  .apb-icon {
-    width: 44px; height: 44px; border-radius: 10px; background: rgba(255,255,255,.1);
-    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
-  }
-  .apb-plan { font-size: 1.15rem; font-weight: 800; margin: 0 0 2px; }
-  .apb-sub  { font-size: 0.78rem; color: rgba(255,255,255,.55); margin: 0; }
-  .apb-pill {
-    font-size: 0.72rem; font-weight: 700; border-radius: 999px;
-    padding: 4px 12px; border: 1px solid rgba(255,255,255,.2); color: #fff;
-  }
-  .apb-pill.active   { background: #3ea76a; border-color: #3ea76a; }
-  .apb-pill.pending  { background: #cc8800; border-color: #cc8800; }
-  .apb-pill.inactive { background: rgba(255,255,255,.15); }
 
-  .btn-subscribe {
-    font-size: 0.82rem; font-weight: 700; border-radius: 8px;
-    padding: 8px 18px; background: #fff; color: #1a1a2e;
-    border: none; text-decoration: none; display: inline-block; transition: opacity .15s;
-  }
-  .btn-subscribe:hover { opacity: .85; color: #1a1a2e; }
+  .pay-head { margin: 4px 0 22px; }
+  .pay-head h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -.01em; margin: 0 0 4px; color: var(--ink); }
+  .pay-head p  { margin: 0; font-size: .9rem; color: var(--muted); }
 
-  /* History table */
-  .hist-card {
-    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04); overflow: hidden;
-  }
-  .hist-card-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 20px; border-bottom: 1px solid #edf0f7; flex-wrap: wrap; gap: 8px;
-  }
-  .hist-card-title { font-size: 1rem; font-weight: 700; color: #1f2d40; margin: 0; }
+  .pay-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #aab2c3; margin-right: 7px; vertical-align: 1px; }
+  .pay-dot--active    { background: var(--ok); }
+  .pay-dot--pending   { background: var(--warn); }
+  .pay-dot--cancelled { background: var(--bad); }
+  .pay-dot--ended     { background: #aab2c3; }
 
-  table.hist-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
-  .hist-table th {
-    padding: 11px 16px; background: #f8f9fc; color: #7b8599;
-    font-weight: 600; text-align: left; border-bottom: 1px solid #edf0f7; white-space: nowrap;
-  }
-  .hist-table td {
-    padding: 13px 16px; color: #4a5268; border-bottom: 1px solid #f2f4f8; vertical-align: middle;
-  }
-  .hist-table tr:last-child td { border-bottom: none; }
-  .hist-table tr:hover td { background: #fafbff; }
-
-  .s-badge { font-size: 0.69rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
-  .s-active    { background: #eafff2; color: #3ea76a; }
-  .s-pending   { background: #fff8e6; color: #cc8800; }
-  .s-cancelled { background: #fff0ef; color: #d93025; }
-  .s-expired   { background: #f5f5f5; color: #9098b0; }
-
-  .plan-chip { font-size: 0.69rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
-  .plan-basic   { background: #1a1a2e; color: #fff; }
-  .plan-premium { background: #1a1a2e; color: #fff; }
-
-  .empty-state { text-align: center; padding: 48px 24px; color: #9098b0; }
-  .empty-state i { font-size: 2.4rem; display: block; margin-bottom: 10px; color: #c8cdd8; }
-  .empty-state p { font-size: 0.87rem; margin: 0 0 16px; }
-  .btn-detail {
-    border: 1px solid #d9deea;
+  /* ── Plan ─────────────────────────────────────────── */
+  .pay-plan {
     background: #fff;
-    color: #4a5268;
-    border-radius: 7px;
-    padding: 4px 9px;
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-  .btn-detail:hover { background: #f8f9fc; }
-  .pay-detail-modal .modal-content {
+    border: 1px solid var(--line);
     border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
+    padding: 24px 26px 22px;
+    margin-bottom: 30px;
   }
-  .pay-detail-row { display: flex; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
-  .pay-detail-row:last-child { border-bottom: 0; }
-  .pay-detail-key { color: #7b8599; font-size: 0.82rem; font-weight: 700; }
-  .pay-detail-value { color: #1f2d40; font-size: 0.84rem; font-weight: 600; text-align: right; word-break: break-word; }
+  .pay-plan-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+  }
+  .pay-plan-status { text-transform: none; letter-spacing: 0; font-size: .86rem; color: var(--ink-soft); }
+  .pay-plan-name { font-size: 1.35rem; font-weight: 800; margin: 10px 0 2px; color: var(--ink); }
+  .pay-plan-meta { font-size: .88rem; color: var(--muted); margin: 0; }
+
+  .pay-left { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 10px; }
+  .pay-left strong { font-size: 2.6rem; line-height: 1; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+  .pay-left span { font-size: 1rem; color: var(--ink-soft); }
+  .pay-track { height: 6px; border-radius: 3px; background: #edeff5; overflow: hidden; }
+  .pay-track > span { display: block; height: 100%; border-radius: 3px; background: var(--brand); }
+  .pay-plan--soon .pay-track > span { background: var(--warn); }
+  .pay-range { display: flex; justify-content: space-between; gap: 12px; margin-top: 9px; font-size: .8rem; color: var(--muted); }
+
+  .pay-note { margin: 18px 0 0; font-size: .9rem; line-height: 1.6; color: var(--ink-soft); max-width: 56ch; }
+  .pay-note--warn { color: #8a5d05; }
+
+  .pay-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 42px; padding: 0 22px; margin-top: 18px;
+    border: 2px solid var(--brand); border-radius: 8px;
+    background: var(--brand); color: #fff !important;
+    font-size: .88rem; font-weight: 700; text-decoration: none;
+    transition: background-color .15s, color .15s;
+  }
+  .pay-btn:hover { background: #fff; color: var(--brand) !important; }
+
+  /* ── Ledger ───────────────────────────────────────── */
+  .pay-ledger-head { display: flex; align-items: baseline; justify-content: space-between; margin: 0 2px 10px; }
+  .pay-ledger-head h2 { font-size: 1.05rem; font-weight: 800; margin: 0; color: var(--ink); }
+  .pay-ledger-head span { font-size: .82rem; color: var(--muted); }
+
+  .pay-entries { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .pay-entry + .pay-entry { border-top: 1px solid var(--line); }
+  .pay-entry summary {
+    list-style: none; cursor: pointer;
+    display: grid; grid-template-columns: 1fr auto 20px; align-items: center; gap: 14px;
+    padding: 16px 20px;
+  }
+  .pay-entry summary::-webkit-details-marker { display: none; }
+  .pay-entry summary:hover { background: #fafbfd; }
+  .pay-entry summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+  .pay-entry-title { display: block; font-size: .95rem; font-weight: 700; color: var(--ink); }
+  .pay-entry-sub { display: block; margin-top: 3px; font-size: .8rem; color: var(--muted); }
+  .pay-entry-amount { font-size: .98rem; font-weight: 700; color: var(--ink); text-align: right; white-space: nowrap; }
+  .pay-entry-amount.is-unpaid { color: var(--muted); font-weight: 600; }
+  .pay-caret { color: #b3bacb; font-size: 20px; transition: transform .18s; }
+  .pay-entry[open] .pay-caret { transform: rotate(180deg); }
+
+  .pay-detail { margin: 0; padding: 4px 20px 18px; display: grid; grid-template-columns: 140px 1fr; gap: 9px 16px; font-size: .84rem; }
+  .pay-detail dt { color: var(--muted); font-weight: 500; }
+  .pay-detail dd { margin: 0; color: var(--ink); word-break: break-word; }
+  .pay-ref { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .8rem; }
+  .pay-copy {
+    margin-left: 8px; padding: 1px 9px; border: 1px solid #d5dae6; border-radius: 6px;
+    background: #fff; color: var(--ink-soft); font-size: .72rem; font-weight: 600; cursor: pointer;
+  }
+  .pay-copy:hover { border-color: var(--brand); color: var(--brand); }
+
+  .pay-empty { padding: 30px 22px; text-align: center; color: var(--muted); font-size: .9rem; }
+
+  .pay-help { margin: 20px 2px 0; font-size: .84rem; color: var(--muted); line-height: 1.6; }
+  .pay-help a { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+  @media (max-width: 575px) {
+    .pay-plan { padding: 20px 18px; }
+    .pay-left strong { font-size: 2.2rem; }
+    .pay-entry summary { padding: 14px 16px; gap: 10px; }
+    .pay-detail { padding: 2px 16px 16px; grid-template-columns: 1fr; gap: 2px 0; }
+    .pay-detail dd { margin-bottom: 8px; }
+    .pay-btn { width: 100%; }
+  }
 </style>
 
-<div class="pay-wrap">
+<div class="pay">
 
-  <div class="pay-page-header">
-    <h4>Payment History</h4>
-    <p>All your subscription payments and their current status.</p>
-  </div>
+  <header class="pay-head">
+    <h1>Subscription</h1>
+    <p>Your plan, and every payment you've made.</p>
+  </header>
 
-  <!-- Current subscription banner -->
-  {% if latest_subscription %}
-  <div class="active-plan-banner">
-    <div class="apb-left">
-      <div class="apb-icon"><i class="bx bx-shield-quarter"></i></div>
-      <div>
-        <p class="apb-plan">Annual Access</p>
-        <p class="apb-sub">
-          {% if latest_subscription.status == 'active' and subscription_access_ok %}
-            Active until {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
-          {% elif latest_subscription.status == 'active' %}
-            Expired on {{ latest_subscription.expires_at|slice:":10"|default:"—" }}
-          {% elif latest_subscription.status == 'pending_payment' %}
-            Awaiting payment verification
-          {% else %}
-            {{ latest_subscription.status|title }}
-          {% endif %}
-        </p>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <span class="apb-pill {% if latest_subscription.status == 'active' and subscription_access_ok %}active{% elif latest_subscription.status == 'pending_payment' %}pending{% else %}inactive{% endif %}">
-        {% if latest_subscription.status == 'pending_payment' %}Pending{% elif latest_subscription.status == 'active' and not subscription_access_ok %}Expired{% else %}{{ latest_subscription.status|title }}{% endif %}
+  {# ── Plan ─────────────────────────────────────────────────────────── #}
+  <section class="pay-plan{% if pay_summary.ending_soon %} pay-plan--soon{% endif %}" aria-label="Current plan">
+    <div class="pay-plan-top">
+      <span>Current plan</span>
+      <span class="pay-plan-status">
+        {% if pay_summary.state == 'active' %}<i class="pay-dot pay-dot--active"></i>Active
+        {% elif pay_summary.state == 'expired' %}<i class="pay-dot pay-dot--ended"></i>Ended
+        {% elif pay_summary.state == 'pending' %}<i class="pay-dot pay-dot--pending"></i>Awaiting payment
+        {% else %}<i class="pay-dot pay-dot--ended"></i>Not subscribed{% endif %}
       </span>
-      {% if latest_subscription.status != 'active' %}
-      <a href="/subscribe/" class="btn-subscribe">Complete Payment →</a>
-      {% elif not subscription_access_ok %}
-      {# /subscribe/ sends students with valid access back to the dashboard, so only offer Renew once access has lapsed. #}
-      <a href="/subscribe/" class="btn-subscribe">Renew Subscription</a>
+    </div>
+
+    <h2 class="pay-plan-name">Annual Access</h2>
+    <p class="pay-plan-meta">
+      {% if pay_summary.complimentary %}Complimentary
+      {% else %}{{ pay_summary.price|default:"—" }} for {{ pay_summary.duration_days }} days{% endif %}
+    </p>
+
+    {% if pay_summary.state == 'active' %}
+      {% if pay_summary.days_left %}
+        <div class="pay-left"><strong>{{ pay_summary.days_left }}</strong><span>day{{ pay_summary.days_left|pluralize }} left</span></div>
+        <div class="pay-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pay_summary.percent_left }}" aria-label="Time remaining">
+          <span style="width: {{ pay_summary.percent_left }}%;"></span>
+        </div>
+        <div class="pay-range">
+          <span>Started {{ pay_summary.started }}</span>
+          <span>Ends {{ pay_summary.ends }}</span>
+        </div>
+        {% if pay_summary.ending_soon %}
+        <p class="pay-note pay-note--warn">Your access ends on {{ pay_summary.ends }}. You can renew here as soon as it ends.</p>
+        {% endif %}
+      {% else %}
+        <p class="pay-note">You have full access to every feature on NursesEdge{% if pay_summary.ends %} until {{ pay_summary.ends }}{% endif %}.</p>
       {% endif %}
-    </div>
-  </div>
-  {% else %}
-  <div class="active-plan-banner" style="background:#2a2a4e;">
-    <div class="apb-left">
-      <div class="apb-icon"><i class="bx bx-credit-card"></i></div>
-      <div>
-        <p class="apb-plan">No active subscription</p>
-        <p class="apb-sub">Pay GHS {{ standard.price|default:"50" }} per {{ standard.duration_days|default:365 }} days to unlock your full dashboard.</p>
-      </div>
-    </div>
-    <a href="/subscribe/" class="btn-subscribe">Subscribe Now →</a>
-  </div>
-  {% endif %}
 
-  <!-- History table -->
-  <div class="hist-card">
-    <div class="hist-card-header">
-      <h5 class="hist-card-title">
-        All Transactions
-        <span style="font-size:0.78rem;color:#9098b0;font-weight:400;">
-          {{ payment_history|length }} record{{ payment_history|length|pluralize }}
-        </span>
-      </h5>
-    </div>
+    {% elif pay_summary.state == 'expired' %}
+      <p class="pay-note">Your access ended on {{ pay_summary.ends }}. Renew to get back into practice papers, mock exams and the rest of your dashboard.</p>
+      <a href="/subscribe/" class="pay-btn">Renew for {{ pay_summary.price }}</a>
 
-    {% if payment_history %}
-    <div style="overflow-x:auto;">
-      <table class="hist-table">
-        <thead>
-          <tr>
-            <th>Plan</th>
-            <th>Amount Due</th>
-            <th>Amount Paid</th>
-            <th>Reference / Session</th>
-            <th>Status</th>
-            <th>Started</th>
-            <th>Expires</th>
-            <th>Date</th>
-            <th>Details</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in payment_history %}
-          <tr>
-            <td>
-              <span class="plan-chip {% if row.plan_slug == 'premium' %}plan-premium{% else %}plan-basic{% endif %}">
-                Annual
-              </span>
-            </td>
-            <td style="font-weight:700;">{{ row.currency|default:"GHS" }} {{ row.amount_due|default:"—" }}</td>
-            <td>
-              {% if row.amount_paid %}{{ row.currency|default:"GHS" }} {{ row.amount_paid }}
-              {% else %}<span style="color:#c0c8d8;">—</span>{% endif %}
-            </td>
-            <td style="font-size:0.76rem;color:#7b8599;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                title="{{ row.payment_reference|default:'' }}">
-              {{ row.payment_reference|default:"—"|truncatechars:26 }}
-            </td>
-            <td>
-              <span class="s-badge {% if row.status == 'active' %}s-active{% elif row.status == 'pending_payment' %}s-pending{% elif row.status == 'cancelled' %}s-cancelled{% else %}s-expired{% endif %}">
-                {% if row.status == 'pending_payment' %}Pending{% else %}{{ row.status|title }}{% endif %}
-              </span>
-            </td>
-            <td style="font-size:0.78rem;white-space:nowrap;">{{ row.started_at|slice:":10"|default:"—" }}</td>
-            <td style="font-size:0.78rem;white-space:nowrap;">{{ row.expires_at|slice:":10"|default:"—" }}</td>
-            <td style="font-size:0.78rem;white-space:nowrap;color:#9098b0;">{{ row.created_at|slice:":10"|default:"—" }}</td>
-            <td>
-              <button
-                type="button"
-                class="btn-detail"
-                data-bs-toggle="modal"
-                data-bs-target="#paymentDetailModal"
-                data-plan="Annual Access"
-                data-amount-due="{{ row.currency|default:'GHS' }} {{ row.amount_due|default:'—' }}"
-                data-amount-paid="{% if row.amount_paid %}{{ row.currency|default:'GHS' }} {{ row.amount_paid }}{% else %}—{% endif %}"
-                data-reference="{{ row.payment_reference|default:'—' }}"
-                data-status="{% if row.status == 'pending_payment' %}Pending{% else %}{{ row.status|title }}{% endif %}"
-                data-started="{{ row.started_at|slice:':19'|default:'—' }}"
-                data-expires="{{ row.expires_at|slice:':19'|default:'—' }}"
-                data-created="{{ row.created_at|slice:':19'|default:'—' }}">
-                View
-              </button>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% elif pay_summary.state == 'pending' %}
+      {% if pay_summary.has_reference %}
+      <p class="pay-note">We're waiting for your payment to be confirmed. This usually takes a few minutes. If you were charged and nothing has changed after that, contact us with your reference below.</p>
+      {% else %}
+      <p class="pay-note">You started a subscription but the payment wasn't completed, so nothing has been charged.</p>
+      {% endif %}
+      <a href="/subscribe/" class="pay-btn">Complete payment</a>
+
     {% else %}
-    <div class="empty-state">
-      <i class="bx bx-receipt"></i>
-      <p>No payment records yet.</p>
-      <a href="/subscribe/" style="background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:0.84rem;font-weight:700;text-decoration:none;display:inline-block;">
-        Subscribe Now
-      </a>
-    </div>
+      <p class="pay-note">You haven't subscribed yet. One payment unlocks the full dashboard for {{ pay_summary.duration_days }} days.</p>
+      <a href="/subscribe/" class="pay-btn">Subscribe for {{ pay_summary.price }}</a>
     {% endif %}
+  </section>
+
+  {# ── Payments ─────────────────────────────────────────────────────── #}
+  <div class="pay-ledger-head">
+    <h2>Payments</h2>
+    {% if pay_ledger %}<span>{{ pay_ledger|length }} record{{ pay_ledger|length|pluralize }}</span>{% endif %}
   </div>
 
-</div>
-
-<div class="modal fade pay-detail-modal" id="paymentDetailModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Payment Details</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="pay-detail-row"><span class="pay-detail-key">Plan</span><span class="pay-detail-value" id="pdPlan">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Amount Due</span><span class="pay-detail-value" id="pdAmountDue">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Amount Paid</span><span class="pay-detail-value" id="pdAmountPaid">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Reference</span><span class="pay-detail-value" id="pdReference">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Status</span><span class="pay-detail-value" id="pdStatus">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Started</span><span class="pay-detail-value" id="pdStarted">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Expires</span><span class="pay-detail-value" id="pdExpires">—</span></div>
-        <div class="pay-detail-row"><span class="pay-detail-key">Created</span><span class="pay-detail-value" id="pdCreated">—</span></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-      </div>
-    </div>
+  <div class="pay-entries">
+    {% for p in pay_ledger %}
+    <details class="pay-entry">
+      <summary>
+        <span>
+          <span class="pay-entry-title">{{ p.title }}</span>
+          <span class="pay-entry-sub">{{ p.date }} &middot; <i class="pay-dot pay-dot--{{ p.state }}" style="margin-right:5px;"></i>{{ p.state_label }}</span>
+        </span>
+        <span class="pay-entry-amount{% if not p.paid and p.amount != 'Free' %} is-unpaid{% endif %}">{{ p.amount }}</span>
+        <i class="bx bx-chevron-down pay-caret" aria-hidden="true"></i>
+      </summary>
+      <dl class="pay-detail">
+        {% if p.reference %}
+        <dt>Reference</dt>
+        <dd><span class="pay-ref">{{ p.reference }}</span><button type="button" class="pay-copy" data-copy="{{ p.reference }}">Copy</button></dd>
+        {% endif %}
+        {% if p.valid_from %}<dt>Valid from</dt><dd>{{ p.valid_from }}</dd>{% endif %}
+        {% if p.valid_until %}<dt>Valid until</dt><dd>{{ p.valid_until }}</dd>{% endif %}
+        {% if p.paid and p.amount_due and p.amount_due != p.amount %}<dt>Amount due</dt><dd>{{ p.amount_due }}</dd>{% endif %}
+      </dl>
+    </details>
+    {% empty %}
+    <div class="pay-empty">No payments yet.</div>
+    {% endfor %}
   </div>
+
+  <p class="pay-help">
+    Paid but your access hasn't updated? <a href="/contact/">Contact us</a> and include the payment reference from the entry above.
+  </p>
+
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  var modal = document.getElementById("paymentDetailModal");
-  if (!modal) return;
-
-  modal.addEventListener("show.bs.modal", function (event) {
-    var trigger = event.relatedTarget;
-    if (!trigger) return;
-
-    function set(id, key) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.textContent = trigger.getAttribute(key) || "—";
-    }
-    set("pdPlan", "data-plan");
-    set("pdAmountDue", "data-amount-due");
-    set("pdAmountPaid", "data-amount-paid");
-    set("pdReference", "data-reference");
-    set("pdStatus", "data-status");
-    set("pdStarted", "data-started");
-    set("pdExpires", "data-expires");
-    set("pdCreated", "data-created");
-  });
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest && e.target.closest(".pay-copy");
+  if (!btn) return;
+  e.preventDefault();
+  var text = btn.getAttribute("data-copy") || "";
+  function done() {
+    btn.textContent = "Copied";
+    setTimeout(function () { btn.textContent = "Copy"; }, 1600);
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, done);
+  } else {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.cssText = "position:fixed;opacity:0;";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    document.body.removeChild(ta);
+    done();
+  }
 });
 </script>
 {% endblock %}

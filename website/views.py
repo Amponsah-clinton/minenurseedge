@@ -13642,6 +13642,116 @@ def paystack_webhook(request):
 # Student: subscription / payment history (/payment/)
 # ---------------------------------------------------------------------------
 
+def _pay_parse_dt(value):
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _pay_fmt_date(value):
+    dt = _pay_parse_dt(value)
+    return f"{dt.day} {dt.strftime('%b %Y')}" if dt else ""
+
+
+def _pay_fmt_money(currency, amount):
+    try:
+        return f"{currency or 'GHS'} {float(amount):,.2f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def _payment_page_model(history, plans, access_ok):
+    """
+    Display-ready data for /payment/: a plan summary (status, days left, progress)
+    and a ledger of real payments. Pending rows that were never attempted (created
+    just by opening /subscribe/) are left out of the ledger.
+    """
+    now = datetime.now(timezone.utc)
+    complimentary_refs = {FREE_ACCESS_PAYMENT_REFERENCE, "complimentary"}
+    std = plans.get("standard", {}) or {}
+    currency = std.get("currency") or "GHS"
+
+    ledger = []
+    for row in history:
+        status = row.get("status") or ""
+        ref = (row.get("payment_reference") or "").strip()
+        if status == "pending_payment" and not ref:
+            continue
+        is_free = ref in complimentary_refs
+        expires = _pay_parse_dt(row.get("expires_at"))
+        if status == "active":
+            live = expires is None or expires > now
+            state, label = ("active", "Active") if live else ("ended", "Ended")
+        elif status == "pending_payment":
+            state, label = "pending", "Awaiting confirmation"
+        elif status == "cancelled":
+            state, label = "cancelled", "Cancelled"
+        else:
+            state, label = "ended", status.replace("_", " ").title() or "Ended"
+
+        if is_free:
+            amount = "Free"
+        elif row.get("amount_paid"):
+            amount = _pay_fmt_money(row.get("currency") or currency, row.get("amount_paid"))
+        else:
+            amount = _pay_fmt_money(row.get("currency") or currency, row.get("amount_due"))
+        ledger.append({
+            "date": _pay_fmt_date(row.get("started_at") or row.get("created_at")),
+            "title": "Complimentary access" if is_free else "Annual Access",
+            "amount": amount or "—",
+            "paid": bool(row.get("amount_paid")) and not is_free,
+            "state": state,
+            "state_label": label,
+            "reference": "" if is_free else ref,
+            "valid_from": _pay_fmt_date(row.get("started_at")),
+            "valid_until": _pay_fmt_date(row.get("expires_at")),
+            "amount_due": _pay_fmt_money(row.get("currency") or currency, row.get("amount_due")),
+        })
+
+    active_row = next((r for r in history if r.get("status") == "active"), None)
+    latest = history[0] if history else None
+    summary = {
+        "state": "none",
+        "price": _pay_fmt_money(currency, std.get("price")),
+        "duration_days": std.get("duration_days") or 365,
+        "complimentary": False,
+        "days_left": None,
+        "percent_left": None,
+        "ending_soon": False,
+        "started": "",
+        "ends": "",
+        "days_since_end": None,
+        "has_reference": False,
+    }
+    if active_row:
+        summary["complimentary"] = (active_row.get("payment_reference") or "") in complimentary_refs
+        started = _pay_parse_dt(active_row.get("started_at"))
+        expires = _pay_parse_dt(active_row.get("expires_at"))
+        summary["started"] = _pay_fmt_date(active_row.get("started_at"))
+        summary["ends"] = _pay_fmt_date(active_row.get("expires_at"))
+        if expires and started:
+            total = max((expires - started).total_seconds(), 1)
+            left = (expires - now).total_seconds()
+            if access_ok and left > 0:
+                summary["days_left"] = max(1, math.ceil(left / 86400))
+                summary["percent_left"] = int(max(0, min(100, round(left * 100 / total))))
+                summary["ending_soon"] = summary["days_left"] <= 30
+            else:
+                summary["days_since_end"] = max(0, int(-left // 86400))
+    if access_ok:
+        summary["state"] = "active"
+    elif active_row:
+        summary["state"] = "expired"
+    elif latest and latest.get("status") == "pending_payment":
+        summary["state"] = "pending"
+        summary["has_reference"] = bool((latest.get("payment_reference") or "").strip())
+    return summary, ledger
+
+
 def payment_page(request):
     guard = _require_login(request)
     if guard:
@@ -13653,6 +13763,7 @@ def payment_page(request):
     history = _subscription_history_for_user(user_id)
     latest = history[0] if history else None
     paid_ok = subscription_allows_dashboard(user_id)
+    pay_summary, pay_ledger = _payment_page_model(history, plans, paid_ok)
 
     ctx = {
         "full_name": request.session.get("full_name", ""),
@@ -13662,6 +13773,8 @@ def payment_page(request):
         "student_unread_notifications": _student_unread_count(user_id),
         "community_unread": _community_unread_count(user_id),
         "payment_history": history,
+        "pay_summary": pay_summary,
+        "pay_ledger": pay_ledger,
         "latest_subscription": latest,
         "subscription_access_ok": paid_ok,
         "plans": plans,
