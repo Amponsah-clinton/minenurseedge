@@ -514,6 +514,7 @@
 </head>
 
 <body class="{% if show_academic_profile_modal %}academic-profile-pending {% endif %}{% block body_extra_class %}{% endblock %}">
+{% include "partials/site_loader.html" %}
   <!-- Layout wrapper -->
   <div class="layout-wrapper layout-content-navbar{% if show_academic_profile_modal %} academic-lock-interaction{% endif %}">
     <div class="layout-container">

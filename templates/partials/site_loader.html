@@ -1,0 +1,158 @@
+<!-- Site-wide page loader: terminal-style "Loading..." on a white background.
+     Include right after <body>. Hides itself once the page has fully loaded. -->
+<style>
+    #ne-loader {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 2147483000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.35s ease, visibility 0s linear 0s;
+    }
+    #ne-loader.ne-loader--done {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.35s ease, visibility 0s linear 0.35s;
+    }
+
+    @keyframes neLoaderBlinkCursor {
+        50% { border-right-color: transparent; }
+    }
+    @keyframes neLoaderTypeAndDelete {
+        0%, 10%   { width: 0; }
+        45%, 55%  { width: 6.2em; }
+        90%, 100% { width: 0; }
+    }
+    /* Fade the terminal in after a beat so very fast page loads don't flash it */
+    @keyframes neLoaderFadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #ne-loader .ne-terminal {
+        border: 0.1em solid #333;
+        background-color: #1a1a1a;
+        color: #0f0;
+        font-family: "Courier New", Courier, monospace;
+        font-size: 18px;
+        line-height: normal;
+        text-align: left;
+        text-transform: none;
+        letter-spacing: normal;
+        padding: 1.5em 1em;
+        width: 12em;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+        box-sizing: border-box;
+        animation: neLoaderFadeIn 0.3s ease 0.2s both;
+    }
+    #ne-loader .ne-terminal-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1.5em;
+        background-color: #333;
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        padding: 0 0.4em;
+        box-sizing: border-box;
+    }
+    #ne-loader .ne-terminal-controls {
+        float: right;
+        line-height: 1.5em;
+    }
+    #ne-loader .ne-terminal-control {
+        display: inline-block;
+        width: 0.6em;
+        height: 0.6em;
+        margin-left: 0.4em;
+        border-radius: 50%;
+        background-color: #777;
+        vertical-align: middle;
+    }
+    #ne-loader .ne-terminal-control.close    { background-color: #e33; }
+    #ne-loader .ne-terminal-control.minimize { background-color: #ee0; }
+    #ne-loader .ne-terminal-control.maximize { background-color: #0b0; }
+    #ne-loader .ne-terminal-title {
+        float: left;
+        line-height: 1.5em;
+        font-size: 1em;
+        color: #eee;
+    }
+    #ne-loader .ne-terminal-text {
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        border-right: 0.2em solid green; /* cursor */
+        margin-top: 1.5em;
+        animation:
+            neLoaderTypeAndDelete 4s steps(11) infinite,
+            neLoaderBlinkCursor 0.5s step-end infinite alternate;
+    }
+
+    @media (max-width: 480px) {
+        #ne-loader .ne-terminal { font-size: 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #ne-loader .ne-terminal { animation: none; }
+        #ne-loader .ne-terminal-text {
+            width: auto;
+            animation: neLoaderBlinkCursor 1s step-end infinite;
+        }
+    }
+</style>
+<noscript><style>#ne-loader { display: none !important; }</style></noscript>
+
+<div id="ne-loader" role="status" aria-live="polite" aria-label="Loading">
+    <div class="ne-terminal">
+        <div class="ne-terminal-header">
+            <div class="ne-terminal-title">Status</div>
+            <div class="ne-terminal-controls" aria-hidden="true">
+                <div class="ne-terminal-control close"></div>
+                <div class="ne-terminal-control minimize"></div>
+                <div class="ne-terminal-control maximize"></div>
+            </div>
+        </div>
+        <div class="ne-terminal-text">Loading...</div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var loader = document.getElementById('ne-loader');
+        if (!loader) return;
+
+        var hidden = false;
+        function hideLoader() {
+            if (hidden) return;
+            hidden = true;
+            loader.classList.add('ne-loader--done');
+            setTimeout(function () {
+                if (loader.parentNode) loader.parentNode.removeChild(loader);
+            }, 500);
+        }
+
+        if (document.readyState === 'complete') {
+            hideLoader();
+        } else {
+            window.addEventListener('load', hideLoader);
+        }
+        // Back/forward cache restores the page without firing "load"
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) hideLoader();
+        });
+        // Never trap the user behind the loader if a resource hangs
+        setTimeout(hideLoader, 10000);
+    })();
+</script>
