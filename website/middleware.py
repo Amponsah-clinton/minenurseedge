@@ -122,9 +122,9 @@ class StudentAcademicProfileSyncMiddleware:
 
 class StudentSubscriptionGateMiddleware:
     """
-    Students must have an active, non-expired subscription to use anything under
-    /dashboard/ — including the dashboard home and the free test. Unpaid students
-    are sent to /subscribe/ until payment is confirmed.
+    Every non-admin account needs an active, non-expired subscription to use anything
+    under /dashboard/ — including the dashboard home and the free test. Unpaid accounts
+    are sent to /subscribe/ until payment is confirmed; anonymous visitors go to /login/.
     """
 
     # Setup endpoints that must keep working for any logged-in student.
@@ -142,9 +142,12 @@ class StudentSubscriptionGateMiddleware:
             return self.get_response(request)
         if any(path.startswith(p) for p in self._FREE_PREFIXES):
             return self.get_response(request)
-        if request.session.get("role") != "student":
-            return self.get_response(request)
         if not request.session.get("user_id"):
+            from urllib.parse import quote as _quote
+            return redirect(f"/login/?next={_quote(request.get_full_path(), safe='')}")
+        # Only admins are exempt. A missing or unexpected role is treated as a student,
+        # so an odd profile row can never skip the payment check.
+        if request.session.get("role") == "admin":
             return self.get_response(request)
         from website.views import (
             _reconcile_pending_subscription_from_paystack,

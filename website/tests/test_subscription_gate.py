@@ -127,3 +127,167 @@ class SignupRedirectTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "/subscribe/?reason=new_account")
+
+
+class GateRoleTests(SimpleTestCase):
+    def setUp(self):
+        self.gate = StudentSubscriptionGateMiddleware(lambda request: HttpResponse("page"))
+        patcher = mock.patch.object(views, "_reconcile_pending_subscription_from_paystack")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _get(self, session):
+        request = RequestFactory().get("/dashboard/")
+        request.session = dict(session)
+        with mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")):
+            return self.gate(request)
+
+    def test_missing_or_unknown_role_is_still_checked(self):
+        for role in (None, "", "user", "Student"):
+            with self.subTest(role=role):
+                response = self._get({"user_id": STUDENT["user_id"], "role": role})
+                self.assertEqual(response["Location"], "/subscribe/?reason=payment_required")
+
+    def test_no_session_goes_to_login(self):
+        response = self._get({})
+        self.assertTrue(response["Location"].startswith("/login/?next="))
+
+
+PAYSTACK = {"PAYSTACK_SECRET_KEY": "sk_test_" + "x" * 40}
+PLANS = {"standard": {"slug": "standard", "name": "Annual Access", "price": 60.0, "currency": "GHS", "duration_days": 365}}
+PENDING = {"id": "sub1", "user_id": STUDENT["user_id"], "status": "pending_payment", "amount_due": 60,
+           "plan_slug": "standard", "payment_reference": "ref1"}
+
+
+def _verify(amount_minor=6120, currency="GHS", user_id=STUDENT["user_id"], status="success"):
+    return {"status": True, "data": {
+        "status": status, "amount": amount_minor, "currency": currency, "reference": "ref1",
+        "metadata": {"user_id": user_id, "subscription_id": "sub1", "plan_slug": "standard", "base_amount_minor": "6000"},
+    }}
+
+
+class PaymentConfirmationTests(SimpleTestCase):
+    """Access only opens for a real, full, GHS payment made by this account."""
+
+    def setUp(self):
+        for name, value in (("_get_plans", PLANS), ("_get_active_subscription", dict(PENDING))):
+            p = mock.patch.object(views, name, return_value=value)
+            p.start()
+            self.addCleanup(p.stop)
+        p = mock.patch.object(views, "_apply_successful_subscription_payment")
+        self.apply = p.start()
+        self.addCleanup(p.stop)
+
+    def _success(self, verify):
+        request = RequestFactory().get("/subscribe/success/?reference=ref1")
+        request.session = SessionStore()
+        request.session.update(STUDENT)
+        with self.settings(**PAYSTACK), mock.patch.object(views, "_paystack_request", return_value=(verify, None)):
+            return views.student_subscribe_success(request), request
+
+    def test_full_payment_activates_and_queues_the_welcome(self):
+        response, request = self._success(_verify())
+        self.assertEqual(response["Location"], "/dashboard/")
+        self.apply.assert_called_once()
+        self.assertTrue(request.session.get("payment_welcome"))
+
+    def test_underpayment_is_rejected(self):
+        response, request = self._success(_verify(amount_minor=100))
+        self.assertEqual(response["Location"], "/subscribe/?error=amount_mismatch")
+        self.apply.assert_not_called()
+        self.assertFalse(request.session.get("payment_welcome"))
+
+    def test_wrong_currency_is_rejected(self):
+        response, _ = self._success(_verify(currency="NGN"))
+        self.assertEqual(response["Location"], "/subscribe/?error=amount_mismatch")
+        self.apply.assert_not_called()
+
+    def test_someone_elses_payment_is_rejected(self):
+        response, _ = self._success(_verify(user_id="22222222-2222-2222-2222-222222222222"))
+        self.assertEqual(response["Location"], "/subscribe/?error=forbidden")
+        self.apply.assert_not_called()
+
+    def test_failed_payment_is_rejected(self):
+        response, _ = self._success(_verify(status="abandoned"))
+        self.assertEqual(response["Location"], "/subscribe/?error=unpaid")
+        self.apply.assert_not_called()
+
+    def test_webhook_ignores_underpayment(self):
+        import hashlib
+        import hmac
+        import json
+        body = json.dumps({"event": "charge.success", "data": _verify(amount_minor=500)["data"]}).encode()
+        sig = hmac.new(PAYSTACK["PAYSTACK_SECRET_KEY"].encode(), body, hashlib.sha512).hexdigest()
+        request = RequestFactory().post("/paystack/webhook/", body, content_type="application/json",
+                                        HTTP_X_PAYSTACK_SIGNATURE=sig)
+        admin = mock.MagicMock()
+        (admin.table.return_value.select.return_value.eq.return_value.eq.return_value
+         .limit.return_value.execute.return_value.data) = [dict(PENDING)]
+        with self.settings(**PAYSTACK), mock.patch.object(views, "_supabase_admin", return_value=admin):
+            self.assertEqual(views.paystack_webhook(request).status_code, 200)
+        self.apply.assert_not_called()
+
+    def test_reconcile_rejects_another_users_payment(self):
+        with self.settings(**PAYSTACK), mock.patch.object(
+                views, "_paystack_request", return_value=(_verify(user_id="someone-else"), None)):
+            self.assertFalse(views._reconcile_pending_subscription_from_paystack(STUDENT["user_id"], force=True))
+        self.apply.assert_not_called()
+
+    def test_reconcile_reports_activation(self):
+        with self.settings(**PAYSTACK), mock.patch.object(views, "_paystack_request", return_value=(_verify(), None)):
+            self.assertTrue(views._reconcile_pending_subscription_from_paystack(STUDENT["user_id"], force=True))
+        self.apply.assert_called_once()
+
+
+class MobileMoneyTests(SimpleTestCase):
+    def test_starting_a_momo_prompt_does_not_unlock_the_dashboard(self):
+        request = RequestFactory().post("/subscribe/", {"start_checkout": "1", "plan_slug": "standard"})
+        request.session = SessionStore()
+        request.session.update(STUDENT)
+        admin = mock.MagicMock()
+        admin.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
+            {"full_name": "Ama Owusu", "phone_number": "0241234567"}]
+        with self.settings(PAYSTACK_SECRET_KEY="", BULKCLIX_API_KEY="bk_live"), \
+             mock.patch.object(views, "_reconcile_pending_subscription_from_paystack", return_value=False), \
+             mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")), \
+             mock.patch.object(views, "_get_plans", return_value=PLANS), \
+             mock.patch.object(views, "_ensure_pending_checkout_row", return_value=dict(PENDING)), \
+             mock.patch.object(views, "_supabase_admin", return_value=admin), \
+             mock.patch.object(views, "_student_unread_count", return_value=0), \
+             mock.patch.object(views, "_community_unread_count", return_value=0), \
+             mock.patch.object(views, "_bulkclix_start_subscription_payment",
+                               return_value=({"reference": "BX123", "amount_paid": 60}, None)), \
+             mock.patch.object(views, "_apply_successful_subscription_payment") as apply:
+            response = views.student_subscribe(request)
+        apply.assert_not_called()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Mobile Money prompt was sent", response.content.decode())
+        self.assertNotIn("payment_welcome", request.session)
+
+
+class RemovedEndpointTests(SimpleTestCase):
+    def test_anonymous_signup_payment_api_is_gone(self):
+        from django.urls import Resolver404, resolve
+        with self.assertRaises(Resolver404):
+            resolve("/api/signup/initiate-payment/")
+
+
+class PaymentWelcomeTemplateTests(SimpleTestCase):
+    def _render(self, payment_welcome):
+        from django.template.loader import render_to_string
+        request = RequestFactory().get("/dashboard/")
+        request.session = SessionStore()
+        request.session.update(STUDENT)
+        return render_to_string("dashboard/user_dashboard.html", {
+            "full_name": "Ama Owusu", "email": "ama@example.com", "role": "student",
+            "payment_welcome": payment_welcome, "welcome_first_name": "Ama", "welcome_time": "morning",
+            "sub_expires_display": "28 Sep 2027", "perf_stats": {"has_data": False, "target_pct": 75},
+            "sub_status": "active", "days_remaining": 365,
+        }, request=request)
+
+    def test_welcome_shows_only_after_payment(self):
+        html = self._render(True)
+        self.assertIn("Payment confirmed", html)
+        self.assertIn("Welcome to NursesEdge, Ama!", html)
+        self.assertIn("28 Sep 2027", html)
+        self.assertNotIn('id="pwWelcome"', self._render(False))

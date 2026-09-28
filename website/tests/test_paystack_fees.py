@@ -149,7 +149,7 @@ class PaymentFlowTests(SimpleTestCase):
 
     def _paystack_verify(self, amount_minor, metadata):
         return {"status": True, "data": {
-            "status": "success", "amount": amount_minor, "reference": "ref1", "metadata": metadata,
+            "status": "success", "amount": amount_minor, "currency": "GHS", "reference": "ref1", "metadata": metadata,
         }}
 
     def test_subscribe_page_shows_fee_and_total(self):
@@ -204,11 +204,3 @@ class PaymentFlowTests(SimpleTestCase):
             REAL_RECONCILE("u1", force=True)
         self.apply_payment.assert_called_once_with("u1", "sub1", "standard", 60.0, "ref1")
 
-    def test_signup_api_reports_breakdown(self):
-        init = {"status": True, "data": {"reference": "ref1", "access_code": "ac", "authorization_url": "u"}}
-        with mock.patch.object(views, "_paystack_request", return_value=(init, None)) as req:
-            resp = views.signup_initiate_payment_api(self.rf.post(
-                "/api/signup/initiate-payment/", {"email": "new@example.com", "amount": "60"}))
-        body = json.loads(resp.content)
-        self.assertEqual(req.call_args.args[2]["amount"], 6120)
-        self.assertEqual((body["amount_paid"], body["subscription_amount"], body["processing_fee"]), (61.2, 60.0, 1.2))

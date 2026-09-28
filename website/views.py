@@ -16,6 +16,7 @@ from django.core.mail import send_mail
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.html import escape
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
@@ -2483,7 +2484,9 @@ def login_page(request):
             # Honour a `next` redirect — used when the session expired during Paystack payment
             # so the callback URL is visited again after re-login to complete activation.
             next_url = (request.POST.get("next") or request.GET.get("next") or "").strip()
-            if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+            if next_url and next_url.startswith("/") and url_has_allowed_host_and_scheme(
+                next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+            ):
                 return redirect(next_url)
             return redirect("/dashboard/")
 
@@ -2961,76 +2964,6 @@ def signup_account_exists_api(request):
             {"ok": False, "error": "Could not validate account status right now."},
             status=500,
         )
-
-
-def signup_initiate_payment_api(request):
-    """
-    Initialize subscription payment for signup: Paystack (preferred) or Bulkclix MoMo.
-    """
-    if request.method != "POST":
-        return JsonResponse({"ok": False, "error": "Method not allowed"}, status=405)
-
-    paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-    paystack_public = (getattr(settings, "PAYSTACK_PUBLIC_KEY", None) or "").strip()
-
-    full_name = (request.POST.get("full_name") or "").strip()
-    phone = (request.POST.get("phone") or "").strip()
-    email = (request.POST.get("email") or "").strip().lower()
-    amount_raw = (request.POST.get("amount") or "0").strip()
-    try:
-        amount = float(amount_raw)
-    except Exception:
-        amount = 0.0
-
-    if amount <= 0:
-        return JsonResponse({"ok": False, "error": "Invalid payment amount."}, status=400)
-
-    if paystack_secret:
-        if not email:
-            return JsonResponse({"ok": False, "error": "Email is required for Paystack checkout."}, status=400)
-        origin = _public_site_origin(request)
-        callback_url = origin.rstrip("/") + "/signup/"
-        data, err = _paystack_transaction_initialize(
-            email=email,
-            amount_ghs=amount,
-            callback_url=callback_url,
-            metadata={"signup_email": email, "full_name": (full_name or "")[:200]},
-        )
-        if err or not data:
-            msg = _paystack_api_error_message(err) or str(err or "paystack_init_failed")
-            return JsonResponse({"ok": False, "error": msg}, status=400)
-        breakdown = _paystack_checkout_breakdown(amount)
-        return JsonResponse(
-            {
-                "ok": True,
-                "reference": data.get("reference"),
-                "access_code": data.get("access_code"),
-                "authorization_url": data.get("authorization_url"),
-                "public_key": paystack_public,
-                "amount_paid": breakdown["total_minor"] / 100.0,
-                "subscription_amount": breakdown["base_minor"] / 100.0,
-                "processing_fee": breakdown["fee_minor"] / 100.0,
-            }
-        )
-
-    if not full_name or not phone:
-        return JsonResponse({"ok": False, "error": "Full name and phone are required."}, status=400)
-
-    result, err = _bulkclix_start_subscription_payment(
-        full_name=full_name,
-        phone_number=phone,
-        amount=amount,
-    )
-    if err:
-        return JsonResponse({"ok": False, "error": err}, status=400)
-
-    return JsonResponse(
-        {
-            "ok": True,
-            "reference": result.get("reference"),
-            "amount_paid": result.get("amount_paid"),
-        }
-    )
 
 
 def logout_view(request):
@@ -3931,8 +3864,9 @@ def _get_dashboard_performance_stats(admin, user_id):
 
 
 def _student_payment_redirect(request):
-    """Redirect to /subscribe/ unless this student has paid (or an admin granted access)."""
-    if request.session.get("role") != "student":
+    """Redirect to /subscribe/ unless this account has paid (or an admin granted access).
+    Only admins are exempt; any other role is checked like a student."""
+    if request.session.get("role") == "admin":
         return None
     try:
         allowed, reason = _subscription_access_state(request.session.get("user_id"))
@@ -4207,6 +4141,8 @@ def user_dashboard(request):
         "referral_count": referral_count,
         "referral_earnings_total": referral_earnings_total,
         "show_welcome_card": show_welcome_card,
+        # One-shot "payment confirmed" welcome, queued by the payment success paths.
+        "payment_welcome": bool(request.session.pop("payment_welcome", False)),
         "welcome_time": _welcome_time,
         "welcome_first_name": _first_name,
         "welcome_quote": _welcome_quote,
@@ -13214,17 +13150,17 @@ def _reconcile_pending_subscription_from_paystack(user_id, *, force=False):
     If the latest subscription is pending_payment but has a stored Paystack reference,
     call Paystack verify and activate when the charge succeeded. Use after signup verify
     failed (e.g. bad secret key) or on login/subscribe so fixing the key unlocks access
-    without charging again.
+    without charging again. Returns True only when this call activated the subscription.
     """
     user_id = str(user_id)
     if not (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip():
-        return
+        return False
     sub = _get_active_subscription(user_id)
     if not sub or sub.get("status") != "pending_payment":
-        return
+        return False
     ref = (sub.get("payment_reference") or "").strip()
     if not ref or ref == "complimentary":
-        return
+        return False
 
     import time
     import urllib.parse as _up
@@ -13233,24 +13169,29 @@ def _reconcile_pending_subscription_from_paystack(user_id, *, force=False):
     if not force:
         last = _PAYSTACK_RECONCILE_LAST_TS.get(user_id, 0.0)
         if now - last < _PAYSTACK_RECONCILE_THROTTLE_SEC:
-            return
+            return False
     _PAYSTACK_RECONCILE_LAST_TS[user_id] = now
 
     vresp, verr = _paystack_request("GET", "/transaction/verify/" + _up.quote(ref, safe=""))
     if verr == "paystack_not_configured" or not vresp or not vresp.get("status"):
-        return
+        return False
     data = vresp.get("data") or {}
-    if data.get("status") != "success":
-        return
     plan_slug = (sub.get("plan_slug") or "standard").strip()
+    plan_price = (_get_plans().get(plan_slug) or {}).get("price")
+    if not _paystack_charge_covers(data, sub.get("amount_due"), plan_price):
+        return False
+    meta_user = str(_paystack_metadata(data).get("user_id") or "").strip()
+    if meta_user and meta_user != user_id:
+        return False
     sub_id = sub.get("id")
     if not sub_id:
-        return
+        return False
     amount_paid = _paystack_amount_credited_ghs(data)
     try:
         _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, ref)
     except Exception:
-        pass
+        return False
+    return True
 
 
 def _public_site_origin(request):
@@ -13409,6 +13350,46 @@ def _paystack_amount_credited_ghs(data):
     if 0 < base_minor <= charged_minor:
         return base_minor / 100.0
     return charged_minor / 100.0
+
+
+def _paystack_metadata(data):
+    """Transaction metadata as a dict (Paystack may return it as a JSON string)."""
+    meta = (data or {}).get("metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except ValueError:
+            meta = {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _paystack_charge_covers(data, *prices_ghs):
+    """
+    True when a verified Paystack transaction really paid for access: status success,
+    charged in GHS, and at least the plan price due. `prices_ghs` are the candidate prices
+    (the subscription row's amount_due, the current plan price); the lowest positive one is
+    required so a price change between checkout and verification never blocks a real payer.
+    """
+    data = data or {}
+    if data.get("status") != "success":
+        return False
+    if str(data.get("currency") or "").upper() != "GHS":
+        return False
+    required = []
+    for p in prices_ghs:
+        try:
+            minor = int((Decimal(str(p)) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        except (InvalidOperation, ValueError, TypeError):
+            continue
+        if minor > 0:
+            required.append(minor)
+    if not required:
+        return False
+    try:
+        charged = int(data.get("amount") or 0)
+    except (TypeError, ValueError):
+        return False
+    return charged >= min(required)
 
 
 def _paystack_transaction_initialize(*, email, amount_ghs, callback_url, metadata=None):
@@ -13724,7 +13705,13 @@ def _ensure_pending_checkout_row(request, plans, selected_plan_slug=None):
     return rows[0] if rows else None
 
 
-def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error=""):
+def _queue_payment_welcome(request):
+    """One-shot flag: the next dashboard load shows the 'payment confirmed' welcome."""
+    request.session["payment_welcome"] = True
+    request.session.pop("show_welcome_card", None)  # the payment welcome replaces the login greeting
+
+
+def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error="", notice=""):
     """Shared context dict for all student_subscribe render() calls."""
     using_paystack = bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip())
     paystack_fee = None
@@ -13750,6 +13737,7 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "checkout_row": checkout_row,
         "config_error": config_error,
         "error": error,
+        "notice": notice,
         "using_paystack": using_paystack,
         "paystack_fee": paystack_fee,
         "using_bulkclix": bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()),
@@ -13794,15 +13782,24 @@ def student_subscribe(request):
     guard = _require_login(request)
     if guard:
         return guard
-    if request.session.get("role") != "student":
+    if request.session.get("role") == "admin":
         return redirect("/admin-panel/dashboard/")
 
     user_id = request.session.get("user_id")
-    _reconcile_pending_subscription_from_paystack(user_id, force=True)
+    try:
+        if _reconcile_pending_subscription_from_paystack(user_id, force=True):
+            _queue_payment_welcome(request)
+    except Exception:
+        pass
     plans = _get_plans()
     error = request.GET.get("error", "")
 
-    if subscription_allows_dashboard(user_id):
+    # Same rule as the dashboard gate, so the two can never bounce a user between them.
+    try:
+        allowed, _reason = _subscription_access_state(user_id)
+    except Exception:
+        allowed = False
+    if allowed:
         return redirect("/dashboard/")
 
     selected = None
@@ -13922,15 +13919,20 @@ def student_subscribe(request):
             )
             if berr:
                 raise ValueError(berr)
-            _apply_successful_subscription_payment(
-                user_id,
-                checkout_row.get("id"),
-                plan_slug,
-                float(payment.get("amount_paid") or price),
-                payment.get("reference"),
-            )
-            request.session["plan_slug"] = plan_slug
-            return redirect("/dashboard/")
+            # Starting a MoMo request is not a payment: the student still has to approve it
+            # on their phone, and nothing here confirms that. Keep the subscription pending
+            # and record the reference so an admin can activate it once the money arrives.
+            reference = str(payment.get("reference") or "")
+            _supabase_admin().table("subscriptions").update({
+                "payment_reference": reference,
+            }).eq("id", str(checkout_row["id"])).eq("user_id", str(user_id)).eq("status", "pending_payment").execute()
+            masked = phone_number[:3] + "****" + phone_number[-3:] if len(phone_number) >= 7 else phone_number
+            return render(request, "subscribe.html",
+                _subscribe_ctx(request, user_id, plans, checkout_row, error=error, notice=(
+                    f"A Mobile Money prompt was sent to {masked}. Approve it on your phone. "
+                    f"Your dashboard opens as soon as the payment is confirmed. "
+                    f"If it has not opened within a few minutes, contact support with reference {reference}."
+                )))
         except Exception as exc:
             emsg = str(exc)
             if "not allowed for momo collection" in emsg.lower():
@@ -13970,7 +13972,7 @@ def student_subscribe_success(request):
         data = resp.get("data") or {}
         if data.get("status") != "success":
             return redirect("/subscribe/?error=unpaid")
-        meta = data.get("metadata") or {}
+        meta = _paystack_metadata(data)
         if str(meta.get("user_id") or "").strip() != str(user_id).strip():
             return redirect("/subscribe/?error=forbidden")
         plan_slug = (str(meta.get("plan_slug") or "standard")).strip() or "standard"
@@ -13980,12 +13982,22 @@ def student_subscribe_success(request):
         pending = _get_active_subscription(user_id)
         if not pending:
             return redirect("/subscribe/?error=forbidden")
-        # Subscription was already activated (e.g. reconcile ran at login after callback failed).
+        # Subscription was already activated (webhook or reconcile got there first) — only for
+        # this very payment, so an old active row can't be reused to show a fake confirmation.
         if pending.get("status") == "active":
-            request.session["plan_slug"] = (pending.get("plan_slug") or "standard")
+            if str(pending.get("payment_reference") or "") == reference:
+                request.session["plan_slug"] = (pending.get("plan_slug") or "standard")
+                _queue_payment_welcome(request)
             return redirect("/dashboard/")
         if str(pending.get("id")) != str(sub_id).strip():
             return redirect("/subscribe/?error=forbidden")
+        plan_price = (_get_plans().get(plan_slug) or {}).get("price")
+        if not _paystack_charge_covers(data, pending.get("amount_due"), plan_price):
+            logging.getLogger(__name__).warning(
+                "Paystack amount/currency mismatch user=%s ref=%s amount=%s currency=%s",
+                user_id, reference, data.get("amount"), data.get("currency"),
+            )
+            return redirect("/subscribe/?error=amount_mismatch")
         amount_paid = _paystack_amount_credited_ghs(data)
         try:
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
@@ -13993,6 +14005,7 @@ def student_subscribe_success(request):
             return redirect("/subscribe/?error=save_failed")
         # Refresh plan in session so feature gates take effect immediately
         request.session["plan_slug"] = plan_slug
+        _queue_payment_welcome(request)
         return redirect("/dashboard/")
 
     if session_id and stripe_secret:
@@ -14013,11 +14026,15 @@ def student_subscribe_success(request):
         sub_id = session.metadata.get("subscription_id")
         if not sub_id:
             return redirect("/subscribe/?error=missing_subscription")
+        pending = _get_active_subscription(user_id)
+        if not pending or str(pending.get("id")) != str(sub_id).strip():
+            return redirect("/subscribe/?error=forbidden")
         amount_paid = (session.amount_total or 0) / 100.0
         try:
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, session_id)
         except Exception:
             return redirect("/subscribe/?error=save_failed")
+        _queue_payment_welcome(request)
         return redirect("/dashboard/")
 
     if reference:
@@ -14083,7 +14100,7 @@ def paystack_webhook(request):
     if data.get("status") != "success":
         return HttpResponse(status=200)
 
-    meta = data.get("metadata") or {}
+    meta = _paystack_metadata(data)
     user_id = (str(meta.get("user_id") or "")).strip()
     sub_id = (str(meta.get("subscription_id") or "")).strip()
     plan_slug = (str(meta.get("plan_slug") or "standard")).strip() or "standard"
@@ -14095,11 +14112,12 @@ def paystack_webhook(request):
 
     try:
         db = _supabase_admin()
+        sub = None
 
         if sub_id:
             rows = (
                 db.table("subscriptions")
-                .select("id, status, user_id")
+                .select("id, status, user_id, amount_due")
                 .eq("id", sub_id)
                 .eq("user_id", user_id)
                 .limit(1)
@@ -14108,16 +14126,23 @@ def paystack_webhook(request):
             )
             if rows and rows[0].get("status") == "active":
                 return HttpResponse(status=200)
-            if not rows:
-                sub_id = ""
+            sub = rows[0] if rows else None
 
-        if not sub_id:
+        if not sub:
             sub = _get_active_subscription(user_id)
             if not sub:
                 return HttpResponse(status=200)
             if sub.get("status") == "active":
                 return HttpResponse(status=200)
-            sub_id = str(sub["id"])
+        sub_id = str(sub["id"])
+
+        plan_price = (_get_plans().get(plan_slug) or {}).get("price")
+        if not _paystack_charge_covers(data, sub.get("amount_due"), plan_price):
+            logging.getLogger(__name__).warning(
+                "paystack_webhook: amount/currency mismatch user_id=%s ref=%s amount=%s currency=%s",
+                user_id, reference, data.get("amount"), data.get("currency"),
+            )
+            return HttpResponse(status=200)
 
         _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
     except Exception:
@@ -14252,8 +14277,11 @@ def payment_page(request):
     _reconcile_pending_subscription_from_paystack(user_id, force=True)
     # This page sits in the dashboard layout; accounts that never paid go to checkout.
     # Expired members keep access here so they can still see their receipts.
-    if request.session.get("role") == "student":
-        _allowed, _reason = _subscription_access_state(user_id)
+    if request.session.get("role") != "admin":
+        try:
+            _allowed, _reason = _subscription_access_state(user_id)
+        except Exception:
+            _allowed, _reason = False, "payment_required"
         if not _allowed and _reason == "payment_required":
             return redirect("/subscribe/?reason=payment_required")
     plans = _get_plans()

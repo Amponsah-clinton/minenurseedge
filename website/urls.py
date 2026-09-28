@@ -29,7 +29,6 @@ urlpatterns = [
     path("auth/google/callback/", views.google_oauth_callback, name="google_oauth_callback"),
     path("signup/", views.signup_page, name="signup"),
     path("api/signup/account-exists/", views.signup_account_exists_api, name="signup_account_exists_api"),
-    path("api/signup/initiate-payment/", views.signup_initiate_payment_api, name="signup_initiate_payment_api"),
     path("logout/", views.logout_view, name="logout"),
     path("forgot-password/", views.forgot_password_page, name="forgot_password"),
     path("reset-password/", views.reset_password_page, name="reset_password"),

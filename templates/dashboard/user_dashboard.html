@@ -434,6 +434,86 @@
   @media (prefers-reduced-motion: reduce) {
     .db-ring .arc { transition: none; }
   }
+
+  /* ───────────────────────── Payment welcome ───────────────────────── */
+  .pw-backdrop {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(29, 31, 63, .58);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; overflow-y: auto;
+    animation: pw-fade .25s ease both;
+  }
+  .pw-backdrop.is-closing { animation: pw-fade-out .2s ease both; }
+  .pw-card {
+    position: relative; width: 100%; max-width: 500px;
+    background: #fff; border-radius: 22px;
+    padding: 34px 30px 26px; text-align: center;
+    box-shadow: 0 30px 80px rgba(15, 17, 40, .35);
+    animation: pw-pop .45s cubic-bezier(.2, .9, .3, 1.2) both;
+    font-family: inherit; color: #4b5569;
+  }
+  .pw-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 36px; height: 36px; border: 0; border-radius: 10px;
+    background: #f3f4f8; color: #6b7386; font-size: 1.3rem; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .pw-close:hover { background: #e9eaf1; color: #1d1f3f; }
+  .pw-check {
+    width: 76px; height: 76px; margin: 0 auto 18px; border-radius: 50%;
+    background: #1f9d55; color: #fff; display: grid; place-items: center; font-size: 2.6rem;
+    box-shadow: 0 0 0 10px #e7f6ee;
+    animation: pw-check .6s .15s cubic-bezier(.2, .9, .3, 1.3) both;
+  }
+  .pw-check i { font-size: 2.8rem; line-height: 1; }
+  .pw-action i.bx, .pw-close i.bx, .pw-go i.bx { font-size: inherit; }
+  .pw-action i.bx { font-size: 1.25rem; }
+  .pw-close i.bx { font-size: 1.3rem; }
+  .pw-go i.bx { font-size: 1.2rem; }
+  .pw-kicker {
+    display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: #1f9d55; background: #e7f6ee; border-radius: 999px; padding: 4px 12px; margin-bottom: 12px;
+  }
+  .pw-card h2 { margin: 0; font-size: 1.55rem; font-weight: 800; color: #1d1f3f; letter-spacing: -0.02em; line-height: 1.25; }
+  .pw-card > p { margin: 10px auto 0; max-width: 24rem; font-size: .95rem; line-height: 1.6; }
+  .pw-card > p b { color: #1d1f3f; }
+  .pw-start { margin: 22px 0 0; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8a93a6; }
+  .pw-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .pw-action {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 14px 8px; border: 1px solid #e8eaf1; border-radius: 14px;
+    font-size: .8rem; font-weight: 700; color: #1d1f3f; text-decoration: none;
+    transition: border-color .15s, transform .15s;
+  }
+  .pw-action:hover { border-color: #696cff; color: #1d1f3f; transform: translateY(-2px); }
+  .pw-action i { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-size: 1.25rem; }
+  .pw-go {
+    width: 100%; height: 50px; margin-top: 18px; border: 0; border-radius: 12px;
+    background: #696cff; color: #fff; font-family: inherit; font-size: .95rem; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .pw-go:hover { background: #4f52e0; }
+  .pw-foot { margin-top: 12px; font-size: .78rem; color: #8a93a6; }
+  .pw-foot a { color: #696cff; font-weight: 600; }
+  .pw-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 2001; overflow: hidden; }
+  .pw-confetti i {
+    position: absolute; top: -12px; width: 9px; height: 14px; border-radius: 2px; opacity: .95;
+    animation: pw-fall linear forwards;
+  }
+  @keyframes pw-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pw-fade-out { to { opacity: 0; } }
+  @keyframes pw-pop { from { opacity: 0; transform: translateY(18px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes pw-check { from { transform: scale(0); } to { transform: scale(1); } }
+  @keyframes pw-fall { to { transform: translate3d(var(--dx), 105vh, 0) rotate(var(--rot)); opacity: 1; } }
+  @media (max-width: 480px) {
+    .pw-card { padding: 30px 18px 22px; border-radius: 18px; }
+    .pw-card h2 { font-size: 1.3rem; }
+    .pw-actions { gap: 8px; }
+    .pw-action { padding: 12px 4px; font-size: .74rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pw-backdrop, .pw-card, .pw-check { animation: none; }
+  }
 </style>
 
 {% if show_nmc_disclaimer %}
@@ -462,6 +542,29 @@
         <button type="button" class="btn btn-primary px-4" id="nmcDisclaimerAckBtn">I understand</button>
       </div>
     </div>
+  </div>
+</div>
+{% endif %}
+
+{% if payment_welcome %}
+<div class="pw-backdrop" id="pwWelcome" role="dialog" aria-modal="true" aria-labelledby="pwTitle" aria-describedby="pwText">
+  <div class="pw-card">
+    <button type="button" class="pw-close" data-pw-close aria-label="Close"><i class="bx bx-x"></i></button>
+    <div class="pw-check" aria-hidden="true"><i class="bx bx-check"></i></div>
+    <span class="pw-kicker">Payment confirmed</span>
+    <h2 id="pwTitle">Welcome to NursesEdge, {{ welcome_first_name }}!</h2>
+    <p id="pwText">
+      Your full access is now active{% if sub_expires_display %} until <b>{{ sub_expires_display }}</b>{% endif %}.
+      Every mock exam, question bank and study tool is unlocked for you.
+    </p>
+    <p class="pw-start">Where would you like to start?</p>
+    <div class="pw-actions">
+      <a class="pw-action" href="/dashboard/mock-exams/"><i class="bx bx-trophy" style="background:#fff3dc;color:#c27803;"></i>Mock exam</a>
+      <a class="pw-action" href="{{ prep_url|default:'/dashboard/prep-by-topics/' }}"><i class="bx bx-task" style="background:#ffeae8;color:#e0362c;"></i>Prep by topic</a>
+      <a class="pw-action" href="/dashboard/lecture-notes/"><i class="bx bx-book-open" style="background:#e3f6f8;color:#0a8ca0;"></i>Lecture notes</a>
+    </div>
+    <button type="button" class="pw-go" data-pw-close>Explore my dashboard <i class="bx bx-right-arrow-alt"></i></button>
+    <p class="pw-foot">A receipt is available anytime on your <a href="/payment/">subscription page</a>.</p>
   </div>
 </div>
 {% endif %}
@@ -988,6 +1091,68 @@
 {% endblock %}
 
 {% block scripts %}
+{% if payment_welcome %}
+<script>
+(function () {
+  /* ── Payment welcome: shown once, right after a confirmed payment ── */
+  var overlay = document.getElementById("pwWelcome");
+  if (!overlay) return;
+  window.__pwWelcomeOpen = true;
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var lastFocus = document.activeElement;
+  document.body.style.overflow = "hidden";
+
+  var goBtn = overlay.querySelector(".pw-go");
+  if (goBtn) setTimeout(function () { goBtn.focus(); }, 60);
+
+  function close() {
+    if (!window.__pwWelcomeOpen) return;
+    window.__pwWelcomeOpen = false;
+    overlay.classList.add("is-closing");
+    setTimeout(function () {
+      overlay.remove();
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+      document.dispatchEvent(new CustomEvent("pw:closed"));
+    }, reduced ? 0 : 200);
+  }
+  overlay.querySelectorAll("[data-pw-close]").forEach(function (b) { b.addEventListener("click", close); });
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+  document.addEventListener("keydown", function (e) {
+    if (!window.__pwWelcomeOpen) return;
+    if (e.key === "Escape") { close(); return; }
+    if (e.key === "Tab") {  /* keep focus inside the dialog */
+      var f = overlay.querySelectorAll("a[href], button");
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  /* A short, solid-colour confetti burst */
+  if (!reduced) {
+    var colors = ["#696cff", "#1f9d55", "#f0a020", "#e0362c", "#0a8ca0", "#1d1f3f"];
+    var box = document.createElement("div");
+    box.className = "pw-confetti";
+    box.setAttribute("aria-hidden", "true");
+    for (var i = 0; i < 70; i++) {
+      var p = document.createElement("i");
+      p.style.left = (Math.random() * 100) + "vw";
+      p.style.background = colors[i % colors.length];
+      p.style.animationDuration = (2.2 + Math.random() * 1.8) + "s";
+      p.style.animationDelay = (Math.random() * 0.6) + "s";
+      p.style.setProperty("--dx", ((Math.random() - 0.5) * 160) + "px");
+      p.style.setProperty("--rot", ((Math.random() - 0.5) * 900) + "deg");
+      if (i % 3 === 0) { p.style.width = "7px"; p.style.height = "7px"; p.style.borderRadius = "50%"; }
+      box.appendChild(p);
+    }
+    document.body.appendChild(box);
+    setTimeout(function () { box.remove(); }, 4800);
+  }
+})();
+</script>
+{% endif %}
 <script>
 (function () {
   var el = document.querySelector("[data-db-date]");
@@ -1228,7 +1393,12 @@
     }).catch(function () {}).finally(function () { dismissModal(); });
   });
 
-  setTimeout(showModal, 120);
+  // After a payment the welcome dialog comes first; the disclaimer follows once it closes.
+  if (window.__pwWelcomeOpen) {
+    document.addEventListener("pw:closed", function () { setTimeout(showModal, 150); }, { once: true });
+  } else {
+    setTimeout(showModal, 120);
+  }
 })();
 </script>
 {% endif %}

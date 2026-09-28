@@ -169,9 +169,16 @@
   {% if config_error %}
     <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>{{ config_error }}</span></div>
   {% endif %}
+  {% if notice %}
+    <div class="alert alert-info"><i class="bx bx-mobile-alt"></i><span>{{ notice }}</span></div>
+  {% endif %}
   {% if error %}
     <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>
       {% if error == "verify_failed" %}We could not verify the payment. If money left your account, contact support with your reference.
+      {% elif error == "unpaid" %}That payment was not completed, so your account is still inactive. Please try again.
+      {% elif error == "amount_mismatch" %}The amount received does not match your plan, so access was not activated. Contact support with your payment reference.
+      {% elif error == "forbidden" %}That payment does not belong to this account. Log in with the account you paid for, or contact support.
+      {% elif error == "save_failed" %}Your payment went through but we could not activate your account. Contact support with your reference and we will fix it right away.
       {% else %}Payment could not continue (code: {{ error }}).{% endif %}
     </span></div>
   {% endif %}
