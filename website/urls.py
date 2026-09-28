@@ -94,6 +94,7 @@ urlpatterns = [
     path("admin-panel/dashboard/", views.admin_dashboard, name="admin_dashboard"),
     path("admin-panel/system/", views.admin_system_maintenance, name="admin_system_maintenance"),
     path("admin-panel/users/", views.admin_users, name="admin_users"),
+    path("admin-panel/users/bulk-action/", views.admin_bulk_user_action, name="admin_bulk_user_action"),
     path("admin-panel/users/<uuid:user_id>/toggle-status/", views.admin_toggle_user_status, name="admin_toggle_user_status"),
     path("admin-panel/users/<uuid:user_id>/delete/", views.admin_delete_user, name="admin_delete_user"),
     path("admin-panel/locked-accounts/", views.admin_locked_accounts, name="admin_locked_accounts"),

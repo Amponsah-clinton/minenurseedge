@@ -136,6 +136,9 @@
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
+                  <th class="bulk-col">
+                    <input type="checkbox" class="form-check-input js-check-all" aria-label="Select all students in this tab">
+                  </th>
                   <th>#</th>
                   <th>Student</th>
                   <th>Email</th>
@@ -153,7 +156,13 @@
               <tbody class="table-border-bottom-0">
                 {% if paid_users %}
                   {% for user in paid_users %}
-                  <tr>
+                  <tr class="js-user-row">
+                    <td class="bulk-col">
+                      <input type="checkbox" class="form-check-input js-user-check" value="{{ user.id }}"
+                             data-name="{{ user.full_name|default:user.email }}"
+                             data-active="{% if user.is_active %}1{% else %}0{% endif %}"
+                             aria-label="Select {{ user.full_name|default:user.email }}">
+                    </td>
                     <td>{{ forloop.counter }}</td>
                     <td>
                       <div class="d-flex justify-content-start align-items-center">
@@ -253,6 +262,9 @@
             <table class="table table-hover mb-0">
               <thead>
                 <tr>
+                  <th class="bulk-col">
+                    <input type="checkbox" class="form-check-input js-check-all" aria-label="Select all students in this tab">
+                  </th>
                   <th>#</th>
                   <th>Student</th>
                   <th>Email</th>
@@ -270,7 +282,13 @@
               <tbody class="table-border-bottom-0">
                 {% if unpaid_users %}
                   {% for user in unpaid_users %}
-                  <tr>
+                  <tr class="js-user-row">
+                    <td class="bulk-col">
+                      <input type="checkbox" class="form-check-input js-user-check" value="{{ user.id }}"
+                             data-name="{{ user.full_name|default:user.email }}"
+                             data-active="{% if user.is_active %}1{% else %}0{% endif %}"
+                             aria-label="Select {{ user.full_name|default:user.email }}">
+                    </td>
                     <td>{{ forloop.counter }}</td>
                     <td>
                       <div class="d-flex justify-content-start align-items-center">

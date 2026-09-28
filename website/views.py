@@ -4973,56 +4973,149 @@ def admin_delete_user(request, user_id):
 
     admin = _supabase_admin()
     try:
-        profile_resp = (
-            admin.table("profiles")
-            .select("id, role")
-            .eq("id", str(user_id))
-            .limit(1)
-            .execute()
-        )
-        if not profile_resp.data:
-            return redirect("/admin-panel/users/")
-
-        profile = profile_resp.data[0]
-        # Never allow deleting admin accounts from this endpoint.
-        if profile.get("role") == "admin":
-            return redirect("/admin-panel/users/")
-
-        # Clear live session token(s) first so user is immediately evicted.
-        try:
-            admin.table("active_sessions").delete().eq("user_id", str(user_id)).execute()
-        except Exception:
-            pass
-
-        # Delete Supabase Auth user (usually cascades related auth identities).
-        try:
-            admin.auth.admin.delete_user(str(user_id))
-        except Exception:
-            pass
-
-        # Best-effort cleanup for app-owned records linked by user_id/student_id.
-        for table_name, col_name in (
-            ("mock_attempt_answers", "student_id"),
-            ("mock_attempts", "student_id"),
-            ("quiz_attempt_answers", "student_id"),
-            ("quiz_attempts", "student_id"),
-            ("student_notifications", "student_id"),
-            ("subscriptions", "user_id"),
-            ("active_sessions", "user_id"),
-        ):
-            try:
-                admin.table(table_name).delete().eq(col_name, str(user_id)).execute()
-            except Exception:
-                pass
-
-        # Remove profile row.
-        try:
-            admin.table("profiles").delete().eq("id", str(user_id)).execute()
-        except Exception:
-            pass
+        if _student_ids_only(admin, [str(user_id)]):  # never delete admin accounts here
+            _delete_student_account(admin, str(user_id))
     except Exception:
         pass
 
+    return redirect("/admin-panel/users/")
+
+
+def _student_ids_only(admin, user_ids):
+    """Of the given profile ids, return those that exist and belong to students (never admins)."""
+    if not user_ids:
+        return []
+    rows = (
+        admin.table("profiles")
+        .select("id, role")
+        .in_("id", list(user_ids))
+        .execute()
+        .data
+        or []
+    )
+    return [str(r["id"]) for r in rows if r.get("role") != "admin"]
+
+
+def _delete_student_account(admin, user_id):
+    """Remove a student's auth user, app records and profile. Each step is best-effort."""
+    user_id = str(user_id)
+    # Clear live session token(s) first so user is immediately evicted.
+    try:
+        admin.table("active_sessions").delete().eq("user_id", user_id).execute()
+    except Exception:
+        pass
+
+    # Delete Supabase Auth user (usually cascades related auth identities).
+    try:
+        admin.auth.admin.delete_user(user_id)
+    except Exception:
+        pass
+
+    # Best-effort cleanup for app-owned records linked by user_id/student_id.
+    for table_name, col_name in (
+        ("mock_attempt_answers", "student_id"),
+        ("mock_attempts", "student_id"),
+        ("quiz_attempt_answers", "student_id"),
+        ("quiz_attempts", "student_id"),
+        ("student_notifications", "student_id"),
+        ("subscriptions", "user_id"),
+        ("active_sessions", "user_id"),
+    ):
+        try:
+            admin.table(table_name).delete().eq(col_name, user_id).execute()
+        except Exception:
+            pass
+
+    # Remove profile row.
+    try:
+        admin.table("profiles").delete().eq("id", user_id).execute()
+    except Exception:
+        pass
+
+
+ADMIN_BULK_USER_ACTIONS = ("enable", "disable", "delete")
+ADMIN_BULK_USER_LIMIT = 500
+
+
+def admin_bulk_user_action(request):
+    """Enable, disable or delete several student accounts at once (admin-only, POST-only).
+
+    Mirrors the per-row actions: admin accounts are never touched, disabling evicts live
+    sessions, and deleting requires the admin to have typed DELETE in the confirmation.
+    """
+    guard = _require_admin(request)
+    if guard:
+        return guard
+    if request.method != "POST":
+        return redirect("/admin-panel/users/")
+
+    import uuid as _uuid
+
+    action = (request.POST.get("action") or "").strip()
+    requested = []
+    for raw in request.POST.getlist("user_ids"):
+        try:
+            uid = str(_uuid.UUID(str(raw).strip()))
+        except (ValueError, AttributeError):
+            continue
+        if uid not in requested:
+            requested.append(uid)
+
+    if action not in ADMIN_BULK_USER_ACTIONS:
+        messages.error(request, "Choose an action to apply.")
+        return redirect("/admin-panel/users/")
+    if not requested:
+        messages.error(request, "Select at least one student first.")
+        return redirect("/admin-panel/users/")
+    if len(requested) > ADMIN_BULK_USER_LIMIT:
+        messages.error(request, f"You can update at most {ADMIN_BULK_USER_LIMIT} accounts at a time.")
+        return redirect("/admin-panel/users/")
+    if action == "delete" and (request.POST.get("confirm_text") or "").strip() != "DELETE":
+        messages.error(request, "Accounts were not deleted: type DELETE to confirm.")
+        return redirect("/admin-panel/users/")
+
+    admin = _supabase_admin()
+    try:
+        targets = _student_ids_only(admin, requested)
+    except Exception:
+        logging.getLogger(__name__).exception("admin_bulk_user_action: profile lookup failed")
+        messages.error(request, "Could not load the selected accounts. Nothing was changed.")
+        return redirect("/admin-panel/users/")
+
+    done = 0
+    if targets and action in ("enable", "disable"):
+        try:
+            admin.table("profiles").update({"is_active": action == "enable"}).in_("id", targets).execute()
+            done = len(targets)
+            if action == "disable":
+                admin.table("active_sessions").delete().in_("user_id", targets).execute()
+        except Exception:
+            logging.getLogger(__name__).exception("admin_bulk_user_action: %s failed", action)
+    elif targets and action == "delete":
+        for uid in targets:
+            try:
+                _delete_student_account(admin, uid)
+                done += 1
+            except Exception:
+                logging.getLogger(__name__).exception("admin_bulk_user_action: delete failed for %s", uid)
+
+    noun = "account" if done == 1 else "accounts"
+    verb = {"enable": "Enabled", "disable": "Disabled", "delete": "Deleted"}[action]
+    skipped = len(requested) - len(targets)
+    failed = len(targets) - done
+    if done:
+        msg = f"{verb} {done} {noun}."
+        if action == "disable":
+            msg = f"{verb} {done} {noun}. They have been logged out."
+        messages.success(request, msg)
+    if failed:
+        messages.error(request, f"{failed} account{'s' if failed != 1 else ''} could not be updated. Please try again.")
+    if skipped:
+        messages.warning(
+            request,
+            f"{skipped} selected account{'s were' if skipped != 1 else ' was'} skipped "
+            "(admin accounts or accounts that no longer exist).",
+        )
     return redirect("/admin-panel/users/")
 
 
