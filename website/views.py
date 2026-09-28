@@ -4993,7 +4993,8 @@ def _student_ids_only(admin, user_ids):
         .data
         or []
     )
-    return [str(r["id"]) for r in rows if r.get("role") != "admin"]
+    wanted = {str(u) for u in user_ids}
+    return [str(r["id"]) for r in rows if str(r.get("id")) in wanted and r.get("role") != "admin"]
 
 
 def _delete_student_account(admin, user_id):

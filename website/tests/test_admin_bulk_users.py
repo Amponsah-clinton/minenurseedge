@@ -47,9 +47,10 @@ class BulkUserActionTests(SimpleTestCase):
     def test_enable_does_not_touch_sessions(self):
         _, msgs = self.post({"action": "enable", "user_ids": [S1]})
         self.db.table.return_value.update.assert_called_once_with({"is_active": True})
+        self.db.table.return_value.update.return_value.in_.assert_called_once_with("id", [S1])
         self.db.table.return_value.delete.assert_not_called()
-        self.assertIn(("success", "Enabled 2 accounts."), msgs) if False else None
-        self.assertTrue(any(text.startswith("Enabled") for _, text in msgs))
+        # The lookup mock returns extra rows; only the requested id is acted on.
+        self.assertEqual(msgs, [("success", "Enabled 1 account.")])
 
     def test_delete_requires_typed_confirmation(self):
         with mock.patch.object(views, "_delete_student_account") as delete:
