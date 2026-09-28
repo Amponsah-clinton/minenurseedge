@@ -2,278 +2,475 @@
 {% block title %}About - NursesEdge{% endblock %}
 {% block head_extra %}
 <link href="/css/animate.css" rel="stylesheet" type="text/css">
-<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=swap" rel="stylesheet">
 <style>
-    body { background:#fff; font-family:'Open Sans',sans-serif; }
+    body { background:#fff; }
 
-    .ab-hero {
-        position: relative;
-        height: 520px;
-        background-color: #252525;
-        background-image: url("https://images.unsplash.com/photo-1624727828489-a1e03b79bba8?fm=jpg&q=60&w=3000&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8bnVyc2VzfGVufDB8fDB8fHww");
-        background-size: 92% auto;
-        background-position: center center;
-        background-repeat: no-repeat;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
+    .ab {
+        --ink:#111111;
+        --body:#3d3d44;
+        --muted:#6b6b72;
+        --line:#e8e3d8;
+        --paper:#faf7f0;
+        --gold:#d2b356;
+        --gold-ink:#86671a;
+        --green:#0e5a41;
+        --green-soft:#e7f2ec;
+        --serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
+        font-family:'Open Sans', system-ui, sans-serif;
+        color:var(--body);
+        font-size:16px;
+        line-height:1.7;
     }
-    .ab-hero::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.48);
-        pointer-events: none;
+    /* :where() keeps these resets at class-level specificity so component rules below win. */
+    .ab :where(h1, h2, h3, h4) { padding:0; margin:0; color:var(--ink); font-family:'Open Sans', system-ui, sans-serif; }
+    .ab :where(p) { margin:0; line-height:inherit; }
+    .ab :where(ul, ol) { list-style:none; margin:0; padding:0; }
+    .ab a { transition:color .2s ease, background-color .2s ease, border-color .2s ease; }
+    .ab-wrap { max-width:1180px; margin:0 auto; padding:0 32px; }
+
+    .ab-kicker {
+        display:inline-flex; align-items:center; gap:10px;
+        font-size:13px; font-weight:700; color:var(--gold-ink); letter-spacing:.02em;
     }
-    .ab-hero-inner { position:relative; z-index:1; max-width:760px; padding:0 24px; }
-    .ab-eyebrow {
-        display:inline-block; font-size:11px; font-weight:700; letter-spacing:4px;
-        text-transform:uppercase; color:#d2b356; margin-bottom:20px;
+    .ab-kicker::before { content:''; width:28px; height:3px; background:var(--gold); }
+    .ab-h2 { font-size:clamp(28px, 3.4vw, 42px); font-weight:800; line-height:1.12; letter-spacing:-.025em; }
+
+    .ab-btn {
+        display:inline-flex; align-items:center; justify-content:center; gap:10px;
+        height:52px; padding:0 26px; border-radius:8px; border:2px solid var(--ink);
+        background:var(--ink); color:#fff !important; font-size:15px; font-weight:700; text-decoration:none;
     }
-    .ab-hero h1 { font-size:52px; font-weight:800; color:#fff; line-height:1.12; margin:0 0 20px; }
-    .ab-hero p { font-size:18px; font-weight:300; color:rgba(255,255,255,0.9); line-height:1.8; margin:0; }
-
-    .ab-story { padding:90px 24px; background:#fff; }
-    .ab-story-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
-    .ab-story-left { flex:0 0 300px; }
-    .ab-story-left h2 { font-size:36px; font-weight:800; color:#111; line-height:1.2; margin:12px 0 0; }
-    .ab-story-right { flex:1; }
-    .ab-story-right p { font-size:16px; font-weight:300; color:#555; line-height:1.95; margin:0 0 20px; }
-    .ab-quote { background:#f8f8f8; border-radius:10px; padding:24px 28px; margin:28px 0; }
-    .ab-quote p { margin:0; font-size:16px; font-weight:600; font-style:italic; color:#222; line-height:1.7; }
-
-    .ab-stats { background:#111; padding:48px 24px; }
-    .ab-stats-inner { max-width:960px; margin:0 auto; display:flex; justify-content:space-around; flex-wrap:wrap; gap:32px; text-align:center; }
-    .ab-stat-item { flex:1 1 160px; }
-    .ab-stat-item .num { display:block; font-size:40px; font-weight:800; color:#d2b356; line-height:1; }
-    .ab-stat-item .lbl { display:block; font-size:13px; color:rgba(255,255,255,0.7); margin-top:8px; letter-spacing:1px; text-transform:uppercase; }
-
-    .ab-features { background:#f8f8f8; padding:90px 24px; }
-    .ab-section-head { text-align:center; margin-bottom:56px; }
-    .ab-section-head h2 { font-size:34px; font-weight:800; color:#111; margin:10px 0 0; }
-    .ab-grid { max-width:1100px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:24px; }
-    .ab-card { background:#fff; border-radius:12px; padding:32px 26px; border:1px solid #ebebeb; transition:box-shadow .25s,transform .25s; }
-    .ab-card:hover { box-shadow:0 10px 36px rgba(0,0,0,0.09); transform:translateY(-5px); }
-    .ab-card-icon { width:50px; height:50px; border-radius:10px; background:#111; display:flex; align-items:center; justify-content:center; margin-bottom:20px; }
-    .ab-card-icon i { color:#d2b356; font-size:20px; }
-    .ab-card h4 { font-size:15px; font-weight:700; color:#111; margin:0 0 10px; }
-    .ab-card p { font-size:14px; font-weight:300; color:#666; line-height:1.75; margin:0; }
-
-    .ab-platform { background:#fff; padding:90px 24px; }
-    .ab-platform-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
-    .ab-platform-left { flex:0 0 280px; }
-    .ab-platform-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 16px; line-height:1.2; }
-    .ab-platform-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; }
-    .ab-platform-right { flex:1; }
-    .ab-bullets { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:16px 32px; }
-    .ab-bullets li { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:#333; line-height:1.6; }
-    .ab-bullets li i { color:#d2b356; flex-shrink:0; margin-top:3px; }
-
-    .ab-groups { background:#fff; padding:70px 24px; border-top:1px solid #ededed; border-bottom:1px solid #ededed; }
-    .ab-groups-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
-    .ab-groups-left { flex:0 0 280px; }
-    .ab-groups-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 14px; line-height:1.2; }
-    .ab-groups-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; margin:0; }
-    .ab-groups-right { flex:1; }
-    .ab-groups-list { list-style:none; margin:0; padding:0; border:1px solid #e6e6e6; border-radius:12px; overflow:hidden; background:#fff; }
-    .ab-groups-list li { display:flex; align-items:center; justify-content:space-between; gap:12px 18px; padding:16px 20px; border-bottom:1px solid #f1f1f1; }
-    .ab-groups-list li:last-child { border-bottom:none; }
-    .ab-groups-name { font-size:15px; font-weight:600; color:#18181b; line-height:1.45; }
-    .ab-groups-code { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#4b5563; border:1px solid #e5e7eb; background:#f8fafc; border-radius:999px; padding:6px 12px; white-space:nowrap; }
-
-    .ab-nclex { background:#f8f8f8; padding:70px 24px; border-top:1px solid #ededed; border-bottom:1px solid #ededed; }
-    .ab-nclex-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
-    .ab-nclex-left { flex:0 0 280px; }
-    .ab-nclex-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 14px; line-height:1.2; }
-    .ab-nclex-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; margin:0; }
-    .ab-nclex-right { flex:1; }
-    .ab-nclex-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .ab-nclex-list li { background:#fff; border:1px solid #e6e6e6; border-radius:10px; padding:14px 16px; font-size:14px; color:#333; line-height:1.6; }
-
-    .ab-new-chip { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#fff; background:#7c3aed; border-radius:999px; padding:4px 12px; margin-bottom:8px; }
-
-    .ab-objectives { background:#fff; padding:70px 24px; border-top:1px solid #ededed; border-bottom:1px solid #ededed; }
-    .ab-objectives-inner { max-width:1060px; margin:0 auto; display:flex; gap:72px; align-items:flex-start; }
-    .ab-objectives-left { flex:0 0 280px; }
-    .ab-objectives-left h2 { font-size:34px; font-weight:800; color:#111; margin:12px 0 14px; line-height:1.2; }
-    .ab-objectives-left p { font-size:15px; font-weight:300; color:#666; line-height:1.8; margin:0; }
-    .ab-objectives-right { flex:1; }
-    .ab-objectives-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .ab-objectives-list li { background:#f8f8f8; border:1px solid #e6e6e6; border-radius:10px; padding:14px 16px; font-size:14px; color:#333; line-height:1.6; }
-
-    .ab-cta { background:#f8f8f8; border-top:1px solid #ebebeb; padding:90px 24px; text-align:center; }
-    .ab-cta-inner { max-width:580px; margin:0 auto; }
-    .ab-cta h2 { font-size:36px; font-weight:800; color:#111; margin:0 0 14px; }
-    .ab-cta p { font-size:17px; font-weight:300; color:#555; line-height:1.8; margin:0 0 36px; }
-
-    @media(max-width:900px){
-        .ab-story-inner, .ab-platform-inner, .ab-groups-inner, .ab-nclex-inner, .ab-objectives-inner { flex-direction:column; gap:40px; }
-        .ab-bullets { grid-template-columns:1fr; }
-        .ab-nclex-list, .ab-objectives-list { grid-template-columns:1fr; }
+    .ab-btn:hover { background:#fff; color:var(--ink) !important; }
+    .ab-link {
+        display:inline-flex; align-items:center; gap:8px; font-weight:700; font-size:15px;
+        color:var(--ink) !important; text-decoration:none; border-bottom:2px solid var(--gold); padding-bottom:2px;
     }
-    @media(max-width:600px){
-        .ab-hero { height:420px; }
-        .ab-hero h1 { font-size:30px; }
-        .ab-hero p { font-size:15px; }
-        .ab-story-left h2, .ab-platform-left h2, .ab-groups-left h2, .ab-nclex-left h2, .ab-objectives-left h2, .ab-cta h2 { font-size:26px; }
-        .ab-section-head h2 { font-size:26px; }
-        .ab-groups, .ab-nclex, .ab-objectives { padding:52px 16px; }
-        .ab-groups-list li { flex-direction:column; align-items:flex-start; padding:14px 16px; }
+    .ab-link:hover { border-color:var(--ink); }
+    .ab-btn:focus-visible, .ab-link:focus-visible { outline:2px solid var(--ink); outline-offset:4px; }
+
+    /* ── Hero ─────────────────────────────────────────────── */
+    .ab-hero { padding:72px 0 88px; }
+    .ab-hero-grid { display:grid; grid-template-columns:1.05fr .95fr; gap:64px; align-items:center; }
+    .ab-hero h1 {
+        font-size:clamp(40px, 5.2vw, 68px); font-weight:800; line-height:1.02;
+        letter-spacing:-.035em; margin:22px 0 26px;
+    }
+    .ab-lede { font-size:19px; line-height:1.65; max-width:520px; }
+    .ab-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:18px 28px; margin-top:36px; }
+    .ab-hero-note { margin-top:22px; font-size:13.5px; color:var(--muted); }
+
+    .ab-art { position:relative; min-height:590px; }
+    .ab-notes {
+        position:absolute; top:6px; left:0; width:82%; padding:30px 30px 40px;
+        background:#f4f1ea; border:1px solid #dcd6c8; transform:rotate(-5deg);
+        box-shadow:0 1px 0 #e9e4d8, 0 18px 40px -24px rgba(0,0,0,.35);
+        font-family:'Courier New', Courier, monospace; font-size:13.5px; line-height:2; color:#55524b;
+        background-image:repeating-linear-gradient(transparent 0 26px, #e2ddd0 26px 27px);
+    }
+    .ab-notes::after {
+        content:''; position:absolute; inset:0; pointer-events:none;
+        background:radial-gradient(ellipse at 85% 20%, rgba(0,0,0,.06), transparent 55%),
+                   linear-gradient(90deg, rgba(0,0,0,.05), transparent 12%);
+    }
+    .ab-notes-head { font-weight:700; color:#3c3a35; letter-spacing:.04em; }
+    .ab-notes mark { background:linear-gradient(transparent 35%, #f2dd8a 35%, #f2dd8a 85%, transparent 85%); color:inherit; padding:0 2px; }
+    .ab-notes .ab-strike { text-decoration:line-through; text-decoration-color:#8c8676; }
+    .ab-notes-staple { position:absolute; top:14px; left:22px; width:34px; height:5px; border-radius:2px; background:#b9b5ab; transform:rotate(-8deg); }
+
+    .ab-q {
+        position:absolute; right:0; top:150px; width:72%; z-index:2;
+        background:#fff; border:1px solid #e6e6e9; border-radius:16px; padding:22px 22px 18px;
+        box-shadow:0 30px 60px -28px rgba(17,17,17,.35), 0 2px 6px rgba(17,17,17,.05);
+        font-size:14px; line-height:1.5;
+    }
+    .ab-q-top { display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; color:var(--muted); }
+    .ab-q-timer { display:inline-flex; align-items:center; gap:6px; color:var(--ink); font-variant-numeric:tabular-nums; }
+    .ab-q-bar { height:4px; background:#efefef; border-radius:4px; margin:12px 0 16px; overflow:hidden; }
+    .ab-q-bar span { display:block; width:35%; height:100%; background:var(--ink); }
+    .ab-q-stem { font-size:15px; font-weight:600; color:var(--ink); margin-bottom:14px; }
+    .ab-q-opts { display:grid; gap:8px; }
+    .ab-q-opts li { display:flex; align-items:center; gap:12px; padding:9px 12px; border:1px solid #e7e7ea; border-radius:10px; color:var(--body); }
+    .ab-q-opts b { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:6px; background:#f3f3f5; font-size:12px; color:var(--ink); }
+    .ab-q-opts .is-correct { border-color:var(--green); background:var(--green-soft); color:var(--green); font-weight:700; }
+    .ab-q-opts .is-correct b { background:var(--green); color:#fff; }
+    .ab-q-opts .is-correct .fa { margin-left:auto; }
+    .ab-q-why { margin-top:14px; padding-top:12px; border-top:1px dashed #e2e2e6; font-size:13px; color:var(--muted); }
+    .ab-q-why strong { color:var(--ink); margin-right:6px; }
+
+    .ab-flag {
+        position:absolute; left:-44px; bottom:-22px; z-index:3;
+        display:inline-flex; align-items:center; gap:9px; padding:10px 14px;
+        background:var(--ink); color:#fff; border-radius:10px; font-size:12.5px; font-weight:600;
+        box-shadow:0 14px 30px -14px rgba(0,0,0,.5);
+    }
+    .ab-flag i { width:8px; height:8px; border-radius:50%; background:var(--gold); }
+
+    /* ── Facts strip ──────────────────────────────────────── */
+    .ab-facts { display:grid; grid-template-columns:repeat(4, 1fr); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+    .ab-fact { padding:28px 28px 26px; border-left:1px solid var(--line); }
+    .ab-fact:first-child { border-left:none; padding-left:0; }
+    .ab-fact strong { display:block; font-size:34px; font-weight:800; color:var(--ink); letter-spacing:-.03em; line-height:1.1; }
+    .ab-fact span { display:block; margin-top:6px; font-size:14px; color:var(--muted); }
+
+    /* ── Story ────────────────────────────────────────────── */
+    .ab-story { padding:112px 0; }
+    .ab-story-grid { display:grid; grid-template-columns:5fr 6fr; gap:72px; align-items:start; }
+    .ab-story-statement {
+        font-family:var(--serif); font-size:clamp(28px, 3vw, 38px); line-height:1.25; color:var(--ink);
+        font-weight:400; letter-spacing:-.01em; margin-top:22px;
+    }
+    .ab-story-body p { font-size:17px; margin-bottom:20px; }
+    .ab-story-body .ab-turn { font-weight:700; color:var(--ink); }
+    .ab-pull {
+        margin:34px 0; padding:4px 0 4px 26px; border-left:3px solid var(--gold);
+        font-family:var(--serif); font-style:italic; font-size:23px; line-height:1.45; color:var(--ink);
+    }
+    .ab-story-body h3 { font-size:21px; font-weight:800; letter-spacing:-.015em; margin:8px 0 10px; }
+
+    /* ── Programmes ───────────────────────────────────────── */
+    .ab-programmes { padding:0 0 112px; }
+    .ab-prog-head { display:flex; justify-content:space-between; align-items:flex-end; gap:32px; margin-bottom:36px; }
+    .ab-prog-head p { max-width:380px; color:var(--muted); }
+    .ab-prog-list { display:grid; grid-template-columns:repeat(5, 1fr); gap:0 20px; }
+    .ab-prog-list li { border-top:2px solid var(--ink); padding:18px 4px 0 0; transition:border-color .2s ease; }
+    .ab-prog-list li:hover { border-color:var(--gold); }
+    .ab-prog-code { display:block; font-size:26px; font-weight:800; color:var(--ink); letter-spacing:-.02em; }
+    .ab-prog-name { display:block; margin-top:4px; font-size:14px; line-height:1.5; color:var(--muted); }
+
+    /* ── Contents ─────────────────────────────────────────── */
+    /* Full-bleed: break out of #wrapper's 15px side margins, same as the footer. */
+    .ab-contents { background:var(--paper); padding:104px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:0 -15px; }
+    .ab-contents-head { max-width:640px; margin-bottom:56px; }
+    .ab-contents-head p { margin-top:16px; font-size:17px; }
+    .ab-parts { display:grid; grid-template-columns:repeat(3, 1fr); gap:48px; }
+    .ab-part-title { display:flex; align-items:baseline; gap:12px; padding-bottom:14px; border-bottom:2px solid var(--ink); margin-bottom:8px; }
+    .ab-part-title span { font-family:var(--serif); font-style:italic; font-size:15px; color:var(--gold-ink); }
+    .ab-part-title h3 { font-size:20px; font-weight:800; }
+    .ab-entry { padding:16px 0; border-bottom:1px solid var(--line); }
+    .ab-entry-row { display:flex; align-items:baseline; gap:10px; }
+    .ab-entry-num { font-size:12px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; min-width:22px; }
+    .ab-entry h4 { font-size:15.5px; font-weight:700; line-height:1.35; }
+    .ab-entry-dots { flex:1; min-width:16px; border-bottom:1px dotted #bdb6a6; transform:translateY(-4px); }
+    .ab-entry-tag { font-size:12px; font-weight:600; color:var(--muted); white-space:nowrap; }
+    .ab-entry-tag.is-new { color:var(--gold-ink); font-weight:800; }
+    .ab-entry p { margin:4px 0 0 32px; font-size:14px; line-height:1.6; color:var(--muted); }
+    .ab-also { margin-top:40px; font-size:14.5px; color:var(--muted); }
+    .ab-also strong { color:var(--ink); }
+
+    /* ── Spotlights ───────────────────────────────────────── */
+    .ab-spot { padding:112px 0 0; }
+    .ab-spot-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    .ab-panel { border-radius:20px; padding:44px 40px 40px; display:flex; flex-direction:column; }
+    .ab-panel h3 { font-size:28px; font-weight:800; line-height:1.15; letter-spacing:-.02em; margin:16px 0 12px; }
+    .ab-panel > p { font-size:16px; }
+    .ab-panel-light { background:#fff; border:1px solid var(--line); }
+    .ab-panel-dark { background:var(--ink); color:#c9c5bc; }
+    .ab-panel-dark h3 { color:#fff; }
+    .ab-panel-dark .ab-kicker { color:var(--gold); }
+    .ab-new {
+        display:inline-block; margin-left:10px; padding:2px 9px; border:1px solid var(--gold); border-radius:999px;
+        font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-ink);
+    }
+
+    .ab-topics { margin-top:28px; border:1px solid var(--line); border-radius:14px; padding:8px 20px; background:var(--paper); }
+    .ab-topic { display:grid; grid-template-columns:1fr 110px 40px; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); font-size:14px; }
+    .ab-topic:last-child { border-bottom:none; }
+    .ab-topic-name { color:var(--ink); font-weight:600; }
+    .ab-topic-name em { font-style:normal; margin-left:8px; font-size:11.5px; font-weight:700; color:#a2471c; }
+    .ab-topic-bar { height:6px; border-radius:6px; background:#e9e4d8; overflow:hidden; }
+    .ab-topic-bar span { display:block; height:100%; background:var(--ink); border-radius:6px; }
+    .ab-topic.is-weak .ab-topic-bar span { background:#c2692f; }
+    .ab-topic-pct { text-align:right; font-weight:700; color:var(--ink); font-variant-numeric:tabular-nums; }
+    .ab-panel-points { margin-top:24px; display:grid; gap:10px; font-size:15px; }
+    .ab-panel-points li { display:flex; gap:12px; }
+    .ab-panel-points li::before { content:''; flex:0 0 6px; height:6px; margin-top:10px; border-radius:50%; background:var(--gold); }
+
+    .ab-formats { display:flex; flex-wrap:wrap; gap:8px; margin-top:28px; }
+    .ab-formats span { padding:8px 14px; border:1px solid #3a3a3a; border-radius:999px; font-size:13px; font-weight:600; color:#f4f1ea; }
+    .ab-batch { margin-top:22px; border:1px solid #2e2e2e; border-radius:14px; padding:18px 20px; display:grid; gap:12px; font-size:14px; }
+    .ab-batch-row { display:flex; justify-content:space-between; gap:12px; }
+    .ab-batch-row span:last-child { color:#fff; font-weight:700; font-variant-numeric:tabular-nums; }
+    .ab-panel-dark .ab-panel-points { color:#c9c5bc; }
+    .ab-panel-foot { margin-top:auto; padding-top:32px; }
+    .ab-panel-dark .ab-link { color:#fff !important; }
+    .ab-panel-dark .ab-link:hover { border-color:#fff; }
+
+    /* ── Closing CTA ──────────────────────────────────────── */
+    .ab-cta { padding:112px 0; }
+    .ab-cta-box {
+        display:grid; grid-template-columns:1.7fr 1fr; gap:48px; align-items:end;
+        padding:56px; border-radius:24px; background:var(--paper); border:1px solid var(--line);
+    }
+    .ab-cta-box h2 { font-size:clamp(30px, 3.2vw, 42px); font-weight:800; line-height:1.08; letter-spacing:-.03em; }
+    .ab-cta-box p { margin-top:16px; font-size:17px; max-width:520px; }
+    .ab-cta-actions { display:flex; flex-direction:column; align-items:flex-start; gap:18px; }
+    .ab-cta-actions small { font-size:13.5px; color:var(--muted); }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width:1024px) {
+        .ab-contents { margin:0; }
+        .ab-hero-grid { grid-template-columns:1fr; gap:56px; }
+        .ab-art { max-width:560px; width:100%; margin:0 auto; }
+        .ab-story-grid { grid-template-columns:1fr; gap:28px; }
+        .ab-parts { grid-template-columns:1fr; max-width:680px; gap:44px; }
+        .ab-spot-grid { grid-template-columns:1fr; }
+        .ab-cta-box { grid-template-columns:1fr; align-items:start; }
+        .ab-prog-list { grid-template-columns:repeat(3, 1fr); gap:28px 20px; }
+    }
+    @media (max-width:720px) {
+        .ab-wrap { padding:0 16px; }
+        .ab-hero { padding:40px 0 64px; }
+        .ab-lede { font-size:17px; }
+        .ab-art { min-height:600px; }
+        .ab-notes { width:92%; padding:26px 20px 30px; font-size:12px; }
+        .ab-q { top:128px; width:90%; padding:18px 16px 14px; }
+        .ab-flag { left:-10px; }
+        .ab-facts { grid-template-columns:1fr 1fr; }
+        .ab-fact { padding:22px 16px; }
+        .ab-fact:nth-child(odd) { border-left:none; padding-left:0; }
+        .ab-fact:nth-child(n+3) { border-top:1px solid var(--line); }
+        .ab-story, .ab-contents, .ab-cta { padding:72px 0; }
+        .ab-spot { padding-top:72px; }
+        .ab-programmes { padding-bottom:72px; }
+        .ab-prog-head { flex-direction:column; align-items:flex-start; gap:12px; }
+        .ab-prog-list { grid-template-columns:1fr 1fr; }
+        .ab-parts { grid-template-columns:1fr; gap:40px; }
+        .ab-panel { padding:32px 22px 28px; border-radius:16px; }
+        .ab-topic { grid-template-columns:1fr 64px 36px; gap:10px; }
+        .ab-cta-box { padding:36px 22px; border-radius:18px; }
+        .ab-btn { width:100%; }
+        .ab-hero-actions .ab-btn { width:auto; }
+    }
+    @media (max-width:420px) {
+        .ab-hero-actions .ab-btn { width:100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .ab .wow { visibility:visible !important; animation:none !important; }
     }
 </style>
 {% endblock %}
 {% block content %}
+<div class="ab">
+
 <section class="ab-hero">
-    <div class="ab-hero-inner">
-        <span class="ab-eyebrow">Our Story</span>
-        <h1>We Built What We<br>Wish Existed</h1>
-        <p>To empower nursing students with the right tools, structured learning, and smart practice systems needed to pass exams with confidence and become competent healthcare professionals.</p>
-    </div>
-</section>
-
-<section class="ab-story">
-    <div class="ab-story-inner">
-        <div class="ab-story-left wow fadeInLeft" data-wow-delay="0.1s">
-            <span class="ab-eyebrow">The Problem</span>
-            <h2>Where It All Began</h2>
-        </div>
-        <div class="ab-story-right wow fadeInRight" data-wow-delay="0.2s">
-            <p>Students sit with photocopied notes, scattered PDF files, and zero structured way to know whether they're actually ready. Then exam day comes, and the fear of dosage calculations alone has failed more good nurses than it should have.</p>
-            <p>NursesEdge was built to change that.</p>
-            <div class="ab-quote">
-                <p>"It is not just a question bank. It is a complete study system built for the Ghanaian nursing student."</p>
+    <div class="ab-wrap ab-hero-grid">
+        <div>
+            <span class="ab-kicker">About NursesEdge</span>
+            <h1>We built what we wished existed.</h1>
+            <p class="ab-lede">Nursing students in Ghana deserve better than photocopies and guesswork. NursesEdge gives you the tools, structure and honest practice you need to pass your exams with confidence &mdash; and to become a competent nurse on the ward.</p>
+            <div class="ab-hero-actions">
+                <a href="/signup/" class="ab-btn">Start with the free test <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                <a href="#inside" class="ab-link">See what&rsquo;s inside</a>
             </div>
-            <span class="ab-eyebrow">What NursesEdge Is</span>
-            <h2 style="font-size:28px;font-weight:800;color:#111;margin:12px 0 16px;">One Platform. Total Readiness.</h2>
-            <p>NursesEdge is a smart exam preparation and learning platform built specifically for nursing students in Ghana. From your first year on the wards to the final NMC licensure exams, NursesEdge gives you one place to learn, practice, and measure your readiness — without the chaos.</p>
+            <p class="ab-hero-note">Free to sign up. Built for NMC licensure preparation.</p>
+        </div>
+
+        <div class="ab-art" aria-hidden="true">
+            <div class="ab-notes">
+                <span class="ab-notes-staple"></span>
+                <p class="ab-notes-head">PHARMACOLOGY &mdash; YR 2 (copy)</p>
+                <p>Digoxin: check apical pulse, 1 full min</p>
+                <p><mark>Withhold if pulse &lt; 60 bpm</mark></p>
+                <p>Toxicity &rarr; nausea, halos</p>
+                <p class="ab-strike">Furosemide &mdash; monitor Na+</p>
+                <p>Furosemide &mdash; monitor K+ !!</p>
+                <p>Dosage calc &rarr; ask someone?? </p>
+            </div>
+
+            <div class="ab-q">
+                <div class="ab-q-top">
+                    <span>Dosage calculation &middot; 7 of 20</span>
+                    <span class="ab-q-timer"><i class="fa fa-clock-o"></i> 12:40</span>
+                </div>
+                <div class="ab-q-bar"><span></span></div>
+                <p class="ab-q-stem">Amoxicillin 500&nbsp;mg is prescribed orally. You have 250&nbsp;mg capsules. How many capsules will you give?</p>
+                <ol class="ab-q-opts">
+                    <li><b>A</b>1 capsule</li>
+                    <li class="is-correct"><b>B</b>2 capsules <i class="fa fa-check"></i></li>
+                    <li><b>C</b>2.5 capsules</li>
+                    <li><b>D</b>4 capsules</li>
+                </ol>
+                <p class="ab-q-why"><strong>Rationale</strong>Desired &divide; on hand: 500&nbsp;mg &divide; 250&nbsp;mg = 2 capsules.</p>
+                <div class="ab-flag"><i></i>Pharmacology flagged for review</div>
+            </div>
         </div>
     </div>
 </section>
 
-<section class="ab-groups">
-    <div class="ab-groups-inner">
-        <div class="ab-groups-left wow fadeInLeft" data-wow-delay="0.1s">
-            <span class="ab-eyebrow">Who Can Use NursesEdge</span>
-            <h2>Nursing Groups We Support</h2>
-            <p>Questions, practice tests, and learning flows are structured for these pathways.</p>
-        </div>
-        <div class="ab-groups-right wow fadeInRight" data-wow-delay="0.2s">
-            <ul class="ab-groups-list">
-                <li><span class="ab-groups-name">Registered General Nursing</span><span class="ab-groups-code">RGN</span></li>
-                <li><span class="ab-groups-name">Registered Midwifery</span><span class="ab-groups-code">RM</span></li>
-                <li><span class="ab-groups-name">Nurse Assistant Clinical</span><span class="ab-groups-code">NAC / NAP</span></li>
-                <li><span class="ab-groups-name">Registered Mental Health Nursing</span><span class="ab-groups-code">RMHN</span></li>
-                <li><span class="ab-groups-name">Registered Public Health Nursing</span><span class="ab-groups-code">RPHN</span></li>
-            </ul>
-        </div>
-    </div>
-</section>
-
-<section class="ab-nclex">
-    <div class="ab-nclex-inner">
-        <div class="ab-nclex-left wow fadeInLeft" data-wow-delay="0.1s">
-            <span class="ab-eyebrow">NCLEX-RN</span>
-            <h2>NCLEX-RN Prep Inside NursesEdge</h2>
-            <p>We now include NCLEX-RN practice flow so students can train with exam-style timing and structured question groups.</p>
-        </div>
-        <div class="ab-nclex-right wow fadeInRight" data-wow-delay="0.2s">
-            <ul class="ab-nclex-list">
-                <li>Question groups are organized in test batches for guided practice.</li>
-                <li>Each test opens on a dedicated answering page with timer support.</li>
-                <li>Supports MCQ, SATA, fill-in-the-blank, and ordered response questions.</li>
-                <li>Results and performance review appear instantly after submission.</li>
-            </ul>
-        </div>
-    </div>
-</section>
-
-<section class="ab-objectives">
-    <div class="ab-objectives-inner">
-        <div class="ab-objectives-left wow fadeInLeft" data-wow-delay="0.1s">
-            <span class="ab-new-chip">New</span>
-            <span class="ab-eyebrow">Prep by Topics</span>
-            <h2>Objective (MCQ) Practice, By Topic</h2>
-            <p>Drill the exact subject areas you're weak in — organized into focused sets of 20 questions, timed or untimed.</p>
-        </div>
-        <div class="ab-objectives-right wow fadeInRight" data-wow-delay="0.2s">
-            <ul class="ab-objectives-list">
-                <li>Questions are tagged and grouped by topic, not just mixed together.</li>
-                <li>Every set of 20 questions can be answered timed (exam-style) or untimed.</li>
-                <li>Instant scoring with rationale review after every set.</li>
-                <li>A personal performance breakdown flags exactly which topics need more work.</li>
-            </ul>
-        </div>
-    </div>
-</section>
-
-<div class="ab-stats">
-    <div class="ab-stats-inner">
-        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.1s"><span class="num">5</span><span class="lbl">Years of Study Content</span></div>
-        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.2s"><span class="num">1000+</span><span class="lbl">Practice Questions</span></div>
-        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.3s"><span class="num">8</span><span class="lbl">Core Subject Areas</span></div>
-        <div class="ab-stat-item wow fadeInUp" data-wow-delay="0.4s"><span class="num">NMC</span><span class="lbl">Licensure Ready</span></div>
+<div class="ab-wrap">
+    <div class="ab-facts">
+        <div class="ab-fact"><strong>5</strong><span>Years of study content</span></div>
+        <div class="ab-fact"><strong>1000+</strong><span>Practice questions</span></div>
+        <div class="ab-fact"><strong>8</strong><span>Core subject areas</span></div>
+        <div class="ab-fact"><strong>NMC</strong><span>Licensure focused</span></div>
     </div>
 </div>
 
-<section class="ab-features">
-    <div class="ab-section-head wow fadeInUp" data-wow-delay="0.1s">
-        <span class="ab-eyebrow">Platform Features</span>
-        <h2>Everything You Need to Pass</h2>
-    </div>
-    <div class="ab-grid">
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.1s"><div class="ab-card-icon"><i class="fa fa-book"></i></div><h4>Structured Lecture Notes</h4><p>Organized from Year 1 through Final Year so you are never hunting for what to study next.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.15s"><div class="ab-card-icon"><i class="fa fa-medkit"></i></div><h4>Drug Cards</h4><p>Indications, contraindications, dosage, and side effects in a quick-read format that sticks.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.2s"><div class="ab-card-icon"><i class="fa fa-calculator"></i></div><h4>Dosage Calculation Module</h4><p>Tablet, injection, pediatric, IV flow rate, and drip rate drills until the formulas are second nature.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.25s"><div class="ab-card-icon"><i class="fa fa-pencil-square-o"></i></div><h4>Exam Engine</h4><p>Topic quizzes, full timed mock exams, and custom quizzes you build yourself.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.3s"><div class="ab-card-icon"><i class="fa fa-bar-chart"></i></div><h4>Performance Dashboard</h4><p>Accuracy by subject, speed per question, weak areas, and daily progress all in one view.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.35s"><div class="ab-card-icon"><i class="fa fa-comments"></i></div><h4>AI Study Assistant</h4><p>Explains any question in plain language and generates fresh questions on any topic you choose.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.4s"><div class="ab-card-icon"><i class="fa fa-clone"></i></div><h4>Spaced Repetition Flashcards</h4><p>Smart flashcards that adapt to what you struggle with most, keeping memory sharp.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.45s"><div class="ab-card-icon"><i class="fa fa-users"></i></div><h4>Discussion Rooms</h4><p>Subject-specific rooms where students ask questions anonymously and learn from each other.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.5s"><div class="ab-card-icon"><i class="fa fa-lightbulb-o"></i></div><h4>Mnemonics</h4><p>Memory-friendly mnemonics for anatomy, pharmacology, and clinical recall when speed matters.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.55s"><div class="ab-card-icon"><i class="fa fa-stethoscope"></i></div><h4>NCLEX-RN Practice</h4><p>NCLEX-style question sets with timer flow, mixed formats, and instant performance review.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.57s"><div class="ab-card-icon"><i class="fa fa-list-alt"></i></div><h4>Prep by Topics</h4><p>Objective MCQ practice grouped by topic in sets of 20, timed or untimed, with weak-topic tracking.</p></div>
-        <div class="ab-card wow fadeInUp" data-wow-delay="0.6s"><div class="ab-card-icon"><i class="fa fa-picture-o"></i></div><h4>Clinical Visual Library</h4><p>Image-based clinical learning content to strengthen recognition, interpretation, and retention.</p></div>
+<section class="ab-story">
+    <div class="ab-wrap ab-story-grid">
+        <div class="wow fadeInUp" data-wow-delay="0.05s">
+            <span class="ab-kicker">Where it began</span>
+            <p class="ab-story-statement">Photocopied notes. Scattered PDFs. And no honest way to know if you were actually ready.</p>
+        </div>
+        <div class="ab-story-body wow fadeInUp" data-wow-delay="0.15s">
+            <p>That is how most of us studied. Then exam day comes, and the fear of dosage calculations alone has failed more good nurses than it ever should have.</p>
+            <p class="ab-turn">NursesEdge was built to change that.</p>
+            <blockquote class="ab-pull">It is not just a question bank. It is a complete study system built for the Ghanaian nursing student.</blockquote>
+            <h3>One platform. Total readiness.</h3>
+            <p>From your first year on the wards to the final NMC licensure exams, NursesEdge gives you one place to learn, practise and measure your readiness &mdash; without the chaos.</p>
+        </div>
     </div>
 </section>
 
-<section class="ab-platform">
-    <div class="ab-platform-inner">
-        <div class="ab-platform-left wow fadeInLeft" data-wow-delay="0.1s">
-            <span class="ab-eyebrow">Built For You</span>
-            <h2>Everything In One Place</h2>
-            <p>When you open NursesEdge, here is exactly what you get access to every single session.</p>
+<section class="ab-programmes">
+    <div class="ab-wrap">
+        <div class="ab-prog-head">
+            <h2 class="ab-h2">Built around your programme</h2>
+            <p>Questions, practice tests and study paths are organised for each of these registration pathways.</p>
         </div>
-        <div class="ab-platform-right wow fadeInRight" data-wow-delay="0.2s">
-            <ul class="ab-bullets">
-                <li><i class="fa fa-check-circle"></i>Structured notes — Year 1 to Final Year</li>
-                <li><i class="fa fa-check-circle"></i>Drug cards with dosage &amp; contraindications</li>
-                <li><i class="fa fa-check-circle"></i>Dosage calculation drills</li>
-                <li><i class="fa fa-check-circle"></i>Timed mock exams &amp; topic quizzes</li>
-                <li><i class="fa fa-check-circle"></i>Custom quiz builder</li>
-                <li><i class="fa fa-check-circle"></i>Performance &amp; weak area dashboard</li>
-                <li><i class="fa fa-check-circle"></i>AI question explainer &amp; generator</li>
-                <li><i class="fa fa-check-circle"></i>Spaced repetition flashcards</li>
-                <li><i class="fa fa-check-circle"></i>Mnemonics for rapid recall</li>
-                <li><i class="fa fa-check-circle"></i>Daily streak system</li>
-                <li><i class="fa fa-check-circle"></i>Bookmarks &amp; downloadable notes</li>
-                <li><i class="fa fa-check-circle"></i>Anonymous discussion rooms</li>
-                <li><i class="fa fa-check-circle"></i>NMC licensure exam preparation</li>
-                <li><i class="fa fa-check-circle"></i>NCLEX-RN grouped practice tests and test review</li>
-                <li><i class="fa fa-check-circle"></i>Prep by Topics — objective MCQs by subject, timed or untimed</li>
-                <li><i class="fa fa-check-circle"></i>Clinical visual library for image-based learning</li>
+        <ul class="ab-prog-list">
+            <li><span class="ab-prog-code">RGN</span><span class="ab-prog-name">Registered General Nursing</span></li>
+            <li><span class="ab-prog-code">RM</span><span class="ab-prog-name">Registered Midwifery</span></li>
+            <li><span class="ab-prog-code">NAC / NAP</span><span class="ab-prog-name">Nurse Assistant Clinical</span></li>
+            <li><span class="ab-prog-code">RMHN</span><span class="ab-prog-name">Registered Mental Health Nursing</span></li>
+            <li><span class="ab-prog-code">RPHN</span><span class="ab-prog-name">Registered Public Health Nursing</span></li>
+        </ul>
+    </div>
+</section>
+
+<section class="ab-contents" id="inside">
+    <div class="ab-wrap">
+        <div class="ab-contents-head">
+            <span class="ab-kicker">What&rsquo;s inside</span>
+            <h2 class="ab-h2" style="margin-top:18px;">Organised the way you actually study</h2>
+            <p>Learn it, practise it under exam conditions, then find out exactly what you still don&rsquo;t know.</p>
+        </div>
+
+        <div class="ab-parts">
+            <div class="wow fadeInUp" data-wow-delay="0.05s">
+                <div class="ab-part-title"><span>Part one</span><h3>Learn</h3></div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">1.1</span><h4>Structured lecture notes</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Year 1 &rarr; Final</span></div>
+                    <p>Organised by year so you are never hunting for what to study next.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">1.2</span><h4>Drug cards</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Quick read</span></div>
+                    <p>Indications, contraindications, dosage and side effects in a format that sticks.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">1.3</span><h4>Mnemonics</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Rapid recall</span></div>
+                    <p>Memory aids for anatomy, pharmacology and clinical recall when speed matters.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">1.4</span><h4>Clinical visual library</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Image-based</span></div>
+                    <p>Learn to recognise and interpret what you will actually see on the ward.</p>
+                </div>
+            </div>
+
+            <div class="wow fadeInUp" data-wow-delay="0.12s">
+                <div class="ab-part-title"><span>Part two</span><h3>Practise</h3></div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">2.1</span><h4>Exam engine</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Timed mocks</span></div>
+                    <p>Topic quizzes, full timed mock exams and custom quizzes you build yourself.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">2.2</span><h4>Prep by Topics</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag is-new">New</span></div>
+                    <p>Objective MCQs grouped by topic in sets of 20, timed or untimed.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">2.3</span><h4>Dosage calculation drills</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Tablet &rarr; IV</span></div>
+                    <p>Tablet, injection, paediatric, IV flow and drip rates until the formulas are second nature.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">2.4</span><h4>NCLEX-RN practice</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">MCQ &middot; SATA</span></div>
+                    <p>NCLEX-style test batches with a timer, mixed formats and instant review.</p>
+                </div>
+            </div>
+
+            <div class="wow fadeInUp" data-wow-delay="0.19s">
+                <div class="ab-part-title"><span>Part three</span><h3>Track &amp; improve</h3></div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">3.1</span><h4>Performance dashboard</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">By subject</span></div>
+                    <p>Accuracy by subject, speed per question, weak areas and daily progress.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">3.2</span><h4>Smart flashcards</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Spaced repetition</span></div>
+                    <p>Cards come back more often when you struggle with them.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">3.3</span><h4>AI study assistant</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Plain language</span></div>
+                    <p>Explains any question simply and generates fresh questions on any topic.</p>
+                </div>
+                <div class="ab-entry">
+                    <div class="ab-entry-row"><span class="ab-entry-num">3.4</span><h4>Discussion rooms</h4><span class="ab-entry-dots"></span><span class="ab-entry-tag">Anonymous</span></div>
+                    <p>Subject rooms where you can ask anything and learn from other students.</p>
+                </div>
+            </div>
+        </div>
+
+        <p class="ab-also"><strong>Also included:</strong> daily study streaks, bookmarks and downloadable notes.</p>
+    </div>
+</section>
+
+<section class="ab-spot">
+    <div class="ab-wrap ab-spot-grid">
+        <div class="ab-panel ab-panel-light wow fadeInUp" data-wow-delay="0.05s">
+            <div><span class="ab-kicker">Prep by Topics</span><span class="ab-new">New</span></div>
+            <h3>Stop re-reading what you already know.</h3>
+            <p>Every topic is split into focused sets of 20 questions. Answer them against the clock or at your own pace, then see exactly where you are losing marks.</p>
+            <div class="ab-topics" aria-label="Example topic breakdown">
+                <div class="ab-topic"><span class="ab-topic-name">Fundamentals of Nursing</span><span class="ab-topic-bar"><span style="width:82%"></span></span><span class="ab-topic-pct">82%</span></div>
+                <div class="ab-topic"><span class="ab-topic-name">Maternal &amp; Child Health</span><span class="ab-topic-bar"><span style="width:71%"></span></span><span class="ab-topic-pct">71%</span></div>
+                <div class="ab-topic is-weak"><span class="ab-topic-name">Pharmacology<em>Needs work</em></span><span class="ab-topic-bar"><span style="width:48%"></span></span><span class="ab-topic-pct">48%</span></div>
+            </div>
+            <ul class="ab-panel-points">
+                <li>Instant scoring with a rationale for every answer.</li>
+                <li>Your weakest topics are flagged automatically.</li>
             </ul>
+            <div class="ab-panel-foot">
+                <a href="/signup/" class="ab-link">Try it with the free test <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            </div>
+        </div>
+
+        <div class="ab-panel ab-panel-dark wow fadeInUp" data-wow-delay="0.15s">
+            <div><span class="ab-kicker">NCLEX-RN</span></div>
+            <h3>Planning to work abroad? Practise for the NCLEX too.</h3>
+            <p>Questions are grouped into test batches, and each test opens on its own answering page with a timer &mdash; just like the real thing.</p>
+            <div class="ab-formats">
+                <span>Multiple choice</span><span>Select all that apply</span><span>Fill in the blank</span><span>Ordered response</span>
+            </div>
+            <div class="ab-batch" aria-label="Example test batch">
+                <div class="ab-batch-row"><span>Test batch</span><span>Safety &amp; infection control</span></div>
+                <div class="ab-batch-row"><span>Questions</span><span>25</span></div>
+                <div class="ab-batch-row"><span>Time limit</span><span>45:00</span></div>
+            </div>
+            <ul class="ab-panel-points">
+                <li>Results and a full performance review the moment you submit.</li>
+            </ul>
+            <div class="ab-panel-foot">
+                <a href="/nclex/" class="ab-link">Explore NCLEX-RN prep <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+            </div>
         </div>
     </div>
 </section>
 
 <section class="ab-cta">
-    <div class="ab-cta-inner wow fadeInUp" data-wow-delay="0.1s">
-        <span class="ab-eyebrow">Get Started</span>
-        <h2>Ready to Study Smarter?</h2>
-        <p>Join nursing students across Ghana already preparing with NursesEdge and NCLEX-RN practice tools.</p>
-        <a href="/signup/" class="button">Get Started Today</a>
-        <a href="/nclex/" class="button" style="margin-left:10px;">Explore NCLEX-RN</a>
+    <div class="ab-wrap">
+        <div class="ab-cta-box wow fadeInUp" data-wow-delay="0.05s">
+            <div>
+                <h2>Your exam date is coming.<br>Start preparing properly.</h2>
+                <p>Create a free account, take the free test and see where you stand. Unlock everything when you are ready.</p>
+            </div>
+            <div class="ab-cta-actions">
+                <a href="/signup/" class="ab-btn">Create a free account <i class="fa fa-arrow-right" aria-hidden="true"></i></a>
+                <small>Already have an account? <a href="/login/" class="ab-link" style="font-size:13.5px;">Log in</a></small>
+            </div>
+        </div>
     </div>
 </section>
+
+</div>
 {% endblock %}

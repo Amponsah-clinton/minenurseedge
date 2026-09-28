@@ -6,6 +6,7 @@ import re
 import secrets
 import csv
 from datetime import datetime, timedelta, timezone
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal, InvalidOperation
 from io import StringIO
 from urllib.parse import quote, urlencode
 
@@ -2997,6 +2998,7 @@ def signup_initiate_payment_api(request):
         if err or not data:
             msg = _paystack_api_error_message(err) or str(err or "paystack_init_failed")
             return JsonResponse({"ok": False, "error": msg}, status=400)
+        breakdown = _paystack_checkout_breakdown(amount)
         return JsonResponse(
             {
                 "ok": True,
@@ -3004,7 +3006,9 @@ def signup_initiate_payment_api(request):
                 "access_code": data.get("access_code"),
                 "authorization_url": data.get("authorization_url"),
                 "public_key": paystack_public,
-                "amount_paid": amount,
+                "amount_paid": breakdown["total_minor"] / 100.0,
+                "subscription_amount": breakdown["base_minor"] / 100.0,
+                "processing_fee": breakdown["fee_minor"] / 100.0,
             }
         )
 
@@ -12850,7 +12854,7 @@ def _reconcile_pending_subscription_from_paystack(user_id, *, force=False):
     sub_id = sub.get("id")
     if not sub_id:
         return
-    amount_paid = float((data.get("amount") or 0)) / 100
+    amount_paid = _paystack_amount_credited_ghs(data)
     try:
         _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, ref)
     except Exception:
@@ -12949,26 +12953,106 @@ def _paystack_request(method, path, body_dict=None):
         return None, str(e)
 
 
-def _paystack_transaction_initialize(*, email, amount_ghs, callback_url, metadata=None):
+_PAYSTACK_DEFAULT_FEE_PERCENT = Decimal("1.95")
+
+
+def _paystack_fee_rate():
+    """Paystack's fee as a fraction (1.95% → 0.0195); 0 when the merchant absorbs fees."""
+    if not getattr(settings, "PAYSTACK_PASS_FEE_TO_CUSTOMER", True):
+        return Decimal(0)
+    try:
+        pct = Decimal(str(getattr(settings, "PAYSTACK_FEE_PERCENT", _PAYSTACK_DEFAULT_FEE_PERCENT)).strip())
+    except InvalidOperation:
+        pct = _PAYSTACK_DEFAULT_FEE_PERCENT
+    if not (0 <= pct < 50):
+        pct = _PAYSTACK_DEFAULT_FEE_PERCENT
+    return pct / 100
+
+
+def _paystack_checkout_breakdown(base_ghs):
     """
-    Start a Paystack hosted checkout. amount_ghs is major units (e.g. 50.00 GHS);
-    Paystack expects amount in pesewas (×100).
-    Returns (data_dict with authorization_url, access_code, reference, or None, error_string).
+    Split a Paystack checkout into plan price, processing fee and total charged (pesewas).
+
+    Paystack deducts its percentage from whatever is charged, so charging the plan price
+    itself settles short (GHS 60 → GHS 58.83). Instead charge the smallest pesewa amount
+    whose settlement — after Paystack's fee, even if Paystack rounds that fee up — is
+    still at least the plan price.
     """
     try:
-        amount_minor = int(round(float(amount_ghs) * 100))
-    except Exception:
-        amount_minor = 0
-    if amount_minor < 1:
+        base_minor = int((Decimal(str(base_ghs)) * 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    except (InvalidOperation, ValueError, TypeError):
+        base_minor = 0
+    rate = _paystack_fee_rate()
+    total_minor = base_minor
+    if base_minor > 0 and rate > 0:
+        total_minor = int((base_minor / (1 - rate)).to_integral_value(rounding=ROUND_CEILING))
+        while total_minor - int((total_minor * rate).to_integral_value(rounding=ROUND_CEILING)) < base_minor:
+            total_minor += 1
+    return {
+        "base_minor": base_minor,
+        "fee_minor": total_minor - base_minor,
+        "total_minor": total_minor,
+        "fee_percent": rate * 100,
+    }
+
+
+def _paystack_amount_credited_ghs(data):
+    """
+    Subscription amount to record for a verified Paystack transaction: the plan price the
+    checkout was grossed up from, excluding the processing fee the customer covered.
+    Transactions started before fees were passed on have no base amount in metadata,
+    so they fall back to the amount charged.
+    """
+    charged_minor = int((data or {}).get("amount") or 0)
+    meta = (data or {}).get("metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except ValueError:
+            meta = {}
+    try:
+        base_minor = int((meta if isinstance(meta, dict) else {}).get("base_amount_minor") or 0)
+    except (TypeError, ValueError):
+        base_minor = 0
+    if 0 < base_minor <= charged_minor:
+        return base_minor / 100.0
+    return charged_minor / 100.0
+
+
+def _paystack_transaction_initialize(*, email, amount_ghs, callback_url, metadata=None):
+    """
+    Start a Paystack hosted checkout. amount_ghs is the plan price in major units
+    (e.g. 60.00 GHS); Paystack's processing fee is added on top (see
+    _paystack_checkout_breakdown) and the total is sent in pesewas (×100).
+    Returns (data_dict with authorization_url, access_code, reference, or None, error_string).
+    """
+    breakdown = _paystack_checkout_breakdown(amount_ghs)
+    if breakdown["base_minor"] < 1:
         return None, "invalid_amount"
     payload = {
         "email": (email or "customer@example.com").strip()[:120],
-        "amount": amount_minor,
+        "amount": breakdown["total_minor"],
         "currency": "GHS",
         "callback_url": (callback_url or "").strip()[:500],
     }
-    if metadata:
-        payload["metadata"] = {str(k): str(v) for k, v in metadata.items() if v is not None}
+    meta = {str(k): str(v) for k, v in (metadata or {}).items() if v is not None}
+    meta["base_amount_minor"] = str(breakdown["base_minor"])
+    meta["processing_fee_minor"] = str(breakdown["fee_minor"])
+    if breakdown["fee_minor"]:
+        # Shown on the Paystack dashboard/receipt so the fee line is self-explanatory.
+        meta["custom_fields"] = [
+            {
+                "display_name": "Subscription",
+                "variable_name": "subscription_amount",
+                "value": f"GHS {breakdown['base_minor'] / 100:.2f}",
+            },
+            {
+                "display_name": "Processing fee",
+                "variable_name": "processing_fee",
+                "value": f"GHS {breakdown['fee_minor'] / 100:.2f}",
+            },
+        ]
+    payload["metadata"] = meta
     resp, err = _paystack_request("POST", "/transaction/initialize", payload)
     if err:
         return None, err
@@ -13250,6 +13334,16 @@ def _ensure_pending_checkout_row(request, plans, selected_plan_slug=None):
 
 def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error=""):
     """Shared context dict for all student_subscribe render() calls."""
+    using_paystack = bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip())
+    paystack_fee = None
+    if using_paystack:
+        breakdown = _paystack_checkout_breakdown((plans.get("standard") or {}).get("price") or 0)
+        if breakdown["fee_minor"] > 0:
+            paystack_fee = {
+                "percent": f"{breakdown['fee_percent'].normalize():f}",
+                "fee": f"{breakdown['fee_minor'] / 100:.2f}",
+                "total": f"{breakdown['total_minor'] / 100:.2f}",
+            }
     return {
         "full_name": request.session.get("full_name", ""),
         "email": request.session.get("email", ""),
@@ -13264,7 +13358,8 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "checkout_row": checkout_row,
         "config_error": config_error,
         "error": error,
-        "using_paystack": bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()),
+        "using_paystack": using_paystack,
+        "paystack_fee": paystack_fee,
         "using_bulkclix": bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()),
     }
 
@@ -13499,8 +13594,7 @@ def student_subscribe_success(request):
             return redirect("/dashboard/")
         if str(pending.get("id")) != str(sub_id).strip():
             return redirect("/subscribe/?error=forbidden")
-        amount_minor = int(data.get("amount") or 0)
-        amount_paid = amount_minor / 100.0
+        amount_paid = _paystack_amount_credited_ghs(data)
         try:
             _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, reference)
         except Exception:
@@ -13601,7 +13695,7 @@ def paystack_webhook(request):
     user_id = (str(meta.get("user_id") or "")).strip()
     sub_id = (str(meta.get("subscription_id") or "")).strip()
     plan_slug = (str(meta.get("plan_slug") or "standard")).strip() or "standard"
-    amount_paid = float(int(data.get("amount") or 0)) / 100.0
+    amount_paid = _paystack_amount_credited_ghs(data)
     reference = (data.get("reference") or "").strip()
 
     if not user_id:

@@ -159,6 +159,14 @@ PAYSTACK_PUBLIC_KEY = (
     or os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "").strip()
 )
 
+# Paystack transaction fee (Ghana: flat 1.95% on local & international payments, all channels).
+# When passed to the customer, checkout adds the fee on top of the plan price so that the
+# amount settled to us after Paystack's deduction is the full plan price.
+PAYSTACK_FEE_PERCENT = os.getenv("PAYSTACK_FEE_PERCENT", "1.95").strip() or "1.95"
+PAYSTACK_PASS_FEE_TO_CUSTOMER = os.getenv("PAYSTACK_PASS_FEE_TO_CUSTOMER", "true").strip().lower() not in (
+    "0", "false", "no", "off",
+)
+
 # Legacy names (still read if PAYSTACK_* not set)
 VITE_PAYSTACK_PUBLIC_KEY = os.getenv("VITE_PAYSTACK_PUBLIC_KEY", "")
 VITE_PAYSTACK_SECRET_KEY = os.getenv("VITE_PAYSTACK_SECRET_KEY", "")
