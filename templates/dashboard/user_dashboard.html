@@ -613,6 +613,112 @@
     transition: transform linear;
     transform: scaleX(0);
   }
+  /* ── My Performance card (tests taken) ─────────────────────────────── */
+  .mp-card { border-radius: 14px; border: 1px solid #e3e8f0; box-shadow: 0 6px 20px rgba(15,23,42,.07); overflow: hidden; }
+  .mp-head { padding: 18px 22px 14px; border-bottom: 1px solid #f0f2f8; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .mp-head__icon { width: 36px; height: 36px; border-radius: 9px; background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; flex-shrink: 0; }
+  .mp-title { margin: 0; font-size: .95rem; font-weight: 800; color: #1f2d40; line-height: 1.2; }
+  .mp-sub { margin: 0; font-size: .75rem; color: #9098b0; }
+  .mp-link { font-size: .8rem; font-weight: 700; color: #3758f9; text-decoration: none; display: flex; align-items: center; gap: 3px; }
+  .mp-link i { font-size: 1rem; }
+  .mp-body { padding: 18px 22px 20px; }
+
+  .mp-empty { text-align: center; padding: 10px 0 4px; }
+  .mp-empty > i { font-size: 2.8rem; color: #d0d5e0; }
+  .mp-empty__t { margin: 10px 0 4px; font-size: .9rem; font-weight: 700; color: #4a5568; }
+  .mp-empty__s { margin: 0 auto; font-size: .82rem; color: #9098b0; max-width: 320px; }
+
+  .mp-top { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
+  .mp-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 124px; text-align: center; }
+  .mp-ring { position: relative; width: 104px; height: 104px; }
+  .mp-ring__label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+  .mp-ring__v { font-size: 1.4rem; font-weight: 800; color: #1f2d40; }
+  .mp-ring__k { font-size: .6rem; font-weight: 700; color: #9098b0; text-transform: uppercase; letter-spacing: .5px; }
+  .mp-level { font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
+  .mp-level.is-strong { background: #dcfce7; color: #16a34a; }
+  .mp-level.is-on_track { background: #eef2ff; color: #3758f9; }
+  .mp-level.is-needs_work { background: #fef3c7; color: #d97706; }
+  .mp-level.is-critical { background: #fee2e2; color: #dc2626; }
+  .mp-conf { font-size: .66rem; font-weight: 600; color: #9098b0; line-height: 1.3; }
+
+  .mp-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .mp-tile { background: #f8f9fc; border-radius: 10px; padding: 10px 8px; text-align: center; min-width: 0; }
+  .mp-tile__v { font-size: 1.25rem; font-weight: 800; color: #1f2d40; line-height: 1; }
+  .mp-tile__v small { font-size: .62rem; font-weight: 700; margin-left: 1px; }
+  .mp-tile__l { font-size: .7rem; color: #7b8599; font-weight: 700; margin-top: 4px; line-height: 1.3; }
+  .mp-tile__s { display: block; font-size: .64rem; font-weight: 600; color: #9098b0; }
+  .mp-up { color: #16a34a !important; }
+  .mp-down { color: #dc2626 !important; }
+  .mp-flat { color: #d97706 !important; }
+
+  .mp-next { margin-top: 16px; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; background: #f0f4ff; }
+  .mp-next.is-good { background: #f0fdf4; }
+  .mp-next.is-warn { background: #fff7ed; }
+  .mp-next__icon { font-size: 1.35rem; flex-shrink: 0; color: #3758f9; }
+  .mp-next.is-good .mp-next__icon { color: #16a34a; }
+  .mp-next.is-warn .mp-next__icon { color: #ea580c; }
+  .mp-next__body { flex: 1; min-width: 0; }
+  .mp-next__k { margin: 0 0 2px; font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #7b8599; }
+  .mp-next__t { margin: 0; font-size: .84rem; color: #374151; line-height: 1.55; }
+  .mp-next__cta { flex-shrink: 0; background: #1a1a2e; color: #fff !important; border-radius: 8px; padding: 8px 14px; font-size: .78rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .mp-next__cta:hover { background: #2b2b4a; }
+
+  .mp-insights { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .mp-insight { border: 1px solid #eef0f5; border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+  .mp-insight > i { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+  .mp-insight.is-good > i { background: #dcfce7; color: #16a34a; }
+  .mp-insight.is-warn > i { background: #ffedd5; color: #ea580c; }
+  a.mp-insight:hover { border-color: #fed7aa; background: #fffaf5; }
+  .mp-insight__k { margin: 0; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9098b0; }
+  .mp-insight__v { margin: 1px 0; font-size: .84rem; font-weight: 700; color: #1f2d40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-insight__m { margin: 0; font-size: .7rem; color: #7b8599; }
+
+  .mp-sec { margin: 18px 0 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mp-sec__t { margin: 0; font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #9098b0; }
+  .mp-sec__link { font-size: .74rem; font-weight: 700; color: #3758f9; text-decoration: none; }
+
+  .mp-types { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mp-type { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8ebf2; border-radius: 999px; padding: 4px 6px 4px 5px; font-size: .75rem; font-weight: 600; color: #4a5568; background: #fff; }
+  .mp-type > i { width: 22px; height: 22px; border-radius: 50%; background: #f1f3f9; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; color: #1a1a2e; }
+  .mp-type b { color: #1f2d40; }
+  .mp-type__avg, .mp-pill { font-weight: 800; border-radius: 999px; }
+  .mp-type__avg { font-size: .68rem; padding: 1px 7px; }
+  .b-strong { background: #dcfce7; color: #15803d; }
+  .b-ok { background: #eef2ff; color: #3758f9; }
+  .b-weak { background: #fef3c7; color: #b45309; }
+  .b-low { background: #fee2e2; color: #b91c1c; }
+
+  .mp-list { display: flex; flex-direction: column; gap: 2px; }
+  .mp-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 0 -10px; border-radius: 10px; text-decoration: none; color: inherit; transition: background .15s ease; }
+  .mp-row:hover { background: #f8f9fc; }
+  .mp-row__icon { width: 34px; height: 34px; border-radius: 9px; background: #f1f3f9; color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .mp-row__main { flex: 1; min-width: 0; }
+  .mp-row__title { margin: 0; font-size: .84rem; font-weight: 700; color: #1f2d40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-row__meta { margin: 1px 0 0; font-size: .72rem; color: #9098b0; }
+  .mp-row__score { text-align: right; flex-shrink: 0; }
+  .mp-pill { display: inline-block; min-width: 50px; text-align: center; font-size: .8rem; padding: 3px 9px; }
+  .mp-delta { display: block; font-size: .66rem; font-weight: 700; color: #9098b0; margin-top: 3px; }
+
+  .mp-legend { font-size: .68rem; font-weight: 600; color: #9098b0; display: inline-flex; align-items: center; gap: 5px; }
+  .mp-legend i { width: 14px; border-top: 2px dashed #22c55e; }
+  .mp-spark { position: relative; }
+  .mp-spark canvas { display: block; width: 100%; height: 72px; cursor: crosshair; }
+  .mp-tip { position: absolute; top: 0; left: 0; pointer-events: none; background: #1a1a2e; color: #fff; font-size: .7rem; line-height: 1.35; padding: 5px 8px; border-radius: 6px; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity .12s ease; }
+  .mp-tip b { font-weight: 800; }
+
+  @media (max-width: 575.98px) {
+    .mp-head, .mp-body { padding-left: 16px; padding-right: 16px; }
+    .mp-top { grid-template-columns: 1fr; justify-items: center; }
+    .mp-ring-wrap { width: auto; }
+    .mp-tiles { width: 100%; }
+    .mp-insights { grid-template-columns: 1fr; }
+    .mp-next { flex-wrap: wrap; align-items: flex-start; }
+    .mp-next__body { flex-basis: calc(100% - 40px); }
+    .mp-next__cta { margin-left: 34px; }
+  }
+  @media (max-width: 379.98px) {
+    .mp-tiles { grid-template-columns: repeat(2, 1fr); }
+  }
 </style>
 
 {% if show_welcome_card %}
@@ -854,56 +960,45 @@
     {% endif %}
 
     <!-- ══════════════════════════════════════════════════════════════════════
-         PERFORMANCE ANALYTICS CARD
+         PERFORMANCE ANALYTICS CARD (tests taken, readiness, next step)
          ══════════════════════════════════════════════════════════════════════ -->
     <div class="mb-4" id="perfStatsCard">
-      <div class="card" style="border-radius:14px;border:1px solid #e3e8f0;box-shadow:0 6px 20px rgba(15,23,42,.07);overflow:hidden;">
+      <div class="card mp-card">
 
         {# ── Card header ───────────────────────────────────────────────────── #}
-        <div style="padding:18px 22px 14px;border-bottom:1px solid #f0f2f8;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="width:36px;height:36px;border-radius:9px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:17px;flex-shrink:0;">
-              <i class="bx bx-line-chart"></i>
-            </span>
-            <div>
-              <p style="margin:0;font-size:0.95rem;font-weight:800;color:#1f2d40;line-height:1.2;">My Performance</p>
-              <p style="margin:0;font-size:0.75rem;color:#9098b0;">
+        <div class="mp-head">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+            <span class="mp-head__icon"><i class="bx bx-line-chart"></i></span>
+            <div style="min-width:0;">
+              <p class="mp-title">My Performance</p>
+              <p class="mp-sub">
                 {% if perf_stats.total_attempts > 0 %}
-                  {{ perf_stats.total_attempts }} attempt{{ perf_stats.total_attempts|pluralize }} tracked
+                  {{ perf_stats.total_attempts }} test{{ perf_stats.total_attempts|pluralize }} taken{% if perf_stats.questions_answered %} &middot; {{ perf_stats.questions_answered }}{% if perf_stats.questions_plus %}+{% endif %} questions answered{% endif %}
                 {% else %}
-                  No attempts yet
+                  No tests taken yet
                 {% endif %}
               </p>
             </div>
           </div>
-          <a href="/dashboard/performance/" style="font-size:0.8rem;font-weight:700;color:#3758f9;text-decoration:none;display:flex;align-items:center;gap:3px;">
-            Full report <i class="bx bx-chevron-right" style="font-size:1rem;"></i>
-          </a>
+          <a href="/dashboard/performance/" class="mp-link">Full report <i class="bx bx-chevron-right"></i></a>
         </div>
 
-        <div style="padding:18px 22px;">
+        <div class="mp-body">
 
-          {% if perf_stats.total_attempts == 0 %}
+          {% if not perf_stats.has_data %}
           {# ── Empty state ──────────────────────────────────────────────────── #}
-          <div style="text-align:center;padding:18px 0 8px;">
-            <i class="bx bx-bar-chart-alt-2" style="font-size:2.8rem;color:#d0d5e0;"></i>
-            <p style="margin:10px 0 4px;font-size:0.9rem;font-weight:700;color:#4a5568;">No activity recorded yet</p>
-            <p style="margin:0 0 16px;font-size:0.82rem;color:#9098b0;max-width:300px;margin-left:auto;margin-right:auto;">
-              {{ perf_stats.advice }}
-            </p>
-            <a href="/dashboard/mock-exams/" class="btn btn-sm btn-dark" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 20px;background:#1a1a2e;border:none;">
-              Take a Mock Exam
-            </a>
+          <div class="mp-empty">
+            <i class="bx bx-bar-chart-alt-2"></i>
+            <p class="mp-empty__t">Your test history will appear here</p>
+            <p class="mp-empty__s">Every test you finish updates your readiness score, trend and personalised tips.</p>
           </div>
 
           {% else %}
-          {# ── Main stats grid ──────────────────────────────────────────────── #}
-          <div style="display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;">
-
-            {# ── Readiness ring ───────────────────────────────────────────── #}
-            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-              <div style="position:relative;width:96px;height:96px;">
-                <svg width="96" height="96" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
+          {# ── Readiness ring + key numbers ─────────────────────────────────── #}
+          <div class="mp-top">
+            <div class="mp-ring-wrap">
+              <div class="mp-ring" title="Readiness: recent tests and longer, exam-style tests count more">
+                <svg width="104" height="104" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
                   <circle cx="48" cy="48" r="40" fill="none" stroke="#f0f2f8" stroke-width="10"/>
                   <circle cx="48" cy="48" r="40" fill="none"
                     stroke="{% if perf_stats.readiness_level == 'strong' %}#22c55e{% elif perf_stats.readiness_level == 'on_track' %}#3758f9{% elif perf_stats.readiness_level == 'needs_work' %}#f59e0b{% else %}#ef4444{% endif %}"
@@ -914,97 +1009,168 @@
                     id="readinessArc"
                     data-pct="{{ perf_stats.readiness_pct }}"/>
                 </svg>
-                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;">
-                  <span style="font-size:1.35rem;font-weight:800;color:#1f2d40;" id="readinessPctLabel">{{ perf_stats.readiness_pct }}%</span>
-                  <span style="font-size:0.62rem;font-weight:700;color:#9098b0;text-transform:uppercase;letter-spacing:.5px;">avg</span>
+                <div class="mp-ring__label">
+                  <span class="mp-ring__v">{{ perf_stats.readiness_pct }}%</span>
+                  <span class="mp-ring__k">readiness</span>
                 </div>
               </div>
-              <span style="font-size:0.72rem;font-weight:700;border-radius:999px;padding:2px 10px;
-                {% if perf_stats.readiness_level == 'strong' %}background:#dcfce7;color:#16a34a;
-                {% elif perf_stats.readiness_level == 'on_track' %}background:#eef2ff;color:#3758f9;
-                {% elif perf_stats.readiness_level == 'needs_work' %}background:#fef3c7;color:#d97706;
-                {% else %}background:#fee2e2;color:#dc2626;{% endif %}">
+              <span class="mp-level is-{{ perf_stats.readiness_level }}">
                 {% if perf_stats.readiness_level == 'strong' %}Exam Ready
                 {% elif perf_stats.readiness_level == 'on_track' %}On Track
                 {% elif perf_stats.readiness_level == 'needs_work' %}Needs Work
-                {% elif perf_stats.readiness_level == 'critical' %}Critical
-                {% else %}Starting{% endif %}
+                {% else %}Critical{% endif %}
               </span>
+              <span class="mp-conf">{{ perf_stats.confidence_note }}</span>
             </div>
 
-            {# ── Metric tiles ─────────────────────────────────────────────── #}
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;color:#1f2d40;line-height:1;">{{ perf_stats.streak }}</div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">
-                  Day streak<br>
-                  <span style="font-size:0.65rem;">
-                    {% if perf_stats.streak >= 7 %}🔥 On fire!{% elif perf_stats.streak >= 3 %}⚡ Going{% elif perf_stats.streak == 1 %}Good start{% else %}Start today{% endif %}
+            <div class="mp-tiles">
+              <div class="mp-tile">
+                <div class="mp-tile__v">{{ perf_stats.streak }}<small>d</small></div>
+                <div class="mp-tile__l">Streak
+                  <span class="mp-tile__s {% if perf_stats.studied_today %}mp-up{% elif perf_stats.streak %}mp-flat{% endif %}">
+                    {% if perf_stats.studied_today %}&#10003; studied today{% elif perf_stats.streak %}study today to keep it{% else %}start today{% endif %}
                   </span>
                 </div>
               </div>
 
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;color:#1f2d40;line-height:1;">{{ perf_stats.sessions_this_week }}</div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">This week<br><span style="font-size:0.65rem;">sessions</span></div>
-              </div>
-
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;color:#1f2d40;line-height:1;">{{ perf_stats.best_score }}%</div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">Best<br><span style="font-size:0.65rem;">score</span></div>
-              </div>
-
-              {# ── Score trend ──────────────────────────────────────────── #}
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;line-height:1;
-                  {% if perf_stats.trend == 'improving' %}color:#22c55e;
-                  {% elif perf_stats.trend == 'declining' %}color:#ef4444;
-                  {% else %}color:#f59e0b;{% endif %}">
-                  {% if perf_stats.trend == 'improving' %}↑{% elif perf_stats.trend == 'declining' %}↓{% else %}→{% endif %}
-                  {% if perf_stats.trend_delta > 0 %}{{ perf_stats.trend_delta }}%{% endif %}
-                </div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">
-                  Trend<br>
-                  <span style="font-size:0.65rem;">
-                    {% if perf_stats.trend == 'improving' %}improving
-                    {% elif perf_stats.trend == 'declining' %}declining
-                    {% elif perf_stats.trend == 'stable' %}stable
-                    {% else %}early days{% endif %}
+              <div class="mp-tile">
+                <div class="mp-tile__v">{{ perf_stats.tests_this_week }}</div>
+                <div class="mp-tile__l">Tests this week
+                  <span class="mp-tile__s {% if perf_stats.week_delta > 0 %}mp-up{% elif perf_stats.week_delta < 0 %}mp-down{% endif %}">
+                    {% if perf_stats.week_delta > 0 %}&uarr; {{ perf_stats.week_delta_abs }} vs last week
+                    {% elif perf_stats.week_delta < 0 %}&darr; {{ perf_stats.week_delta_abs }} vs last week
+                    {% elif perf_stats.tests_this_week %}same as last week
+                    {% else %}none yet{% endif %}
                   </span>
                 </div>
               </div>
 
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;color:#1f2d40;line-height:1;">{{ perf_stats.mock_count }}</div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">Mock<br><span style="font-size:0.65rem;">exams</span></div>
+              <div class="mp-tile">
+                <div class="mp-tile__v">{{ perf_stats.accuracy }}%</div>
+                <div class="mp-tile__l">Accuracy
+                  <span class="mp-tile__s">of all questions</span>
+                </div>
               </div>
 
-              <div style="background:#f8f9fc;border-radius:10px;padding:10px 12px;text-align:center;">
-                <div style="font-size:1.3rem;font-weight:800;color:#1f2d40;line-height:1;">{{ perf_stats.gen_count }}</div>
-                <div style="font-size:0.7rem;color:#7b8599;font-weight:600;margin-top:3px;line-height:1.3;">Gen.<br><span style="font-size:0.65rem;">tests</span></div>
+              <div class="mp-tile">
+                <div class="mp-tile__v {% if perf_stats.trend == 'improving' %}mp-up{% elif perf_stats.trend == 'declining' %}mp-down{% elif perf_stats.trend == 'stable' %}mp-flat{% endif %}">
+                  {% if perf_stats.trend == 'improving' %}&uarr;{% elif perf_stats.trend == 'declining' %}&darr;{% elif perf_stats.trend == 'stable' %}&rarr;{% else %}&ndash;{% endif %}{% if perf_stats.trend_delta %}{{ perf_stats.trend_delta }}<small>pts</small>{% endif %}
+                </div>
+                <div class="mp-tile__l">Trend
+                  <span class="mp-tile__s">
+                    {% if perf_stats.trend == 'new' %}needs 4+ tests{% else %}{{ perf_stats.trend }} &middot; last {{ perf_stats.trend_window }}{% endif %}
+                  </span>
+                </div>
               </div>
 
-            </div>{# end metric tiles #}
-          </div>{# end main grid #}
+              <div class="mp-tile">
+                <div class="mp-tile__v">{{ perf_stats.best_score|floatformat:0 }}%</div>
+                <div class="mp-tile__l">Best
+                  <span class="mp-tile__s">avg {{ perf_stats.overall_avg|floatformat:0 }}%</span>
+                </div>
+              </div>
 
-          {# ── Smart advice strip ──────────────────────────────────────────── #}
-          <div style="margin-top:14px;background:{% if perf_stats.trend == 'improving' or perf_stats.readiness_level == 'strong' %}#f0fdf4{% elif perf_stats.trend == 'declining' or perf_stats.readiness_level == 'critical' %}#fff7ed{% else %}#f0f4ff{% endif %};border-radius:10px;padding:11px 14px;display:flex;align-items:flex-start;gap:10px;">
-            <i class="bx {{ perf_stats.advice_icon }}" style="font-size:1.2rem;flex-shrink:0;margin-top:1px;
-              {% if perf_stats.trend == 'improving' or perf_stats.readiness_level == 'strong' %}color:#16a34a;
-              {% elif perf_stats.trend == 'declining' or perf_stats.readiness_level == 'critical' %}color:#ea580c;
-              {% else %}color:#3758f9;{% endif %}"></i>
-            <p style="margin:0;font-size:0.84rem;color:#374151;line-height:1.55;">{{ perf_stats.advice }}</p>
-          </div>
-
-          {# ── Mini score history sparkline (last 10 attempts) ─────────────── #}
-          {% if perf_stats.total_attempts >= 3 %}
-          <div style="margin-top:14px;">
-            <p style="margin:0 0 6px;font-size:0.71rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9098b0;">Recent score history</p>
-            <canvas id="perfSparkline" height="44" style="width:100%;max-height:44px;"></canvas>
+              <div class="mp-tile" title="How much your scores vary from test to test">
+                <div class="mp-tile__v">{% if perf_stats.spread is not None %}&plusmn;{{ perf_stats.spread }}{% else %}&ndash;{% endif %}</div>
+                <div class="mp-tile__l">Consistency
+                  <span class="mp-tile__s {% if perf_stats.consistency == 'steady' %}mp-up{% elif perf_stats.consistency == 'variable' %}mp-down{% endif %}">
+                    {% if perf_stats.consistency %}{{ perf_stats.consistency }}{% else %}needs 4+ tests{% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
           {% endif %}
 
+          {# ── Next best step ───────────────────────────────────────────────── #}
+          {% if perf_stats.advice %}
+          <div class="mp-next is-{{ perf_stats.advice_tone|default:'info' }}">
+            <i class="bx {{ perf_stats.advice_icon }} mp-next__icon"></i>
+            <div class="mp-next__body">
+              <p class="mp-next__k">Your next step</p>
+              <p class="mp-next__t">{{ perf_stats.advice }}</p>
+            </div>
+            {% if perf_stats.advice_cta_url %}
+            <a href="{{ perf_stats.advice_cta_url }}" class="mp-next__cta">{{ perf_stats.advice_cta_label }}</a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if perf_stats.has_data %}
+          {# ── Strongest / focus area ───────────────────────────────────────── #}
+          {% if perf_stats.strongest or perf_stats.weakest %}
+          <div class="mp-insights">
+            {% if perf_stats.strongest %}
+            <div class="mp-insight is-good">
+              <i class="bx bx-medal"></i>
+              <div style="min-width:0;">
+                <p class="mp-insight__k">Strongest area</p>
+                <p class="mp-insight__v">{{ perf_stats.strongest.name }}</p>
+                <p class="mp-insight__m">avg {{ perf_stats.strongest.avg }}% &middot; {{ perf_stats.strongest.count }} test{{ perf_stats.strongest.count|pluralize }}</p>
+              </div>
+            </div>
+            {% endif %}
+            {% if perf_stats.weakest %}
+            <a href="{{ perf_stats.weakest.url }}" class="mp-insight is-warn">
+              <i class="bx bx-target-lock"></i>
+              <div style="min-width:0;">
+                <p class="mp-insight__k">Focus area</p>
+                <p class="mp-insight__v">{{ perf_stats.weakest.name }}</p>
+                <p class="mp-insight__m">avg {{ perf_stats.weakest.avg }}% &middot; {{ perf_stats.weakest.count }} test{{ perf_stats.weakest.count|pluralize }}</p>
+              </div>
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# ── Tests taken, by type ─────────────────────────────────────────── #}
+          <div class="mp-sec"><p class="mp-sec__t">Tests taken</p></div>
+          <div class="mp-types">
+            {% for t in perf_stats.by_type %}
+            <span class="mp-type" title="{{ t.count }} {{ t.label|lower }} &middot; average {{ t.avg }}%">
+              <i class="bx {{ t.icon }}"></i>
+              <b>{{ t.count }}</b> {{ t.label }}
+              <span class="mp-type__avg b-{{ t.band }}">{{ t.avg }}%</span>
+            </span>
+            {% endfor %}
+          </div>
+
+          {# ── Recent tests ─────────────────────────────────────────────────── #}
+          <div class="mp-sec">
+            <p class="mp-sec__t">Recent tests</p>
+            <a href="/dashboard/performance/" class="mp-sec__link">See all</a>
+          </div>
+          <div class="mp-list">
+            {% for t in perf_stats.recent_tests %}
+            <a href="{{ t.url }}" class="mp-row">
+              <span class="mp-row__icon"><i class="bx {{ t.icon }}"></i></span>
+              <div class="mp-row__main">
+                <p class="mp-row__title" title="{{ t.title }}">{{ t.title }}</p>
+                <p class="mp-row__meta">{{ t.type_label }} &middot; {{ t.when }}{% if t.total %} &middot; {{ t.correct }}/{{ t.total }} correct{% endif %}</p>
+              </div>
+              <div class="mp-row__score">
+                <span class="mp-pill b-{{ t.band }}">{{ t.pct }}%</span>
+                {% if t.delta is not None %}
+                <span class="mp-delta {% if t.delta > 0 %}mp-up{% elif t.delta < 0 %}mp-down{% endif %}">
+                  {% if t.delta > 0 %}&uarr; {{ t.delta_abs }} vs last{% elif t.delta < 0 %}&darr; {{ t.delta_abs }} vs last{% else %}same as last{% endif %}
+                </span>
+                {% endif %}
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+
+          {# ── Score history (last 12 tests) ────────────────────────────────── #}
+          {% if perf_stats.recent_tests|length >= 3 %}
+          <div class="mp-sec">
+            <p class="mp-sec__t">Score history</p>
+            <span class="mp-legend"><i></i>{{ perf_stats.target_pct }}% exam-ready</span>
+          </div>
+          <div class="mp-spark">
+            <canvas id="perfSparkline" height="72" aria-label="Scores from your recent tests" role="img"></canvas>
+            <div class="mp-tip" id="perfSparkTip"></div>
+          </div>
+          {% endif %}
           {% endif %}{# end has_data #}
         </div>{# end card-body #}
       </div>
@@ -1547,7 +1713,6 @@
     var pct = parseInt(arc.getAttribute("data-pct") || "0", 10);
     var circ = 251.2;
     var offset = circ - (circ * Math.min(pct, 100) / 100);
-    // Animate from full offset to target
     arc.style.strokeDashoffset = circ;
     var start = null;
     var duration = 900;
@@ -1561,86 +1726,122 @@
     requestAnimationFrame(animateArc);
   }
 
-  /* ── Sparkline (vanilla Canvas) ───────────────────────────────────── */
+  /* ── Score history (vanilla Canvas) ───────────────────────────────── */
   var canvas = document.getElementById("perfSparkline");
+  var tip = document.getElementById("perfSparkTip");
   if (!canvas) return;
-  var scores = {{ perf_stats.recent_scores_json|safe }};
-  if (!scores || scores.length < 2) return;
+  var points = {{ perf_stats.recent_points_json|safe }};
+  var target = {{ perf_stats.target_pct|default:75 }};
+  if (!points || points.length < 2) return;
+  var scores = points.map(function (p) { return p.p; });
 
-  var dpr   = window.devicePixelRatio || 1;
-  var w     = canvas.offsetWidth || canvas.parentElement.offsetWidth || 300;
-  var h     = 44;
-  canvas.width  = w * dpr;
-  canvas.height = h * dpr;
-  canvas.style.width  = w + "px";
-  canvas.style.height = h + "px";
+  var h = 72, padX = 8, padTop = 10, padBottom = 8;
+  var w, minV, maxV;
 
-  var ctx = canvas.getContext("2d");
-  ctx.scale(dpr, dpr);
-
-  var pad   = 6;
-  var minV  = Math.max(0,   Math.min.apply(null, scores) - 5);
-  var maxV  = Math.min(100, Math.max.apply(null, scores) + 5);
-  var rangeV = maxV - minV || 1;
-
-  function xAt(i) { return pad + i * (w - pad * 2) / (scores.length - 1); }
-  function yAt(v) { return pad + (1 - (v - minV) / rangeV) * (h - pad * 2); }
-
-  // Gradient fill
-  var grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, "rgba(55, 88, 249, 0.18)");
-  grad.addColorStop(1, "rgba(55, 88, 249, 0)");
-  ctx.beginPath();
-  ctx.moveTo(xAt(0), yAt(scores[0]));
-  for (var i = 1; i < scores.length; i++) {
-    var xi = xAt(i), yi = yAt(scores[i]);
-    var xp = xAt(i - 1), yp = yAt(scores[i - 1]);
-    ctx.bezierCurveTo((xp + xi) / 2, yp, (xp + xi) / 2, yi, xi, yi);
+  function colorFor(v) {
+    return v >= target ? "#16a34a" : v >= 60 ? "#3758f9" : v >= 50 ? "#d97706" : "#dc2626";
   }
-  ctx.lineTo(xAt(scores.length - 1), h);
-  ctx.lineTo(xAt(0), h);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
+  function xAt(i) { return padX + i * (w - padX * 2) / (scores.length - 1); }
+  function yAt(v) { return padTop + (1 - (v - minV) / (maxV - minV || 1)) * (h - padTop - padBottom); }
 
-  // Line
-  ctx.beginPath();
-  ctx.moveTo(xAt(0), yAt(scores[0]));
-  for (var j = 1; j < scores.length; j++) {
-    var xj = xAt(j), yj = yAt(scores[j]);
-    var xpj = xAt(j - 1), ypj = yAt(scores[j - 1]);
-    ctx.bezierCurveTo((xpj + xj) / 2, ypj, (xpj + xj) / 2, yj, xj, yj);
-  }
-  ctx.strokeStyle = "#3758f9";
-  ctx.lineWidth   = 2;
-  ctx.lineJoin    = "round";
-  ctx.stroke();
+  function draw(active) {
+    var dpr = window.devicePixelRatio || 1;
+    w = canvas.parentElement.clientWidth || 300;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // Dots + tooltips
-  var lastScore = scores[scores.length - 1];
-  for (var k = 0; k < scores.length; k++) {
-    var isLast = k === scores.length - 1;
-    ctx.beginPath();
-    ctx.arc(xAt(k), yAt(scores[k]), isLast ? 4 : 2.5, 0, Math.PI * 2);
-    ctx.fillStyle   = isLast ? "#3758f9" : "rgba(55,88,249,0.5)";
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth   = isLast ? 2 : 1;
-    ctx.fill();
-    ctx.stroke();
-  }
+    // Always keep the exam-ready line in view so progress toward it is visible.
+    minV = Math.max(0, Math.min(Math.min.apply(null, scores), target) - 8);
+    maxV = Math.min(100, Math.max(Math.max.apply(null, scores), target) + 6);
 
-  // Tooltip on hover (shows score)
-  canvas.addEventListener("mousemove", function (e) {
-    var rect = canvas.getBoundingClientRect();
-    var mx = e.clientX - rect.left;
-    var closest = 0;
-    var minDist = Infinity;
-    for (var n = 0; n < scores.length; n++) {
-      var dist = Math.abs(xAt(n) - mx);
-      if (dist < minDist) { minDist = dist; closest = n; }
+    function path() {
+      ctx.beginPath();
+      ctx.moveTo(xAt(0), yAt(scores[0]));
+      for (var i = 1; i < scores.length; i++) {
+        var xi = xAt(i), yi = yAt(scores[i]), xp = xAt(i - 1), yp = yAt(scores[i - 1]);
+        ctx.bezierCurveTo((xp + xi) / 2, yp, (xp + xi) / 2, yi, xi, yi);
+      }
     }
-    canvas.title = scores[closest] + "%";
+
+    // Area
+    var grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, "rgba(55, 88, 249, 0.16)");
+    grad.addColorStop(1, "rgba(55, 88, 249, 0)");
+    path();
+    ctx.lineTo(xAt(scores.length - 1), h);
+    ctx.lineTo(xAt(0), h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Exam-ready line
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = "rgba(34, 197, 94, 0.75)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, yAt(target));
+    ctx.lineTo(w, yAt(target));
+    ctx.stroke();
+    ctx.restore();
+
+    // Line
+    path();
+    ctx.strokeStyle = "#3758f9";
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    // Dots, coloured by band
+    for (var k = 0; k < scores.length; k++) {
+      var big = k === scores.length - 1 || k === active;
+      ctx.beginPath();
+      ctx.arc(xAt(k), yAt(scores[k]), big ? 4.5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = colorFor(scores[k]);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = big ? 2 : 1.5;
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  function showTip(clientX) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = clientX - rect.left, closest = 0, best = Infinity;
+    for (var n = 0; n < scores.length; n++) {
+      var d = Math.abs(xAt(n) - mx);
+      if (d < best) { best = d; closest = n; }
+    }
+    draw(closest);
+    var p = points[closest];
+    tip.textContent = "";
+    var b = document.createElement("b");
+    b.textContent = Math.round(p.p) + "%";
+    tip.appendChild(b);
+    tip.appendChild(document.createTextNode(" · " + p.t + " · " + p.d));
+    var x = Math.min(Math.max(xAt(closest), 60), w - 60);
+    tip.style.left = x + "px";
+    tip.style.top = yAt(scores[closest]) + "px";
+    tip.style.opacity = "1";
+  }
+  function hideTip() { tip.style.opacity = "0"; draw(-1); }
+
+  canvas.addEventListener("mousemove", function (e) { showTip(e.clientX); });
+  canvas.addEventListener("mouseleave", hideTip);
+  canvas.addEventListener("touchstart", function (e) { if (e.touches[0]) showTip(e.touches[0].clientX); }, { passive: true });
+  canvas.addEventListener("touchmove", function (e) { if (e.touches[0]) showTip(e.touches[0].clientX); }, { passive: true });
+  canvas.addEventListener("touchend", function () { setTimeout(hideTip, 1600); });
+
+  var resizeTimer;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { draw(-1); }, 120);
   });
+  draw(-1);
 })();
 </script>
 {% endif %}

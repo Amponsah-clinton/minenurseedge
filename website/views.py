@@ -3758,6 +3758,7 @@ def _get_dashboard_performance_stats(admin, user_id):
     }
 
     if not attempts:
+        stats["total_attempts"] = 0  # counted rows without a usable score shouldn't read as "tests taken"
         tone, icon, text, cta_label, cta_url = _perf_next_step({"unfinished": unfinished, "has_data": False})
         stats.update({"advice": text, "advice_icon": icon, "advice_tone": tone,
                       "advice_cta_label": cta_label, "advice_cta_url": cta_url})
@@ -3789,7 +3790,7 @@ def _get_dashboard_performance_stats(admin, user_id):
 
     recent_questions = sum(a["total"] for a in attempts[:20])
     n_tests = len(attempts)
-    if n_tests >= 8 and recent_questions >= 250:
+    if n_tests >= 10 and recent_questions >= 300:
         confidence = "high"
     elif n_tests >= 3 and recent_questions >= 60:
         confidence = "medium"
@@ -3860,10 +3861,15 @@ def _get_dashboard_performance_stats(admin, user_id):
             "avg": int(round(sum(r["pct"] for r in latest) / len(latest))),
             "url": practice_url.get(rows[0]["kind"], "/dashboard/general-tests/"),
         })
+    # Rank on averages pulled toward the student's overall mean (2 pseudo-tests), so a
+    # single lucky or unlucky test doesn't outrank a subject with a solid track record.
+    def _shrunk(s):
+        return (s["avg"] * s["count"] + overall_avg * 2) / (s["count"] + 2)
+
     strongest = weakest = None
     if subject_stats:
-        top = max(subject_stats, key=lambda s: (s["avg"], s["count"]))
-        low = min(subject_stats, key=lambda s: (s["avg"], -s["count"]))
+        top = max(subject_stats, key=_shrunk)
+        low = min(subject_stats, key=_shrunk)
         if len(subject_stats) >= 2 and top["avg"] >= 60:
             strongest = top
         if low["avg"] < _PERF_TARGET_PCT and (low["avg"] < 60 or (strongest and top["avg"] - low["avg"] >= 10)):

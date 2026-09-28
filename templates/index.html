@@ -698,162 +698,93 @@
             .ne-footer-bottom { padding: 16px 24px; font-size: 12.5px; }
         }
         /* ── Stats Section ── */
+        /* Same language as the hero: ink on warm paper, one gold rule, no chrome. */
         .ne-stats-section {
-            position: relative;
-            padding: 82px 0 74px;
-            background: #0a1628;
-            overflow: hidden;
-        }
-        .ne-stats-section::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background-image: radial-gradient(circle, rgba(255,255,255,0.028) 1px, transparent 1px);
-            background-size: 26px 26px;
-            pointer-events: none;
-        }
-        .ne-stats-section::after {
-            content: "";
-            position: absolute;
-            top: -120px;
-            left: -120px;
-            width: 400px;
-            height: 400px;
-            border-radius: 50%;
-            background: rgba(74,158,255,0.06);
-            filter: blur(60px);
-            pointer-events: none;
+            padding: 96px 0;
+            background: #faf7f0;
+            border-top: 1px solid #ebe5d8;
+            border-bottom: 1px solid #ebe5d8;
+            font-family: "Open Sans", sans-serif;
         }
         .ne-stats-container {
-            position: relative;
-            z-index: 1;
-            max-width: 1100px;
+            max-width: 1180px;
             margin: 0 auto;
-            padding: 0 28px;
+            padding: 0 32px;
+            display: grid;
+            grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+            gap: 72px;
+            align-items: start;
         }
-        .ne-stats-header {
-            text-align: center;
-            margin-bottom: 54px;
-        }
-        .ne-stats-eyebrow {
-            margin: 0 0 12px;
-            font-size: 11.5px;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            color: #4a9eff;
-            text-transform: uppercase;
+        .ne-stats-rule {
+            display: block;
+            width: 30px;
+            height: 4px;
+            background: #d2b356;
+            margin-bottom: 22px;
         }
         .ne-stats-title {
             margin: 0;
-            font-size: 30px;
+            padding: 0;
+            font-size: 38px;
             font-weight: 800;
-            color: #ffffff;
-            line-height: 1.3;
+            line-height: 1.12;
+            letter-spacing: -0.025em;
+            color: #111111;
         }
-        .ne-stats-title span { color: #4a9eff; }
+        .ne-stats-lede {
+            margin: 18px 0 0;
+            max-width: 340px;
+            font-size: 16px;
+            line-height: 1.65;
+            color: #55555d;
+        }
         .ne-stats-grid {
+            margin: 0;
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 22px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            column-gap: 48px;
         }
-        .ne-stat-card {
-            position: relative;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px;
-            padding: 38px 22px 32px;
-            text-align: center;
-            overflow: hidden;
-            transition: transform 0.3s ease, box-shadow 0.3s ease,
-                        background 0.3s ease, border-color 0.3s ease;
+        .ne-stat {
+            padding: 26px 0 30px;
+            border-top: 1px solid #ddd6c6;
         }
-        /* inner ambient glow */
-        .ne-stat-card::after {
-            content: "";
-            position: absolute;
-            top: -40px; left: 50%;
-            transform: translateX(-50%);
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: rgba(74,158,255,0.08);
-            filter: blur(28px);
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-        .ne-stat-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 24px 52px rgba(74,158,255,0.18),
-                        0 8px 24px rgba(0,0,0,0.32);
-            background: rgba(74,158,255,0.07);
-            border-color: rgba(74,158,255,0.25);
-        }
-        .ne-stat-icon-wrap {
-            width: 54px;
-            height: 54px;
-            border-radius: 15px;
-            background: rgba(74,158,255,0.1);
-            border: 1px solid rgba(74,158,255,0.18);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 22px;
-            transition: background 0.3s ease, box-shadow 0.3s ease;
-        }
-        .ne-stat-card:hover .ne-stat-icon-wrap {
-            background: rgba(74,158,255,0.2);
-            box-shadow: 0 0 22px rgba(74,158,255,0.28);
-        }
-        .ne-stat-icon-wrap .fa {
-            font-size: 22px;
-            color: #4a9eff;
-        }
-        .ne-stat-number-row {
-            display: flex;
-            align-items: flex-start;
-            justify-content: center;
-            gap: 2px;
-            margin-bottom: 11px;
-        }
+        .ne-stat:nth-child(-n+2) { border-top: 2px solid #111111; }
         .ne-stat-number {
-            font-size: 52px;
-            font-weight: 900;
-            color: #ffffff;
+            margin: 0;
+            font-size: 60px;
+            font-weight: 800;
             line-height: 1;
-            letter-spacing: -2px;
-            font-family: 'Montserrat', 'Poppins', sans-serif;
-            text-shadow: 0 0 36px rgba(74,158,255,0.35);
+            letter-spacing: -0.04em;
+            color: #111111;
+            font-variant-numeric: tabular-nums;
         }
-        .ne-stat-suffix {
-            font-size: 28px;
-            font-weight: 900;
-            color: #4a9eff;
-            line-height: 1;
-            margin-top: 6px;
+        .ne-stat-number span {
+            margin-left: 3px;
+            font-size: 0.5em;
+            letter-spacing: 0;
+            color: #8a6a18;
+            vertical-align: 0.62em;
         }
         .ne-stat-label {
-            font-size: 11.5px;
-            font-weight: 600;
-            color: #7a94b4;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+            margin: 12px 0 0;
+            max-width: 250px;
+            font-size: 15px;
+            line-height: 1.55;
+            color: #4a4a52;
         }
-        .ne-stat-divider {
-            width: 36px;
-            height: 2px;
-            background: rgba(74,158,255,0.3);
-            border-radius: 2px;
-            margin: 10px auto 11px;
-        }
-        @media only screen and (max-width: 900px) {
-            .ne-stats-grid { grid-template-columns: repeat(2, 1fr); }
+        @media only screen and (max-width: 960px) {
+            .ne-stats-section { padding: 72px 0; }
+            .ne-stats-container { grid-template-columns: 1fr; gap: 36px; }
+            .ne-stats-lede { max-width: 480px; }
         }
         @media only screen and (max-width: 540px) {
-            .ne-stats-section { padding: 52px 0 46px; }
-            .ne-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
-            .ne-stats-title { font-size: 22px; }
+            .ne-stats-section { padding: 56px 0; }
+            .ne-stats-container { padding: 0 16px; }
+            .ne-stats-title { font-size: 28px; }
+            .ne-stats-grid { column-gap: 20px; }
+            .ne-stat { padding: 20px 0 22px; }
             .ne-stat-number { font-size: 40px; }
-            .ne-stat-card { padding: 28px 14px 24px; }
+            .ne-stat-label { font-size: 13.5px; }
         }
     </style>
 </head>
@@ -1100,55 +1031,31 @@
         </section>
 
         <!-- Stats Section -->
-        <section id="ne-stats" class="ne-stats-section" aria-label="NursesEdge platform statistics">
+        <section id="ne-stats" class="ne-stats-section" aria-labelledby="ne-stats-title">
             <div class="ne-stats-container">
-                <div class="ne-stats-header wow fadeInUp" data-wow-delay="0.1s">
-                    <p class="ne-stats-eyebrow">By the Numbers</p>
-                    <h2 class="ne-stats-title">Trusted by nursing students <span>across Ghana</span></h2>
+                <div class="ne-stats-intro">
+                    <span class="ne-stats-rule" aria-hidden="true"></span>
+                    <h2 class="ne-stats-title" id="ne-stats-title">Trusted by nursing students across Ghana.</h2>
+                    <p class="ne-stats-lede">From first-years finding their feet to final-years sitting the NMC licensure exam.</p>
                 </div>
-                <div class="ne-stats-grid">
-
-                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.15s">
-                        <div class="ne-stat-icon-wrap"><i class="fa fa-user-md" aria-hidden="true"></i></div>
-                        <div class="ne-stat-number-row">
-                            <span class="ne-stat-number" data-target="{{ stat_students|default:220 }}">0</span>
-                            <span class="ne-stat-suffix">+</span>
-                        </div>
-                        <div class="ne-stat-divider"></div>
-                        <div class="ne-stat-label">Active Students</div>
+                <dl class="ne-stats-grid">
+                    <div class="ne-stat">
+                        <dt class="ne-stat-number">{{ stat_students|default:220|floatformat:"0g" }}<span>+</span></dt>
+                        <dd class="ne-stat-label">nursing students have signed up to prepare with NursesEdge</dd>
                     </div>
-
-                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.25s">
-                        <div class="ne-stat-icon-wrap"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></div>
-                        <div class="ne-stat-number-row">
-                            <span class="ne-stat-number" data-target="{{ stat_questions|default:0 }}">0</span>
-                            <span class="ne-stat-suffix">+</span>
-                        </div>
-                        <div class="ne-stat-divider"></div>
-                        <div class="ne-stat-label">Practice Questions</div>
+                    <div class="ne-stat">
+                        <dt class="ne-stat-number">{{ stat_questions|default:5000|floatformat:"0g" }}<span>+</span></dt>
+                        <dd class="ne-stat-label">practice questions across the question bank and NCLEX-RN sets</dd>
                     </div>
-
-                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.35s">
-                        <div class="ne-stat-icon-wrap"><i class="fa fa-trophy" aria-hidden="true"></i></div>
-                        <div class="ne-stat-number-row">
-                            <span class="ne-stat-number" data-target="95">0</span>
-                            <span class="ne-stat-suffix">%</span>
-                        </div>
-                        <div class="ne-stat-divider"></div>
-                        <div class="ne-stat-label">Student Pass Rate</div>
+                    <div class="ne-stat">
+                        <dt class="ne-stat-number">95<span>%</span></dt>
+                        <dd class="ne-stat-label">student pass rate</dd>
                     </div>
-
-                    <div class="ne-stat-card wow fadeInUp" data-wow-delay="0.45s">
-                        <div class="ne-stat-icon-wrap"><i class="fa fa-book" aria-hidden="true"></i></div>
-                        <div class="ne-stat-number-row">
-                            <span class="ne-stat-number" data-target="120">0</span>
-                            <span class="ne-stat-suffix">+</span>
-                        </div>
-                        <div class="ne-stat-divider"></div>
-                        <div class="ne-stat-label">Topics Covered</div>
+                    <div class="ne-stat">
+                        <dt class="ne-stat-number">120<span>+</span></dt>
+                        <dd class="ne-stat-label">topics covered, from Fundamentals of Nursing to Pharmacology</dd>
                     </div>
-
-                </div>
+                </dl>
             </div>
         </section>
         <!-- End Stats Section -->
@@ -1437,38 +1344,6 @@
             }, fadeMs);
         }
         setInterval(step, everyMs);
-    })();
-    /* ── Stats counter ── */
-    (function () {
-        function easeOutExpo(t) {
-            return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
-        }
-        function animateCount(el, target, duration) {
-            var start = performance.now();
-            (function frame(now) {
-                var p = Math.min((now - start) / duration, 1);
-                el.textContent = Math.floor(easeOutExpo(p) * target).toLocaleString();
-                if (p < 1) requestAnimationFrame(frame);
-                else el.textContent = target.toLocaleString();
-            })(start);
-        }
-        var section = document.getElementById('ne-stats');
-        if (!section) return;
-        var fired = false;
-        function run() {
-            if (fired) return;
-            fired = true;
-            section.querySelectorAll('.ne-stat-number[data-target]').forEach(function (el) {
-                animateCount(el, parseInt(el.getAttribute('data-target'), 10), 2400);
-            });
-        }
-        if ('IntersectionObserver' in window) {
-            new IntersectionObserver(function (entries, obs) {
-                entries.forEach(function (e) {
-                    if (e.isIntersecting) { run(); obs.disconnect(); }
-                });
-            }, { threshold: 0.25 }).observe(section);
-        } else { run(); }
     })();
 </script>
 
