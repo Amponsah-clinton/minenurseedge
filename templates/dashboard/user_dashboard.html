@@ -1100,7 +1100,9 @@
   }
   box.addEventListener("pointermove", function (e) { show(nearest(e)); });
   box.addEventListener("pointerdown", function (e) { show(nearest(e)); });
-  box.addEventListener("pointerleave", hide);
+  /* A lifted finger fires pointerleave, so touch keeps the tooltip until a tap elsewhere */
+  box.addEventListener("pointerleave", function (e) { if (e.pointerType !== "touch") hide(); });
+  document.addEventListener("pointerdown", function (e) { if (!box.contains(e.target)) hide(); });
 
   draw();
   var rt;
