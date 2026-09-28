@@ -11173,6 +11173,24 @@ def _lecture_body_for_render(note_row):
 
 
 DEFAULT_LECTURE_NOTE_CATEGORY_LABEL = "Surgery"
+LECTURE_NOTE_NEW_DAYS = 14
+_LECTURE_TAG_RE = re.compile(r"<[^>]+>")
+_LECTURE_HEADING_RE = re.compile(r"<h[1-3][\s>]", re.IGNORECASE)
+
+
+def _lecture_note_reading_meta(body_html, created_at=None):
+    """Reading time (minutes, ~200 wpm), section count (h1–h3) and whether the note is recent."""
+    text = _LECTURE_TAG_RE.sub(" ", body_html or "")
+    words = len(text.split())
+    is_new = False
+    created = _pay_parse_dt(created_at)
+    if created:
+        is_new = datetime.now(timezone.utc) - created <= timedelta(days=LECTURE_NOTE_NEW_DAYS)
+    return {
+        "reading_minutes": max(1, math.ceil(words / 200)),
+        "section_count": len(_LECTURE_HEADING_RE.findall(body_html or "")),
+        "is_new": is_new,
+    }
 
 
 def _group_student_lecture_notes(notes_list):
@@ -11186,7 +11204,11 @@ def _group_student_lecture_notes(notes_list):
         buckets.keys(),
         key=lambda x: (0 if x == DEFAULT_LECTURE_NOTE_CATEGORY_LABEL else 1, x.lower()),
     )
-    return [{"name": name, "notes": buckets[name]} for name in order]
+    # `tone` picks a subject colour in the template; stable for a given set of subjects.
+    return [
+        {"name": name, "slug": f"subject-{i}", "tone": i % 6, "notes": buckets[name]}
+        for i, name in enumerate(order)
+    ]
 
 
 def student_lecture_notes(request):
@@ -11213,14 +11235,15 @@ def student_lecture_notes(request):
             .data
             or []
         )
-        notes = [
-            {
+        notes = []
+        for n in raw_notes:
+            body = _lecture_body_for_render(n)
+            notes.append({
                 **n,
-                "render_html": _lecture_body_for_render(n),
+                "render_html": body,
                 "render_font_px": _lecture_display_font_px(n),
-            }
-            for n in raw_notes
-        ]
+                **_lecture_note_reading_meta(body, n.get("created_at")),
+            })
     except Exception:
         notes = []
 

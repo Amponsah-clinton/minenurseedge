@@ -4,6 +4,13 @@
         #header nav#nav-main ul li {
             vertical-align: top;
         }
+        /* Large screens: nudge the nav group toward the right edge, past the 1245px row,
+           while staying 48px clear of the viewport edge (and the page-border frame). */
+        @media all and (min-width: 1025px) {
+            #header aside {
+                margin-right: min(0px, max(-120px, calc((1245px - 100vw) / 2 + 48px)));
+            }
+        }
         #header nav#nav-main ul li.nav-cta {
             margin-left: 10px;
         }

@@ -34,8 +34,11 @@
   /* Desktop / tablet: grid */
   .cvl-grid {
     display: none;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  @media (min-width: 1200px) {
+    .cvl-grid { grid-template-columns: repeat(4, 1fr); }
   }
   @media (min-width: 768px) {
     .cvl-grid { display: grid; }
@@ -57,13 +60,23 @@
     cursor: zoom-in;
     text-align: left;
   }
+  /* Uniform frame; contain (not cover) so the whole image is always visible */
   .cvl-card img {
     width: 100%;
+    aspect-ratio: 4 / 5;
     height: auto;
+    object-fit: contain;
+    padding: 8px;
+    box-sizing: border-box;
     display: block;
-    vertical-align: middle;
     background: #fafbfc;
     pointer-events: none;
+    transition: transform 0.2s ease;
+  }
+  .cvl-card:hover img { transform: scale(1.02); }
+  .cvl-card button.cvl-thumb:focus-visible {
+    outline: 2px solid #1f2d40;
+    outline-offset: -2px;
   }
 
   /* Phone: single image + controls */
@@ -167,8 +180,11 @@
     cursor: default;
   }
   .cvl-lightbox__inner img {
-    max-width: min(100vw - 24px, 100%);
-    max-height: min(100vh - 24px, 100%);
+    /* Viewport units, not %: the parent has no definite height, so % max-height is ignored
+       and tall images overflow (top/bottom clipped) on desktop. */
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
     width: auto;
     height: auto;
     object-fit: contain;
