@@ -3422,251 +3422,505 @@ def _build_weekly_peer_comparison(admin_client, user_id):
     }
 
 
+# ── Dashboard "My Performance" card ─────────────────────────────────────────
+_PERF_TARGET_PCT = 75  # "exam-ready" line, shared by the readiness levels and the sparkline
+_PERF_PASS_PCT = 50
+# kind -> (label, plural, readiness weight, icon). Longer, exam-style formats say more
+# about exam readiness than a 10-question quiz, so they weigh more.
+_PERF_KINDS = {
+    "mock": ("Mock Exam", "Mock exams", 1.5, "bx-trophy"),
+    "general": ("General Test", "General tests", 1.2, "bx-edit-alt"),
+    "free": ("Free Test", "Free tests", 0.9, "bx-gift"),
+    "nclex": ("NCLEX Set", "NCLEX sets", 1.0, "bx-globe"),
+    "quiz": ("Practice Quiz", "Quizzes", 0.8, "bx-bulb"),
+}
+
+
+def _perf_parse_ts(value):
+    """Parse a Supabase timestamp/date into an aware UTC datetime (None if unusable)."""
+    if not value:
+        return None
+    txt = str(value).strip().replace("Z", "+00:00").replace(" ", "T", 1)
+    txt = re.sub(r"\.(\d+)", lambda m: "." + (m.group(1) + "000000")[:6], txt, count=1)
+    try:
+        dt = datetime.fromisoformat(txt)
+    except ValueError:
+        try:
+            dt = datetime.fromisoformat(txt[:10])
+        except ValueError:
+            return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _perf_when(ts, now):
+    days = (now.date() - ts.date()).days
+    if days <= 0:
+        return "Today"
+    if days == 1:
+        return "Yesterday"
+    if days < 7:
+        return f"{days} days ago"
+    if days < 35:
+        weeks = days // 7
+        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    return f"{ts.day} {ts.strftime('%b')}"
+
+
+def _perf_band(pct):
+    if pct >= _PERF_TARGET_PCT:
+        return "strong"
+    if pct >= 60:
+        return "ok"
+    if pct >= _PERF_PASS_PCT:
+        return "weak"
+    return "low"
+
+
+def _perf_fetch(admin, table, columns, uid, limit, require_submitted=True):
+    """Newest-first completed attempts plus the exact total ([], 0 if the table is unavailable)."""
+    try:
+        query = admin.table(table).select(columns, count="exact").eq("student_id", uid)
+        if require_submitted:
+            query = query.not_.is_("submitted_at", "null")
+        resp = query.order("submitted_at", desc=True, nullsfirst=False).limit(limit).execute()
+        rows = resp.data or []
+        return rows, max(resp.count or 0, len(rows))
+    except Exception:
+        logging.getLogger(__name__).warning("Dashboard performance fetch failed for %s", table, exc_info=True)
+        return [], 0
+
+
+def _perf_title_map(admin, table, ids, fallback):
+    ids = sorted({str(i) for i in ids if i})
+    if not ids:
+        return {}
+    try:
+        rows = admin.table(table).select("id, title").in_("id", ids).execute().data or []
+    except Exception:
+        return {}
+    return {str(r.get("id")): (r.get("title") or fallback) for r in rows}
+
+
+def _perf_unfinished_tests(admin, uid, now):
+    """Paused or still-running general/free tests that can be resumed, newest first."""
+    out = []
+    sources = (
+        ("general", "general_test_attempts", "/dashboard/general-tests/attempt/"),
+        ("free", "free_test_attempts", "/dashboard/free-test/attempt/"),
+    )
+    for kind, table, base_url in sources:
+        try:
+            rows = (
+                admin.table(table)
+                .select("id, paper_title, status, started_at, resumed_at, time_limit_minutes, paused_remaining_seconds, total_questions")
+                .eq("student_id", uid)
+                .is_("submitted_at", "null")
+                .in_("status", ["paused", "in_progress"])
+                .order("started_at", desc=True)
+                .limit(3)
+                .execute()
+                .data
+                or []
+            )
+        except Exception:
+            continue
+        for r in rows:
+            if r.get("status") == "paused":
+                secs_left = int(r.get("paused_remaining_seconds") or 0)
+            else:
+                # Same end-time rule the attempt view uses; expired runs can't be resumed.
+                if r.get("resumed_at"):
+                    anchor = _perf_parse_ts(r.get("resumed_at"))
+                    budget = int(r.get("paused_remaining_seconds") or 0)
+                else:
+                    anchor = _perf_parse_ts(r.get("started_at"))
+                    budget = int(r.get("time_limit_minutes") or 90) * 60
+                if anchor is None:
+                    continue
+                secs_left = int(budget - (now - anchor).total_seconds())
+            if secs_left <= 0:
+                continue
+            started = _perf_parse_ts(r.get("started_at")) or now
+            out.append({
+                "title": r.get("paper_title") or _PERF_KINDS[kind][0],
+                "type_label": _PERF_KINDS[kind][0],
+                "is_paused": r.get("status") == "paused",
+                "minutes_left": max(1, secs_left // 60),
+                "total": int(r.get("total_questions") or 0),
+                "url": f"{base_url}{r.get('id')}/",
+                "_started": started,
+            })
+    out.sort(key=lambda u: u["_started"], reverse=True)
+    for u in out:
+        u.pop("_started", None)
+    return out
+
+
+def _perf_next_step(ctx):
+    """Pick the single most useful next action. Returns (tone, icon, text, cta_label, cta_url)."""
+    target = _PERF_TARGET_PCT
+    unfinished = ctx["unfinished"]
+    if unfinished:
+        u = unfinished[0]
+        state = "paused" if u["is_paused"] else "still open"
+        return ("info", "bx-play-circle",
+                f"Your {u['type_label'].lower()} “{u['title']}” is {state} with {u['minutes_left']} min left. "
+                "Finish it so it counts toward your readiness score.",
+                "Resume test", u["url"])
+    if not ctx["has_data"]:
+        return ("info", "bx-play-circle",
+                "Take your first mock exam or general test to unlock your readiness score, trends and personalised tips.",
+                "Take a test", "/dashboard/general-tests/")
+
+    last = ctx["last"]
+    idle = ctx["last_activity_days_ago"] or 0
+    trend, delta, window = ctx["trend"], ctx["trend_delta"], ctx["trend_window"]
+    weakest = ctx["weakest"]
+    if idle >= 3:
+        return ("warn", "bx-time-five",
+                f"It’s been {idle} days since you last studied. Memory fades fastest in the first week — "
+                "a short test today gets you back in rhythm.",
+                "Start a test", "/dashboard/general-tests/")
+    if last["pct"] < _PERF_PASS_PCT:
+        return ("warn", "bx-search-alt",
+                f"You scored {last['pct_int']}% on “{last['title']}”. Go through the questions you missed while "
+                "they’re fresh — it’s the fastest way to lift your next score.",
+                "Review answers", last["url"])
+    if trend == "declining":
+        return ("warn", "bx-trending-down",
+                f"Your scores have slipped about {delta} points over your last {window} tests. Slow down, review the "
+                "wrong answers from your latest attempts, then retest.",
+                "Review latest test", last["url"])
+    if weakest and weakest["avg"] < 60:
+        return ("info", "bx-target-lock",
+                f"{weakest['name']} is your weakest area ({weakest['avg']}% across {weakest['count']} "
+                f"test{'s' if weakest['count'] != 1 else ''}). Read the notes on it, then practise it again.",
+                "Practise it", weakest["url"])
+    if ctx["mock_count"] == 0 and ctx["total_attempts"] >= 3:
+        return ("info", "bx-trophy",
+                f"You’ve taken {ctx['total_attempts']} practice tests but no mock exam yet. A timed mock shows how "
+                "you’d perform under real exam conditions.",
+                "Take a mock exam", "/dashboard/mock-exams/")
+    if ctx["confidence"] == "low":
+        need = max(1, 3 - ctx["total_attempts"])
+        return ("info", "bx-bar-chart-alt-2",
+                f"Take {need} more test{'s' if need != 1 else ''} to firm up your readiness score — right now it’s "
+                "based on very little data.",
+                "Take a test", "/dashboard/general-tests/")
+    if ctx["readiness_level"] == "strong":
+        return ("good", "bx-trophy",
+                f"You’re in the exam-ready range at {ctx['readiness_pct']}%. Stay sharp: a mock exam every 2–3 days "
+                "and review every wrong answer.",
+                "Mock exams", "/dashboard/mock-exams/")
+    gap = max(0, target - ctx["readiness_pct"])
+    if trend == "improving":
+        return ("good", "bx-trending-up",
+                f"Up {delta} points over your last {window} tests — keep the momentum. You’re {gap} points "
+                f"from the {target}% exam-ready line.",
+                "Keep practising", "/dashboard/general-tests/")
+    if ctx["consistency"] == "variable":
+        return ("info", "bx-pulse",
+                f"Your scores swing by about ±{ctx['spread']} points between tests — that usually points to topic "
+                "gaps rather than a ceiling. Check which tests pulled you down below.",
+                "Full report", "/dashboard/performance/")
+    return ("info", "bx-target-lock",
+            f"You’re {gap} points from the {target}% exam-ready line. Focus on tests where you scored under 60% "
+            "and review each wrong answer.",
+            "Practise", "/dashboard/general-tests/")
+
+
 def _get_dashboard_performance_stats(admin, user_id):
     """
-    Compute a rich performance snapshot for the dashboard stats card.
-    Pulls from mock_attempts, general_test_attempts, practice_quiz_attempts,
-    nclex_attempts, and flashcard_daily_reviews — no new tables required.
-    Returns a dict safe to pass directly to the template context.
+    Snapshot of every test the student has taken, for the dashboard "My Performance" card.
+
+    Pulls mock, general, free, NCLEX and practice-quiz attempts (plus flashcard review days
+    for the streak) and derives: exact totals, a recency- and length-weighted readiness
+    score with a confidence level, a regression-based trend, score consistency,
+    strongest/weakest subjects, recent tests with "vs last time" deltas, resumable tests,
+    and one prioritised next step. Returns a dict safe to pass to the template.
     """
-    from datetime import date as _date, timedelta as _td
-
     uid = str(user_id)
-    today = _date.today()
+    now = datetime.now(timezone.utc)
+    today = now.date()
 
-    # ── Fetch all completed attempts (lightweight selects) ────────────────────
-    mock_rows = (
-        admin.table("mock_attempts")
-        .select("percentage, submitted_at")
-        .eq("student_id", uid)
-        .not_.is_("submitted_at", "null")
-        .order("submitted_at", desc=True)
-        .limit(50)
-        .execute()
-        .data or []
-    )
-    gen_rows = (
-        admin.table("general_test_attempts")
-        .select("percentage, submitted_at")
-        .eq("student_id", uid)
-        .not_.is_("submitted_at", "null")
-        .order("submitted_at", desc=True)
-        .limit(50)
-        .execute()
-        .data or []
-    )
-    quiz_rows = (
-        admin.table("practice_quiz_attempts")
-        .select("percentage, submitted_at")
-        .eq("student_id", uid)
-        .not_.is_("submitted_at", "null")
-        .order("submitted_at", desc=True)
-        .limit(50)
-        .execute()
-        .data or []
-    )
-    nclex_rows = (
-        admin.table("nclex_attempts")
-        .select("percentage, submitted_at")
-        .eq("student_id", uid)
-        .not_.is_("submitted_at", "null")
-        .order("submitted_at", desc=True)
-        .limit(30)
-        .execute()
-        .data or []
-    )
-    flashcard_rows = (
-        admin.table("flashcard_daily_reviews")
-        .select("review_date")
-        .eq("student_id", uid)
-        .order("review_date", desc=True)
-        .limit(60)
-        .execute()
-        .data or []
-    )
+    mock_rows, mock_total = _perf_fetch(
+        admin, "mock_attempts", "id, mock_exam_id, percentage, score, total_questions, submitted_at", uid, 100)
+    gen_rows, gen_total = _perf_fetch(
+        admin, "general_test_attempts", "id, paper_title, percentage, score, total_questions, submitted_at", uid, 100)
+    free_rows, free_total = _perf_fetch(
+        admin, "free_test_attempts", "id, paper_title, percentage, score, total_questions, submitted_at", uid, 50)
+    nclex_rows, nclex_total = _perf_fetch(admin, "nclex_attempts", "*", uid, 50)
+    # Quiz attempts are inserted already complete, so submitted_at may come from a DB default.
+    quiz_rows, quiz_total = _perf_fetch(admin, "practice_quiz_attempts", "*", uid, 100, require_submitted=False)
+    try:
+        flashcard_rows = (
+            admin.table("flashcard_daily_reviews")
+            .select("review_date")
+            .eq("student_id", uid)
+            .order("review_date", desc=True)
+            .limit(60)
+            .execute()
+            .data
+            or []
+        )
+    except Exception:
+        flashcard_rows = []
 
-    # ── Combine all scored attempts sorted newest-first ───────────────────────
-    all_attempts = []
-    for row in mock_rows + gen_rows + quiz_rows + nclex_rows:
+    counts = {"mock": mock_total, "general": gen_total, "free": free_total, "nclex": nclex_total, "quiz": quiz_total}
+    fetched = len(mock_rows) + len(gen_rows) + len(free_rows) + len(nclex_rows) + len(quiz_rows)
+    total_attempts = sum(counts.values())
+
+    mock_titles = _perf_title_map(admin, "mock_exams", [r.get("mock_exam_id") for r in mock_rows], "Mock Exam")
+    quiz_titles = _perf_title_map(admin, "practice_quizzes", [r.get("quiz_id") for r in quiz_rows], "Quiz")
+
+    attempts = []
+
+    def add(kind, row, title, subject, group, url):
         pct = row.get("percentage")
-        ts = row.get("submitted_at") or ""
-        if pct is None:
-            continue
+        ts = _perf_parse_ts(row.get("submitted_at") or row.get("created_at"))
+        if pct is None or ts is None:
+            return
+        pct = max(0.0, min(100.0, float(pct)))
+        total = int(row.get("total_questions") or 0)
+        correct = row.get("correct_count") if kind == "nclex" else row.get("score")
         try:
-            day = _date.fromisoformat(str(ts)[:10])
-        except Exception:
-            continue
-        all_attempts.append({"pct": float(pct), "day": day})
-    all_attempts.sort(key=lambda x: x["day"], reverse=True)
+            correct = int(correct)
+        except (TypeError, ValueError):
+            correct = round(pct * total / 100) if total else 0
+        label, _plural, weight, icon = _PERF_KINDS[kind]
+        attempts.append({
+            "kind": kind, "type_label": label, "icon": icon, "weight": weight,
+            "title": title, "subject": subject, "group": f"{kind}:{group}",
+            "pct": round(pct, 1), "pct_int": int(round(pct)), "band": _perf_band(pct),
+            "correct": min(max(correct, 0), total) if total else 0, "total": total,
+            "ts": ts, "url": url,
+        })
 
-    total_attempts = len(all_attempts)
+    for r in mock_rows:
+        exam_id = r.get("mock_exam_id")
+        title = mock_titles.get(str(exam_id), "Mock Exam")
+        add("mock", r, title, _subject_label_from_mock_title(title), exam_id,
+            f"/dashboard/mock-exams/{exam_id}/result/" if exam_id else "/dashboard/mock-exams/")
+    for r in gen_rows:
+        title = r.get("paper_title") or "General Test"
+        paper = title.split(" — General Test")[0].strip() or title
+        add("general", r, title, paper, paper, f"/dashboard/general-tests/attempt/{r.get('id')}/result/")
+    for r in free_rows:
+        add("free", r, r.get("paper_title") or "Free Test", None, "free",
+            f"/dashboard/free-test/attempt/{r.get('id')}/result/")
+    for r in nclex_rows:
+        gi = r.get("group_index")
+        add("nclex", r, f"NCLEX Set {gi}" if gi is not None else "NCLEX Practice", None, gi, "/dashboard/nclex/")
+    for r in quiz_rows:
+        title = quiz_titles.get(str(r.get("quiz_id")), "Quiz")
+        add("quiz", r, title, title, r.get("quiz_id"),
+            f"/dashboard/quizzes/attempt/{r.get('id')}/result/" if r.get("id") else "/dashboard/quizzes/")
+    attempts.sort(key=lambda a: a["ts"], reverse=True)
 
-    if total_attempts == 0:
-        return {
-            "has_data": False,
-            "total_attempts": 0,
-            "overall_avg": 0,
-            "best_score": 0,
-            "recent_avg": 0,
-            "trend": "none",
-            "trend_delta": 0,
-            "streak": 0,
-            "sessions_this_week": 0,
-            "last_activity_days_ago": None,
-            "readiness_level": "none",
-            "readiness_pct": 0,
-            "advice": "Take your first mock exam or general test to see your performance stats here.",
-            "advice_icon": "bx-play-circle",
-            "mock_count": 0,
-            "gen_count": len(gen_rows),
-            "quiz_count": len(quiz_rows),
-        }
-
-    scores = [a["pct"] for a in all_attempts]
-    overall_avg = round(sum(scores) / len(scores), 1)
-    best_score = round(max(scores), 1)
-
-    # Recent avg: last 5 attempts; baseline: attempts 6–15
-    recent_5 = scores[:5]
-    baseline_10 = scores[5:15]
-    recent_avg = round(sum(recent_5) / len(recent_5), 1)
-    if baseline_10:
-        baseline_avg = sum(baseline_10) / len(baseline_10)
-        delta = recent_avg - baseline_avg
-        if delta >= 3:
-            trend = "improving"
-        elif delta <= -3:
-            trend = "declining"
-        else:
-            trend = "stable"
-        trend_delta = round(abs(delta), 1)
-    else:
-        trend = "new"
-        trend_delta = 0
-
-    # ── Activity streak (any study day) ──────────────────────────────────────
-    active_days = set()
-    for a in all_attempts:
-        active_days.add(a["day"])
+    # ── Study days (tests + flashcard reviews) → streak / activity ────────────
+    flash_days = set()
     for row in flashcard_rows:
-        rd = row.get("review_date") or ""
-        try:
-            active_days.add(_date.fromisoformat(str(rd)[:10]))
-        except Exception:
-            pass
-
+        d = _perf_parse_ts(row.get("review_date"))
+        if d:
+            flash_days.add(d.date())
+    active_days = {a["ts"].date() for a in attempts} | flash_days
     streak = 0
-    check_day = today
+    check_day = today if today in active_days else today - timedelta(days=1)
     while check_day in active_days:
         streak += 1
-        check_day -= _td(days=1)
-    if streak == 0 and (today - _td(days=1)) in active_days:
-        check_day = today - _td(days=1)
-        while check_day in active_days:
-            streak += 1
-            check_day -= _td(days=1)
+        check_day -= timedelta(days=1)
+    week_floor = today - timedelta(days=7)
+    last_activity_days_ago = (today - max(active_days)).days if active_days else None
 
-    # ── Sessions this week ────────────────────────────────────────────────────
-    week_ago = today - _td(days=7)
-    sessions_this_week = sum(
-        1 for a in all_attempts if a["day"] >= week_ago
-    ) + len({
-        row.get("review_date", "")[:10]
-        for row in flashcard_rows
-        if row.get("review_date", "")[:10] >= str(week_ago)
-    })
+    unfinished = _perf_unfinished_tests(admin, uid, now)
+    stats = {
+        "has_data": False,
+        "total_attempts": total_attempts,
+        "type_counts": counts,
+        "mock_count": mock_total,
+        "gen_count": gen_total,
+        "quiz_count": quiz_total,
+        "overall_avg": 0, "best_score": 0, "recent_avg": 0,
+        "trend": "none", "trend_delta": 0, "trend_window": 0,
+        "streak": streak,
+        "studied_today": today in active_days,
+        "sessions_this_week": len({d for d in flash_days if d > week_floor}),
+        "tests_this_week": 0, "tests_last_week": 0, "week_delta": 0,
+        "last_activity_days_ago": last_activity_days_ago,
+        "readiness_level": "none", "readiness_pct": 0,
+        "confidence": "none", "confidence_note": "",
+        "accuracy": 0, "questions_answered": 0, "questions_plus": False,
+        "spread": None, "consistency": None,
+        "by_type": [], "strongest": None, "weakest": None,
+        "recent_tests": [], "unfinished": unfinished,
+        "target_pct": _PERF_TARGET_PCT,
+        "recent_scores_json": "[]", "recent_points_json": "[]",
+    }
 
-    # ── Days since last activity ──────────────────────────────────────────────
-    last_activity_days_ago = None
-    if all_attempts:
-        last_day = all_attempts[0]["day"]
-        last_activity_days_ago = (today - last_day).days
+    if not attempts:
+        tone, icon, text, cta_label, cta_url = _perf_next_step({"unfinished": unfinished, "has_data": False})
+        stats.update({"advice": text, "advice_icon": icon, "advice_tone": tone,
+                      "advice_cta_label": cta_label, "advice_cta_url": cta_url})
+        return stats
 
-    # ── Readiness level ───────────────────────────────────────────────────────
-    if overall_avg >= 75:
+    scores = [a["pct"] for a in attempts]
+    overall_avg = round(sum(scores) / len(scores), 1)
+    recent_5 = scores[:5]
+    recent_avg = round(sum(recent_5) / len(recent_5), 1)
+
+    graded = [a for a in attempts if a["total"] > 0]
+    questions_answered = sum(a["total"] for a in graded)
+    accuracy = (
+        int(round(100 * sum(a["correct"] for a in graded) / questions_answered))
+        if questions_answered else int(round(overall_avg))
+    )
+
+    # ── Readiness: recency- and length-weighted, exam formats count more ─────
+    # Weight halves every 8 tests back and every 45 days of age, so old results fade out.
+    num = den = 0.0
+    for idx, a in enumerate(attempts[:30]):
+        age_days = max(0.0, (now - a["ts"]).total_seconds() / 86400)
+        recency = 0.5 ** (idx / 8) * 0.5 ** (age_days / 45)
+        length = min(2.5, max(0.5, math.sqrt((a["total"] or 10) / 20)))
+        w = recency * length * a["weight"]
+        num += w * a["pct"]
+        den += w
+    readiness_pct = int(round(num / den)) if den else int(round(overall_avg))
+
+    recent_questions = sum(a["total"] for a in attempts[:20])
+    n_tests = len(attempts)
+    if n_tests >= 8 and recent_questions >= 250:
+        confidence = "high"
+    elif n_tests >= 3 and recent_questions >= 60:
+        confidence = "medium"
+    else:
+        confidence = "low"
+    if last_activity_days_ago is not None and last_activity_days_ago > 30 and confidence == "high":
+        confidence = "medium"
+
+    if readiness_pct >= _PERF_TARGET_PCT:
         readiness_level = "strong"
-        readiness_pct = min(100, int(overall_avg))
-    elif overall_avg >= 60:
+    elif readiness_pct >= 60:
         readiness_level = "on_track"
-        readiness_pct = int(overall_avg)
-    elif overall_avg >= 45:
+    elif readiness_pct >= 45:
         readiness_level = "needs_work"
-        readiness_pct = int(overall_avg)
     else:
         readiness_level = "critical"
-        readiness_pct = int(overall_avg)
+    if readiness_level == "strong" and confidence == "low":
+        readiness_level = "on_track"  # one lucky quiz isn't "exam ready"
+    confidence_note = {
+        "high": f"High confidence · {total_attempts} tests",
+        "medium": f"Based on {total_attempts} tests",
+        "low": f"Early estimate · {total_attempts} test{'s' if total_attempts != 1 else ''}",
+    }[confidence]
 
-    # ── Smart personalised advice ─────────────────────────────────────────────
-    if last_activity_days_ago is not None and last_activity_days_ago >= 3:
-        advice = (
-            f"You haven't studied in {last_activity_days_ago} day"
-            f"{'s' if last_activity_days_ago != 1 else ''}. "
-            "Even a 15-minute session today will protect your streak and keep your memory sharp."
-        )
-        advice_icon = "bx-time-five"
-    elif trend == "declining":
-        advice = (
-            f"Your recent average ({recent_avg}%) is lower than before. "
-            "Review your wrong answers from the last 3 attempts and spend time on lecture notes for weak topics."
-        )
-        advice_icon = "bx-trending-down"
-    elif trend == "improving":
-        if overall_avg >= 75:
-            advice = (
-                f"Outstanding — you're averaging {overall_avg}% and your scores are rising. "
-                "Keep this pace: one mock exam every 2 days will have you fully exam-ready."
-            )
-        else:
-            advice = (
-                f"Great momentum! Your scores have improved by {trend_delta}% recently. "
-                "Keep daily practice going and target 75%+ on your next mock."
-            )
-        advice_icon = "bx-trending-up"
-    elif readiness_level == "strong":
-        advice = (
-            f"You're averaging {overall_avg}% — excellent readiness. "
-            "Maintain this with regular practice and focus on your occasional weak spots."
-        )
-        advice_icon = "bx-trophy"
-    elif readiness_level == "on_track":
-        advice = (
-            f"Solid work — {overall_avg}% average puts you on track. "
-            "Push past 75% by revisiting topics where you scored below 60%."
-        )
-        advice_icon = "bx-target-lock"
-    elif readiness_level == "needs_work":
-        advice = (
-            f"Your average is {overall_avg}%. Focus on one topic at a time: "
-            "read the lecture notes, then take a general test on that subject before moving on."
-        )
-        advice_icon = "bx-book-open"
-    else:
-        advice = (
-            f"Your average is {overall_avg}%. Don't be discouraged — start with shorter general tests "
-            "to build confidence, then revisit flashcards daily. Consistency beats cramming."
-        )
-        advice_icon = "bx-bulb"
+    # ── Trend: least-squares slope over the last 10 scores ────────────────────
+    window = [a["pct"] for a in reversed(attempts[:10])]  # oldest → newest
+    trend, trend_delta, spread, consistency = "new", 0, None, None
+    if len(window) >= 4:
+        m = len(window)
+        mean_x = (m - 1) / 2
+        mean_y = sum(window) / m
+        sxx = sum((x - mean_x) ** 2 for x in range(m))
+        slope = sum((x - mean_x) * (y - mean_y) for x, y in enumerate(window)) / sxx
+        change = slope * (m - 1)
+        trend = "improving" if change >= 4 else "declining" if change <= -4 else "stable"
+        trend_delta = int(round(abs(change)))
+        spread = int(round(math.sqrt(sum((v - mean_y) ** 2 for v in window) / m)))
+        consistency = "steady" if spread <= 8 else "moderate" if spread <= 15 else "variable"
 
-    return {
+    # ── This week vs last week ────────────────────────────────────────────────
+    week_start = now - timedelta(days=7)
+    prev_week_start = now - timedelta(days=14)
+    tests_this_week = sum(1 for a in attempts if a["ts"] >= week_start)
+    tests_last_week = sum(1 for a in attempts if prev_week_start <= a["ts"] < week_start)
+
+    # ── Breakdown by test type ────────────────────────────────────────────────
+    by_type = []
+    for kind, (label, plural, _w, icon) in _PERF_KINDS.items():
+        rows = [a["pct"] for a in attempts if a["kind"] == kind]
+        if not rows:
+            continue
+        avg = int(round(sum(rows) / len(rows)))
+        by_type.append({"kind": kind, "label": plural, "icon": icon, "count": counts[kind],
+                        "avg": avg, "band": _perf_band(avg)})
+
+    # ── Strongest / weakest subject (average of the latest 5 in each) ─────────
+    practice_url = {"mock": "/dashboard/lecture-notes/", "general": "/dashboard/general-tests/",
+                    "quiz": "/dashboard/quizzes/"}
+    subjects = {}
+    for a in attempts:
+        if a["subject"]:
+            subjects.setdefault(a["subject"], []).append(a)
+    subject_stats = []
+    for name, rows in subjects.items():
+        latest = rows[:5]
+        subject_stats.append({
+            "name": name, "count": len(rows),
+            "avg": int(round(sum(r["pct"] for r in latest) / len(latest))),
+            "url": practice_url.get(rows[0]["kind"], "/dashboard/general-tests/"),
+        })
+    strongest = weakest = None
+    if subject_stats:
+        top = max(subject_stats, key=lambda s: (s["avg"], s["count"]))
+        low = min(subject_stats, key=lambda s: (s["avg"], -s["count"]))
+        if len(subject_stats) >= 2 and top["avg"] >= 60:
+            strongest = top
+        if low["avg"] < _PERF_TARGET_PCT and (low["avg"] < 60 or (strongest and top["avg"] - low["avg"] >= 10)):
+            if not strongest or low["name"] != strongest["name"]:
+                weakest = low
+
+    # ── Recent tests, each compared with the previous attempt of the same test ─
+    recent_tests = []
+    for idx, a in enumerate(attempts[:5]):
+        prev = next((b for b in attempts[idx + 1:] if b["group"] == a["group"]), None)
+        delta = int(round(a["pct"] - prev["pct"])) if prev else None
+        recent_tests.append({
+            "title": a["title"], "type_label": a["type_label"], "icon": a["icon"], "kind": a["kind"],
+            "pct": a["pct_int"], "band": a["band"], "correct": a["correct"], "total": a["total"],
+            "when": _perf_when(a["ts"], now), "url": a["url"],
+            "delta": delta, "delta_abs": abs(delta) if delta is not None else 0,
+        })
+
+    spark = list(reversed(attempts[:12]))
+    points = [{"p": a["pct"], "t": a["title"], "d": _perf_when(a["ts"], now)} for a in spark]
+
+    stats.update({
         "has_data": True,
-        "total_attempts": total_attempts,
         "overall_avg": overall_avg,
-        "best_score": best_score,
+        "best_score": round(max(scores), 1),
         "recent_avg": recent_avg,
         "trend": trend,
         "trend_delta": trend_delta,
-        "streak": streak,
-        "sessions_this_week": sessions_this_week,
-        "last_activity_days_ago": last_activity_days_ago,
+        "trend_window": len(window),
+        "sessions_this_week": tests_this_week + stats["sessions_this_week"],
+        "tests_this_week": tests_this_week,
+        "tests_last_week": tests_last_week,
+        "week_delta": tests_this_week - tests_last_week,
+        "week_delta_abs": abs(tests_this_week - tests_last_week),
         "readiness_level": readiness_level,
         "readiness_pct": readiness_pct,
-        "advice": advice,
-        "advice_icon": advice_icon,
-        "mock_count": len(mock_rows),
-        "gen_count": len(gen_rows),
-        "quiz_count": len(quiz_rows),
-        "recent_scores_json": json.dumps([round(a["pct"], 1) for a in reversed(all_attempts[:10])]),
-    }
+        "confidence": confidence,
+        "confidence_note": confidence_note,
+        "accuracy": accuracy,
+        "questions_answered": questions_answered,
+        "questions_plus": total_attempts > fetched,
+        "spread": spread,
+        "consistency": consistency,
+        "by_type": by_type,
+        "strongest": strongest,
+        "weakest": weakest,
+        "recent_tests": recent_tests,
+        "recent_scores_json": json.dumps([a["pct"] for a in spark]),
+        # "<" escaped so admin-entered titles can't close the inline <script>.
+        "recent_points_json": json.dumps(points).replace("<", "\\u003c"),
+    })
+    tone, icon, text, cta_label, cta_url = _perf_next_step({
+        **stats, "unfinished": unfinished, "last": attempts[0],
+    })
+    stats.update({"advice": text, "advice_icon": icon, "advice_tone": tone,
+                  "advice_cta_label": cta_label, "advice_cta_url": cta_url})
+    return stats
 
 
 def user_dashboard(request):
@@ -3762,11 +4016,14 @@ def user_dashboard(request):
                   "overall_avg": 0, "best_score": 0, "recent_avg": 0, "trend_delta": 0,
                   "last_activity_days_ago": None, "advice": "", "advice_icon": "bx-bulb",
                   "mock_count": 0, "gen_count": 0, "quiz_count": 0,
-                  "recent_scores_json": "[]"}
+                  "advice_tone": "info", "advice_cta_label": "Take a test",
+                  "advice_cta_url": "/dashboard/general-tests/", "unfinished": [],
+                  "recent_tests": [], "by_type": [],
+                  "recent_scores_json": "[]", "recent_points_json": "[]"}
     try:
         perf_stats = _get_dashboard_performance_stats(_supabase_admin(), user_id)
     except Exception:
-        pass
+        logging.getLogger(__name__).exception("Dashboard performance stats failed")
 
     # Subscription info for dashboard cards
     subscription = _get_active_subscription(user_id)

@@ -555,8 +555,8 @@
     doc.setFillColor.apply(doc, INK);
     doc.rect(M, y - 4, 14, 1.2, "F");
     y += 3;
-    write(card.dataset.subject.toUpperCase(), { size: 9, style: "bold", color: MUTED, after: 1 });
-    write(card.dataset.topic, { size: 20, style: "bold", color: INK, leading: 1.25, after: 1 });
+    write(card.dataset.subject.toUpperCase(), { size: 9, style: "bold", color: MUTED, after: 3 });
+    write(card.dataset.topic, { size: 20, style: "bold", color: INK, leading: 1.05, after: 0.5 });
     if (card.dataset.subtopic) write(card.dataset.subtopic, { size: 12, color: MUTED, after: 2 });
     doc.setDrawColor(231, 234, 241);
     doc.line(M, y, W - M, y);
