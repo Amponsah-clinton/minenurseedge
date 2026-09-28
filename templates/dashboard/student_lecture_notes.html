@@ -3,208 +3,324 @@
 
 {% block content %}
 <style>
-  .ln-student-note { line-height: 1.55; max-width: 100%; }
-  .ln-student-note p, .ln-student-note li, .ln-student-note td, .ln-student-note th { font-size: inherit !important; line-height: inherit; }
-  .ln-student-note pre {
-    white-space: pre-wrap;
-    word-break: break-word;
-    overflow-x: auto;
-    max-width: 100%;
+  .ln {
+    --ink:#1a1a2e;
+    --text:#3b4256;
+    --muted:#7b8599;
+    --line:#e7eaf1;
+    --soft:#f6f7fb;
+    --focus:rgba(26,26,46,.18);
+    color:var(--text);
   }
+  /* Subject tones: muted, distinct, readable as text on white. */
+  /* `.ln.tone-N` covers the reader modal, which carries both classes itself. */
+  .ln .tone-0, .ln.tone-0 { --tone:#2f6fb0; }
+  .ln .tone-1, .ln.tone-1 { --tone:#b0452f; }
+  .ln .tone-2, .ln.tone-2 { --tone:#2f8a5e; }
+  .ln .tone-3, .ln.tone-3 { --tone:#7a4fb3; }
+  .ln .tone-4, .ln.tone-4 { --tone:#a8741a; }
+  .ln .tone-5, .ln.tone-5 { --tone:#2a8290; }
 
-  #lectureNotesRoot {
-    min-width: 0;
+  /* ── Header ─────────────────────────────────────────── */
+  .ln-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:18px 32px; margin:4px 0 22px; }
+  .ln-head h1 { font-size:1.75rem; font-weight:700; color:var(--ink); letter-spacing:-.02em; margin:0 0 6px; }
+  .ln-head p { margin:0; color:var(--muted); font-size:.95rem; }
+  .ln-search { position:relative; flex:0 1 380px; min-width:240px; }
+  .ln-search .bx-search { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:1.15rem; color:var(--muted); pointer-events:none; }
+  .ln-search input {
+    width:100%; height:46px; padding:0 44px 0 42px; border:1px solid var(--line); border-radius:12px;
+    background:#fff; color:var(--ink); font-size:.95rem; transition:border-color .15s, box-shadow .15s;
   }
+  .ln-search input::placeholder { color:#9aa2b3; }
+  .ln-search input:focus { outline:0; border-color:var(--ink); box-shadow:0 0 0 4px var(--focus); }
+  .ln-search kbd {
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    min-width:22px; padding:2px 6px; border:1px solid var(--line); border-bottom-width:2px; border-radius:6px;
+    background:var(--soft); color:var(--muted); font:600 .72rem/1.3 'Public Sans', sans-serif; text-align:center; box-shadow:none;
+  }
+  .ln-search input:focus + kbd, .ln-search input:not(:placeholder-shown) + kbd { display:none; }
 
-  .lecture-notes-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    align-items: start;
-    min-width: 0;
+  /* ── Subject tabs ───────────────────────────────────── */
+  .ln-tabs { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 14px; margin:0 -2px 8px; scrollbar-width:thin; }
+  .ln-tab {
+    flex:0 0 auto; display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 14px;
+    border:1px solid var(--line); border-radius:999px; background:#fff; color:var(--text);
+    font-size:.87rem; font-weight:600; cursor:pointer; transition:background .15s, border-color .15s, color .15s;
   }
+  .ln-tab:hover { border-color:#cfd4df; }
+  .ln-tab:focus-visible { outline:0; box-shadow:0 0 0 4px var(--focus); }
+  .ln-tab i { width:8px; height:8px; border-radius:50%; background:var(--tone, var(--ink)); }
+  .ln-tab span { color:var(--muted); font-weight:600; font-variant-numeric:tabular-nums; }
+  .ln-tab[aria-selected="true"] { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .ln-tab[aria-selected="true"] span { color:rgba(255,255,255,.7); }
+  .ln-tab[aria-selected="true"] i { background:#fff; }
 
-  /* Keep tiles inside grid columns (long words / URLs) */
-  .lecture-note-tile {
-    min-width: 0;
-    max-width: 100%;
-    overflow: hidden;
-  }
-  .lecture-note-tile .card-body {
-    min-width: 0;
-  }
-  .lecture-note-tile__title,
-  .lecture-note-tile__sub {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    hyphens: auto;
-  }
+  /* ── Groups + cards ─────────────────────────────────── */
+  .ln-status { font-size:.88rem; color:var(--muted); margin:0 0 14px; min-height:1.3em; }
+  .ln-group + .ln-group { margin-top:34px; }
+  .ln-group-head { display:flex; align-items:center; gap:10px; margin:0 0 14px; }
+  .ln-group-head h2 { font-size:1.02rem; font-weight:700; color:var(--ink); margin:0; }
+  .ln-group-head .ln-dot { width:10px; height:10px; border-radius:3px; background:var(--tone); }
+  .ln-group-head span { color:var(--muted); font-size:.85rem; }
+  .ln-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(270px, 1fr)); gap:16px; }
 
-  .lecture-note-group-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #8892a4;
-    margin: 0 0 0.75rem;
-    padding-bottom: 0.35rem;
-    border-bottom: 1px solid #e8eaf0;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  .ln-card {
+    position:relative; display:flex; flex-direction:column; min-width:0; text-align:left; width:100%;
+    padding:18px 18px 16px; background:#fff; border:1px solid var(--line); border-radius:14px;
+    box-shadow:0 1px 2px rgba(26,26,46,.04); cursor:pointer; color:inherit;
+    transition:border-color .15s, box-shadow .2s, transform .15s;
   }
-  .lecture-note-group:first-child .lecture-note-group-title {
-    margin-top: 0;
+  .ln-card::before { content:''; position:absolute; left:18px; top:0; width:36px; height:3px; border-radius:0 0 3px 3px; background:var(--tone); }
+  .ln-card:hover { border-color:#d3d8e3; box-shadow:0 10px 24px -12px rgba(26,26,46,.22); transform:translateY(-2px); }
+  .ln-card:focus-visible { outline:0; border-color:var(--ink); box-shadow:0 0 0 4px var(--focus); }
+  .ln-subject { font-size:.72rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--tone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ln-flags { display:flex; gap:6px; flex-shrink:0; margin-left:auto; }
+  .ln-flag { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:700; }
+  .ln-flag--new { background:var(--ink); color:#fff; }
+  .ln-flag--read { background:#e8f5ee; color:#237a51; }
+  .ln-card .ln-title {
+    font-size:1.02rem; font-weight:700; color:var(--ink); line-height:1.35; margin:0 0 6px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;
   }
-  .lecture-note-group:not(:first-child) {
-    margin-top: 1.75rem;
+  .ln-card .ln-sub {
+    font-size:.87rem; color:var(--muted); line-height:1.5; margin:0;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere;
   }
+  .ln-card-foot { display:flex; align-items:center; gap:14px; margin-top:auto; padding-top:18px; font-size:.8rem; color:var(--muted); }
+  .ln-card-foot > span { white-space:nowrap; }
+  .ln-card-foot .bx { font-size:1rem; vertical-align:-2px; margin-right:3px; }
+  .ln-card.is-read { background:#fcfcfe; }
 
-  .lecture-note-tile--interactive {
-    cursor: pointer;
-    transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
-  }
-  .lecture-note-tile--interactive:hover {
-    border-color: #c7cdd8 !important;
-    box-shadow: 0 0.35rem 1rem rgba(26, 26, 46, 0.09) !important;
-    transform: translateY(-2px);
-  }
-  .lecture-note-tile--interactive:focus {
-    outline: 0;
-    box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.22);
-  }
-  .lecture-note-tile--interactive:focus:not(:focus-visible) {
-    box-shadow: none;
-  }
-  .lecture-note-tile--interactive:focus-visible {
-    box-shadow: 0 0 0 0.2rem rgba(105, 108, 255, 0.22);
-  }
+  .ln-empty { text-align:center; padding:56px 24px; border:1px dashed #d6dbe5; border-radius:16px; background:#fff; }
+  .ln-empty .bx { font-size:2.4rem; color:#b3bac8; }
+  .ln-empty h3 { font-size:1.08rem; font-weight:700; color:var(--ink); margin:10px 0 6px; }
+  .ln-empty p { margin:0 auto; max-width:380px; color:var(--muted); font-size:.92rem; }
+  .ln-empty button { margin-top:16px; }
 
-  #lectureNoteModal .modal-content {
-    border: none;
-    border-radius: 0.75rem;
-    box-shadow: 0 0.5rem 2rem rgba(26, 26, 46, 0.12);
+  /* ── Reader ─────────────────────────────────────────── */
+  #lnReader .modal-dialog { max-width:880px; }
+  #lnReader .modal-content { border:0; border-radius:18px; overflow:hidden; box-shadow:0 30px 80px -20px rgba(15,20,40,.35); }
+  .ln-reader-bar { position:relative; display:flex; align-items:center; gap:8px; padding:12px 16px 12px 24px; border-bottom:1px solid var(--line); background:#fff; }
+  .ln-reader-bar .ln-subject { font-size:.74rem; }
+  .ln-progress { position:absolute; left:0; bottom:-1px; height:2px; width:0; background:var(--tone, var(--ink)); transition:width .1s linear; }
+  .ln-tools { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .ln-tool {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; min-width:36px; padding:0 10px;
+    border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); font-size:.85rem; font-weight:600;
+    transition:background .15s, border-color .15s;
   }
-  #lectureNoteModal .modal-header {
-    border-bottom: 1px solid #e8eaf0;
-    padding: 1.1rem 1.25rem;
+  .ln-tool:hover { background:var(--soft); border-color:#d3d8e3; }
+  .ln-tool:focus-visible { outline:0; box-shadow:0 0 0 4px var(--focus); }
+  .ln-tool:disabled { opacity:.45; cursor:not-allowed; }
+  .ln-tool .bx { font-size:1.15rem; }
+  .ln-size { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .ln-size .ln-tool { border:0; border-radius:0; font-family:Georgia, serif; }
+  .ln-size .ln-tool + .ln-tool { border-left:1px solid var(--line); }
+  .ln-tool--primary { background:var(--ink); border-color:var(--ink); color:#fff; }
+  .ln-tool--primary:hover { background:#2c2c4a; border-color:#2c2c4a; }
+
+  #lnReader .modal-body { padding:0; background:#fff; }
+  .ln-article { max-width:700px; margin:0 auto; padding:36px 32px 28px; }
+  .ln-article-head { padding-bottom:22px; margin-bottom:26px; border-bottom:1px solid var(--line); }
+  .ln-article-head h2 { font-size:1.9rem; line-height:1.2; font-weight:700; letter-spacing:-.02em; color:var(--ink); margin:0; overflow-wrap:anywhere; }
+  .ln-article-head p { margin:10px 0 0; font-size:1.02rem; color:var(--muted); overflow-wrap:anywhere; }
+  .ln-meta { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:14px; font-size:.84rem; color:var(--muted); }
+  .ln-meta .bx { vertical-align:-2px; margin-right:4px; }
+
+  /* Note body — typography for Quill output and bulk-uploaded sections. */
+  .ln-body { color:#2d3345; line-height:1.75; overflow-wrap:anywhere; }
+  .ln-body > :first-child { margin-top:0 !important; }
+  .ln-body p, .ln-body li, .ln-body td, .ln-body th { line-height:inherit; }
+  .ln-body p { margin:0 0 1em; }
+  .ln-body h1, .ln-body h2, .ln-body h3, .ln-body h4 { color:var(--ink); font-weight:700; letter-spacing:-.01em; line-height:1.3; }
+  .ln-body h1 { font-size:1.55em; margin:1.6em 0 .6em; }
+  .ln-body h2 { font-size:1.35em; margin:1.6em 0 .55em; }
+  .ln-body h3 { font-size:1.15em; margin:1.5em 0 .5em; }
+  .ln-body h4 { font-size:1.02em; margin:1.3em 0 .4em; }
+  .ln-body ul, .ln-body ol { margin:0 0 1.1em; padding-left:1.5em; }
+  .ln-body li { margin:.3em 0; padding-left:.2em; }
+  .ln-body ul > li::marker { color:#9aa2b3; }
+  .ln-body ul > li.ql-indent-1 { margin-left:1.5em; }
+  .ln-body ul > li.ql-indent-2 { margin-left:3em; }
+  /* Quill keeps nested items flat (li.ql-indent-N), so number them with counters
+     the way Quill does: 1, 2 … then a, b … then i, ii … restarting under each parent. */
+  .ln-body ol { list-style:none; padding-left:0; counter-reset:ln0 ln1 ln2; }
+  .ln-body ol > li { position:relative; padding-left:2em; counter-increment:ln0; counter-reset:ln1 ln2; }
+  .ln-body ol > li::before {
+    content:counter(ln0) "."; position:absolute; left:0; width:1.5em; text-align:right;
+    color:var(--ink); font-weight:700; font-variant-numeric:tabular-nums;
   }
-  #lectureNoteModal .modal-body {
-    background: #fafbfd;
+  .ln-body ol > li.ql-indent-1 { margin-left:2em; counter-increment:ln1; counter-reset:ln2; }
+  .ln-body ol > li.ql-indent-1::before { content:counter(ln1, lower-alpha) "."; font-weight:600; }
+  .ln-body ol > li.ql-indent-2 { margin-left:4em; counter-increment:ln2; counter-reset:none; }
+  .ln-body ol > li.ql-indent-2::before { content:counter(ln2, lower-roman) "."; font-weight:600; }
+  .ln-body strong, .ln-body b { color:var(--ink); }
+  .ln-body a { color:#2f6fb0; text-decoration:underline; text-underline-offset:2px; }
+  .ln-body blockquote {
+    margin:1.4em 0; padding:.9em 1.1em .9em 1.2em; border-left:4px solid #d2a53c; border-radius:0 10px 10px 0;
+    background:#fdf7e8; color:#4a3d1c;
   }
-  #lectureNoteModalContent {
-    background: #fff;
-    border: 1px solid #eef0f5;
-    border-radius: 0.5rem;
-    padding: 1.25rem;
-    min-height: 4rem;
-    max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  .ln-body blockquote > :last-child { margin-bottom:0; }
+  .ln-body pre, .ln-body .ql-syntax {
+    margin:1.2em 0; padding:1em 1.1em; border-radius:10px; background:#f4f5f9; border:1px solid var(--line);
+    color:var(--ink); font:.9em/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; overflow-x:auto;
   }
-  #lectureNoteModalContent img,
-  #lectureNoteModalContent video {
-    max-width: 100%;
-    height: auto;
+  .ln-body img, .ln-body video, .ln-body iframe { max-width:100%; height:auto; border-radius:10px; }
+  .ln-table-wrap { margin:1.2em 0; overflow-x:auto; border:1px solid var(--line); border-radius:12px; -webkit-overflow-scrolling:touch; }
+  .ln-body table { width:100%; border-collapse:collapse; font-size:.92em; }
+  .ln-body th, .ln-body td { padding:.65em .9em; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; overflow-wrap:normal; min-width:110px; }
+  .ln-body th { background:var(--soft); color:var(--ink); font-weight:700; }
+  .ln-body tr:last-child td { border-bottom:0; }
+  .ln-body tbody tr:nth-child(even) td { background:#fbfbfd; }
+
+  .ln-reader-foot { display:flex; gap:12px; justify-content:space-between; padding:18px 32px 26px; max-width:700px; margin:0 auto; }
+  .ln-nav {
+    flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:2px; padding:12px 16px; text-align:left;
+    border:1px solid var(--line); border-radius:12px; background:#fff; color:inherit; transition:border-color .15s, background .15s;
   }
-  #lectureNoteModalContent table {
-    max-width: 100%;
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .ln-nav:hover { border-color:#cfd4df; background:var(--soft); }
+  .ln-nav:focus-visible { outline:0; box-shadow:0 0 0 4px var(--focus); }
+  .ln-nav small { font-size:.75rem; color:var(--muted); font-weight:600; }
+  .ln-nav strong { font-size:.9rem; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ln-nav--next { text-align:right; }
+  /* Component display rules would otherwise override the hidden attribute. */
+  .ln [hidden] { display:none !important; }
+  .ln .ln-nav[hidden] { display:flex !important; visibility:hidden; }
+
+  @media (max-width:767.98px) {
+    .ln-head h1 { font-size:1.45rem; }
+    .ln-search { flex-basis:100%; }
+    .ln-search kbd { display:none; }
+    .ln-grid { grid-template-columns:1fr; gap:12px; }
+    #lnReader .modal-content { border-radius:0; }
+    .ln-reader-bar { padding:10px 10px 10px 16px; }
+    .ln-tool-label { display:none; }
+    .ln-article { padding:24px 18px 20px; }
+    .ln-article-head h2 { font-size:1.5rem; }
+    .ln-reader-foot { padding:12px 18px 22px; }
   }
-  #lectureNoteModal .modal-title {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-  #lectureNoteModalSubtopic {
-    overflow-wrap: anywhere;
-    word-break: break-word;
+  @media (prefers-reduced-motion: reduce) {
+    .ln-card, .ln-progress { transition:none; }
+    .ln-card:hover { transform:none; }
   }
 </style>
-<div class="row mb-4">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-body">
-        <h4 class="mb-1">Lecture Notes</h4>
-        <p class="text-muted mb-0">Read notes by group and export any note to PDF.</p>
-      </div>
-    </div>
-  </div>
-</div>
 
-<div class="row">
-  <div class="col-12">
-    <div class="card">
-      <div class="card-body">
-        {% if note_groups %}
-          <label class="form-label visually-hidden" for="lectureNotesSearch">Search lecture notes</label>
-          <div class="input-group input-group-merge mb-3">
-            <span class="input-group-text"><i class="bx bx-search"></i></span>
-            <input type="search"
-                   class="form-control"
-                   id="lectureNotesSearch"
-                   placeholder="Search by topic, subtopic, or content…"
-                   autocomplete="off" />
-          </div>
-          <p id="lectureNotesSearchEmpty" class="text-muted mb-3 d-none" role="status">No notes match your search.</p>
-          <div id="lectureNotesRoot">
-            {% for group in note_groups %}
-              <section class="lecture-note-group" data-group-name="{{ group.name|escape }}">
-                <h2 class="lecture-note-group-title">{{ group.name }}</h2>
-                <div class="lecture-notes-grid">
-                  {% for note in group.notes %}
-                    <div class="lecture-note-row lecture-note-tile lecture-note-tile--interactive card border shadow-sm h-100"
-                         role="button"
-                         tabindex="0"
-                         aria-label="Open note: {{ note.topic }}"
-                         data-topic="{{ note.topic|escape }}"
-                         data-subtopic="{{ note.subtopic|default_if_none:''|escape }}"
-                         data-font-px="{{ note.render_font_px }}">
-                      <div class="card-body d-flex align-items-start justify-content-between gap-2 py-3">
-                        <div class="min-w-0 flex-grow-1">
-                          <strong class="d-block lecture-note-tile__title">{{ note.topic }}</strong>
-                          {% if note.subtopic %}<div class="small text-muted lecture-note-tile__sub mt-1">{{ note.subtopic }}</div>{% endif %}
-                        </div>
-                        <span class="text-muted flex-shrink-0 align-self-center"><i class="bx bx-book-open fs-4"></i></span>
-                      </div>
-                      <div class="d-none lecture-note-source" aria-hidden="true">{{ note.render_html|safe }}</div>
-                    </div>
-                  {% endfor %}
-                </div>
-              </section>
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="text-muted mb-0">No lecture notes available yet.</p>
-        {% endif %}
-      </div>
+<div class="ln">
+  <div class="ln-head">
+    <div>
+      <h1>Lecture notes</h1>
+      {% if notes %}
+        <p>{{ notes|length }} note{{ notes|length|pluralize }} across {{ note_groups|length }} subject{{ note_groups|length|pluralize }}. Open a note to read it or save it as a PDF.</p>
+      {% else %}
+        <p>Structured notes from your tutors, organised by subject.</p>
+      {% endif %}
     </div>
+    {% if note_groups %}
+    <div class="ln-search" role="search">
+      <i class="bx bx-search" aria-hidden="true"></i>
+      <label class="visually-hidden" for="lectureNotesSearch">Search lecture notes</label>
+      <input type="search" id="lectureNotesSearch" placeholder="Search topics or note content" autocomplete="off">
+      <kbd aria-hidden="true">/</kbd>
+    </div>
+    {% endif %}
   </div>
+
+  {% if note_groups %}
+    {% if note_groups|length > 1 %}
+    <div class="ln-tabs" role="tablist" aria-label="Filter by subject">
+      <button type="button" class="ln-tab" role="tab" aria-selected="true" data-subject="">All <span>{{ notes|length }}</span></button>
+      {% for group in note_groups %}
+      <button type="button" class="ln-tab tone-{{ group.tone }}" role="tab" aria-selected="false" data-subject="{{ group.slug }}"><i></i>{{ group.name }} <span>{{ group.notes|length }}</span></button>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <p class="ln-status" id="lnStatus" role="status" aria-live="polite"></p>
+
+    <div id="lectureNotesRoot">
+      {% for group in note_groups %}
+      <section class="ln-group tone-{{ group.tone }}" data-subject="{{ group.slug }}" aria-labelledby="{{ group.slug }}-title">
+        <div class="ln-group-head">
+          <span class="ln-dot" aria-hidden="true"></span>
+          <h2 id="{{ group.slug }}-title">{{ group.name }}</h2>
+          <span class="ln-group-count">{{ group.notes|length }} note{{ group.notes|length|pluralize }}</span>
+        </div>
+        <div class="ln-grid">
+          {% for note in group.notes %}
+          <button type="button" class="ln-card" data-ln-open
+                  data-id="{{ note.id }}"
+                  data-topic="{{ note.topic }}"
+                  data-subtopic="{{ note.subtopic|default_if_none:'' }}"
+                  data-subject="{{ group.name }}"
+                  data-tone="{{ group.tone }}"
+                  data-minutes="{{ note.reading_minutes }}"
+                  data-sections="{{ note.section_count }}"
+                  data-font-px="{{ note.render_font_px }}">
+            <span class="ln-title">{{ note.topic }}</span>
+            {% if note.subtopic %}<span class="ln-sub">{{ note.subtopic }}</span>{% endif %}
+            <span class="ln-card-foot">
+              <span><i class="bx bx-time-five" aria-hidden="true"></i>{{ note.reading_minutes }} min</span>
+              {% if note.section_count %}<span><i class="bx bx-list-ul" aria-hidden="true"></i>{{ note.section_count }} section{{ note.section_count|pluralize }}</span>{% endif %}
+              <span class="ln-flags">
+                {% if note.is_new %}<span class="ln-flag ln-flag--new">New</span>{% endif %}
+                <span class="ln-flag ln-flag--read" hidden><i class="bx bx-check" aria-hidden="true"></i>Read</span>
+              </span>
+            </span>
+            <template class="ln-source">{{ note.render_html|safe }}</template>
+          </button>
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+
+    <div class="ln-empty" id="lnNoMatch" hidden>
+      <i class="bx bx-search-alt" aria-hidden="true"></i>
+      <h3>No notes match your search</h3>
+      <p>Try a shorter word, a different spelling, or search all subjects.</p>
+      <button type="button" class="ln-tool" id="lnClearSearch">Clear search</button>
+    </div>
+  {% else %}
+    <div class="ln-empty">
+      <i class="bx bx-book-open" aria-hidden="true"></i>
+      <h3>No lecture notes yet</h3>
+      <p>When your tutors publish notes they will appear here, grouped by subject.</p>
+    </div>
+  {% endif %}
 </div>
 
 {% if note_groups %}
-<!-- Lecture note reader -->
-<div class="modal fade" id="lectureNoteModal" tabindex="-1" aria-labelledby="lectureNoteModalTitle" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+<div class="modal fade ln" id="lnReader" tabindex="-1" aria-labelledby="lnReaderTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-md-down">
     <div class="modal-content">
-      <div class="modal-header">
-        <div class="flex-grow-1 min-w-0 pe-2">
-          <h5 class="modal-title" id="lectureNoteModalTitle"></h5>
-          <p class="text-muted small mb-0 mt-1 d-none" id="lectureNoteModalSubtopic"></p>
+      <div class="ln-reader-bar">
+        <span class="ln-subject" id="lnReaderSubject"></span>
+        <div class="ln-tools">
+          <div class="ln-size" role="group" aria-label="Text size">
+            <button type="button" class="ln-tool" id="lnSmaller" aria-label="Smaller text" title="Smaller text">A<span style="font-size:.7em">&minus;</span></button>
+            <button type="button" class="ln-tool" id="lnLarger" aria-label="Larger text" title="Larger text">A<span style="font-size:.7em">+</span></button>
+          </div>
+          <button type="button" class="ln-tool ln-tool--primary" id="lnPdf"><i class="bx bx-download" aria-hidden="true"></i><span class="ln-tool-label">Save PDF</span></button>
+          <button type="button" class="ln-tool" data-bs-dismiss="modal" aria-label="Close"><i class="bx bx-x" aria-hidden="true"></i></button>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <span class="ln-progress" id="lnProgress" aria-hidden="true"></span>
       </div>
-      <div class="modal-body">
-        <div id="lectureNoteModalContent" class="lecture-note-body ln-student-note"></div>
-      </div>
-      <div class="modal-footer flex-wrap gap-2 border-top" style="background:#fafbfd;">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" id="lectureNotePdfBtn">
-          <i class="bx bx-download me-1"></i> Save as PDF
-        </button>
+      <div class="modal-body" id="lnReaderScroll">
+        <article class="ln-article">
+          <header class="ln-article-head">
+            <h2 id="lnReaderTitle"></h2>
+            <p id="lnReaderSubtopic" hidden></p>
+            <div class="ln-meta">
+              <span id="lnReaderMinutes"></span>
+              <span id="lnReaderSections"></span>
+            </div>
+          </header>
+          <div class="ln-body" id="lnReaderBody"></div>
+        </article>
+        <nav class="ln-reader-foot" aria-label="More notes">
+          <button type="button" class="ln-nav" id="lnPrev"><small>&larr; Previous</small><strong></strong></button>
+          <button type="button" class="ln-nav ln-nav--next" id="lnNext"><small>Next &rarr;</small><strong></strong></button>
+        </nav>
       </div>
     </div>
   </div>
@@ -213,125 +329,338 @@
 {% endblock %}
 
 {% block scripts %}
+{% if note_groups %}
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script>
-  (function () {
-    const input = document.getElementById("lectureNotesSearch");
-    const emptyMsg = document.getElementById("lectureNotesSearchEmpty");
-    const root = document.getElementById("lectureNotesRoot");
-    if (!input || !root) return;
-    const initialQ = "{{ initial_search_q|escapejs }}";
-    if (initialQ) {
-      input.value = initialQ;
-    }
-    const sections = root.querySelectorAll(".lecture-note-group");
-    function filterNotes() {
-      const q = input.value.trim().toLowerCase();
-      let totalVisible = 0;
-      sections.forEach(function (section) {
-        const items = section.querySelectorAll(".lecture-note-row");
-        let sectionVisible = 0;
-        items.forEach(function (item) {
-          const titleEl = item.querySelector(".card-body strong");
-          const subEl = item.querySelector(".card-body .small.text-muted");
-          const source = item.querySelector(".lecture-note-source");
-          const text =
-            ((titleEl && titleEl.innerText) || "") +
-            " " +
-            ((subEl && subEl.innerText) || "") +
-            " " +
-            ((source && source.innerText) || "");
-          const ok = !q || text.toLowerCase().indexOf(q) !== -1;
-          item.classList.toggle("d-none", !ok);
-          if (ok) sectionVisible += 1;
-        });
-        const hideSection = !!q && sectionVisible === 0;
-        section.classList.toggle("d-none", hideSection);
-        totalVisible += sectionVisible;
-      });
-      if (emptyMsg) {
-        emptyMsg.classList.toggle("d-none", totalVisible > 0 || !q);
-      }
-    }
-    input.addEventListener("input", filterNotes);
-    input.addEventListener("search", filterNotes);
-    if (initialQ) filterNotes();
-  })();
+(function () {
+  "use strict";
+  var root = document.getElementById("lectureNotesRoot");
+  var input = document.getElementById("lectureNotesSearch");
+  var statusEl = document.getElementById("lnStatus");
+  var noMatch = document.getElementById("lnNoMatch");
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".ln-tab"));
+  var groups = Array.prototype.slice.call(root.querySelectorAll(".ln-group"));
+  var cards = Array.prototype.slice.call(root.querySelectorAll("[data-ln-open]"));
+  var activeSubject = "";
 
-  (function () {
-    const modalEl = document.getElementById("lectureNoteModal");
-    const titleEl = document.getElementById("lectureNoteModalTitle");
-    const subtopicEl = document.getElementById("lectureNoteModalSubtopic");
-    const bodyEl = document.getElementById("lectureNoteModalContent");
-    const pdfBtn = document.getElementById("lectureNotePdfBtn");
-    const root = document.getElementById("lectureNotesRoot");
-    if (!modalEl || !titleEl || !bodyEl || !root) return;
-
-    const BS = window.bootstrap;
-    function openLectureNoteModal(row) {
-      const topic = row.dataset.topic || "";
-      const subtopic = row.dataset.subtopic || "";
-      const fontPx = row.dataset.fontPx || "16";
-      const source = row.querySelector(".lecture-note-source");
-
-      titleEl.textContent = topic;
-      if (subtopic) {
-        subtopicEl.textContent = subtopic;
-        subtopicEl.classList.remove("d-none");
-      } else {
-        subtopicEl.textContent = "";
-        subtopicEl.classList.add("d-none");
-      }
-
-      bodyEl.innerHTML = source ? source.innerHTML : "";
-      bodyEl.style.fontSize = fontPx + "px";
-      bodyEl.className = "lecture-note-body ln-student-note";
-
-      modalEl.dataset.currentTopic = topic;
-
-      if (BS && typeof BS.Modal === "function") {
-        BS.Modal.getOrCreateInstance(modalEl).show();
-      }
-    }
-
-    root.addEventListener("click", function (e) {
-      const row = e.target.closest(".lecture-note-tile");
-      if (!row || !root.contains(row)) return;
-      openLectureNoteModal(row);
-    });
-
-    root.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      const row = e.target.closest(".lecture-note-tile");
-      if (!row || !root.contains(row)) return;
-      e.preventDefault();
-      openLectureNoteModal(row);
-    });
-
-    if (pdfBtn) {
-      pdfBtn.addEventListener("click", function () {
-        const topic = modalEl.dataset.currentTopic || "";
-        downloadNotePdf("lectureNoteModalContent", topic);
-      });
-    }
-
-    modalEl.addEventListener("hidden.bs.modal", function () {
-      bodyEl.innerHTML = "";
-      modalEl.dataset.currentTopic = "";
-    });
-  })();
-
-  async function downloadNotePdf(elementId, topic) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const source = document.getElementById(elementId);
-    const text = source ? source.innerText : "";
-    const lines = doc.splitTextToSize(text, 180);
-    doc.setFontSize(14);
-    doc.text(topic || "Lecture Note", 15, 15);
-    doc.setFontSize(11);
-    doc.text(lines, 15, 25);
-    doc.save((topic || "lecture-note").replace(/[^a-z0-9]/gi, "_").toLowerCase() + ".pdf");
+  // Per-viewer conveniences only; the page works without storage.
+  function store(key, value) {
+    try {
+      if (value === undefined) return JSON.parse(localStorage.getItem(key));
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) { return null; }
   }
+  var READ_KEY = "ne.lectureNotes.read";
+  var SCALE_KEY = "ne.lectureNotes.scale";
+  var readIds = store(READ_KEY) || {};
+
+  cards.forEach(function (card) {
+    var src = card.querySelector(".ln-source");
+    card._search = [card.dataset.topic, card.dataset.subtopic, card.dataset.subject,
+                    src ? src.content.textContent : ""].join(" ").toLowerCase();
+    if (readIds[card.dataset.id]) markRead(card);
+  });
+
+  function markRead(card) {
+    card.classList.add("is-read");
+    var flag = card.querySelector(".ln-flag--read");
+    if (flag) flag.hidden = false;
+  }
+
+  // ── Filtering: subject tab + search ─────────────────────────
+  function applyFilters() {
+    var q = (input.value || "").trim().toLowerCase();
+    var visible = 0;
+    groups.forEach(function (group) {
+      var inSubject = !activeSubject || group.dataset.subject === activeSubject;
+      var shown = 0;
+      group.querySelectorAll("[data-ln-open]").forEach(function (card) {
+        var ok = inSubject && (!q || card._search.indexOf(q) !== -1);
+        card.hidden = !ok;
+        if (ok) shown++;
+      });
+      group.hidden = shown === 0;
+      group.querySelector(".ln-group-count").textContent = shown + (shown === 1 ? " note" : " notes");
+      visible += shown;
+    });
+    noMatch.hidden = visible > 0;
+    statusEl.textContent = q
+      ? visible + (visible === 1 ? " note matches " : " notes match ") + "“" + input.value.trim() + "”"
+      : "";
+    return visible;
+  }
+
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      activeSubject = tab.dataset.subject;
+      tabs.forEach(function (t) { t.setAttribute("aria-selected", t === tab ? "true" : "false"); });
+      applyFilters();
+    });
+  });
+  input.addEventListener("input", applyFilters);
+  document.getElementById("lnClearSearch").addEventListener("click", function () {
+    input.value = "";
+    if (tabs.length) tabs[0].click(); else applyFilters();
+    input.focus();
+  });
+  document.addEventListener("keydown", function (e) {
+    var t = e.target;
+    var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    if (e.key === "/" && !typing && !document.body.classList.contains("modal-open")) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+
+  // ── Reader ──────────────────────────────────────────────────
+  var modalEl = document.getElementById("lnReader");
+  var scrollEl = document.getElementById("lnReaderScroll");
+  var bodyEl = document.getElementById("lnReaderBody");
+  var titleEl = document.getElementById("lnReaderTitle");
+  var subEl = document.getElementById("lnReaderSubtopic");
+  var subjectEl = document.getElementById("lnReaderSubject");
+  var minutesEl = document.getElementById("lnReaderMinutes");
+  var sectionsEl = document.getElementById("lnReaderSections");
+  var progressEl = document.getElementById("lnProgress");
+  var prevBtn = document.getElementById("lnPrev");
+  var nextBtn = document.getElementById("lnNext");
+  var current = null;
+  var baseFontPx = 16;
+  var scale = Number(store(SCALE_KEY)) || 1;
+  var SCALES = [0.85, 0.92, 1, 1.1, 1.2, 1.32];
+
+  function applyScale() {
+    bodyEl.style.fontSize = Math.round(baseFontPx * scale * 10) / 10 + "px";
+    document.getElementById("lnSmaller").disabled = scale <= SCALES[0];
+    document.getElementById("lnLarger").disabled = scale >= SCALES[SCALES.length - 1];
+  }
+  function stepScale(dir) {
+    var i = SCALES.indexOf(scale);
+    if (i === -1) i = SCALES.indexOf(1);
+    scale = SCALES[Math.max(0, Math.min(SCALES.length - 1, i + dir))];
+    store(SCALE_KEY, scale);
+    applyScale();
+  }
+  document.getElementById("lnSmaller").addEventListener("click", function () { stepScale(-1); });
+  document.getElementById("lnLarger").addEventListener("click", function () { stepScale(1); });
+
+  function visibleCards() { return cards.filter(function (c) { return !c.hidden; }); }
+
+  function fillNav(btn, card) {
+    btn.hidden = !card;
+    btn._card = card || null;
+    btn.querySelector("strong").textContent = card ? card.dataset.topic : "";
+  }
+
+  function openNote(card) {
+    current = card;
+    var d = card.dataset;
+    modalEl.className = modalEl.className.replace(/\btone-\d\b/g, "").trim() + " tone-" + d.tone;
+    subjectEl.textContent = d.subject;
+    titleEl.textContent = d.topic;
+    subEl.textContent = d.subtopic;
+    subEl.hidden = !d.subtopic;
+    minutesEl.innerHTML = '<i class="bx bx-time-five" aria-hidden="true"></i>' + d.minutes + " min read";
+    var n = Number(d.sections);
+    sectionsEl.innerHTML = n ? '<i class="bx bx-list-ul" aria-hidden="true"></i>' + n + " section" + (n === 1 ? "" : "s") : "";
+
+    bodyEl.innerHTML = "";
+    bodyEl.appendChild(card.querySelector(".ln-source").content.cloneNode(true));
+    bodyEl.querySelectorAll("table").forEach(function (table) {
+      if (table.parentElement.classList.contains("ln-table-wrap")) return;
+      var wrap = document.createElement("div");
+      wrap.className = "ln-table-wrap";
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+    });
+    bodyEl.querySelectorAll("a[href]").forEach(function (a) { a.target = "_blank"; a.rel = "noopener"; });
+
+    baseFontPx = Number(d.fontPx) || 16;
+    applyScale();
+
+    var list = visibleCards();
+    var i = list.indexOf(card);
+    fillNav(prevBtn, list[i - 1]);
+    fillNav(nextBtn, list[i + 1]);
+
+    readIds[d.id] = 1;
+    store(READ_KEY, readIds);
+    markRead(card);
+
+    scrollEl.scrollTop = 0;
+    updateProgress();
+    if (window.bootstrap && window.bootstrap.Modal) window.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
+
+  function updateProgress() {
+    var max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    // Notes that fit without scrolling get no bar rather than a full one.
+    progressEl.style.width = (max > 0 ? Math.min(100, (scrollEl.scrollTop / max) * 100) : 0) + "%";
+  }
+  scrollEl.addEventListener("scroll", updateProgress, { passive: true });
+
+  root.addEventListener("click", function (e) {
+    var card = e.target.closest("[data-ln-open]");
+    if (card) openNote(card);
+  });
+  [prevBtn, nextBtn].forEach(function (btn) {
+    btn.addEventListener("click", function () { if (btn._card) openNote(btn._card); });
+  });
+  modalEl.addEventListener("keydown", function (e) {
+    if (e.target.closest && e.target.closest("input, textarea")) return;
+    if (e.key === "ArrowRight" && nextBtn._card) openNote(nextBtn._card);
+    if (e.key === "ArrowLeft" && prevBtn._card) openNote(prevBtn._card);
+  });
+  modalEl.addEventListener("hidden.bs.modal", function () {
+    bodyEl.innerHTML = "";
+    if (current) current.focus();
+  });
+
+  // ── PDF export: keeps headings, lists, quotes and tables ────
+  var PDF_CHAR_MAP = { "≥": ">=", "≤": "<=", "→": "->", "←": "<-", "↑": "^", "↓": "v",
+                       "≈": "~", "≠": "!=", "✓": "v", "✔": "v", "✗": "x", " ": " ",
+                       "“": "\"", "”": "\"", "‘": "'", "’": "'", "−": "-" };
+  function pdfText(s) {
+    return (s || "").replace(/[≥≤→←↑↓≈≠✓✔✗ “”‘’−]/g,
+      function (ch) { return PDF_CHAR_MAP[ch]; }).replace(/[ \t]+/g, " ");
+  }
+
+  function exportPdf(card) {
+    if (!window.jspdf) return;
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({ unit: "mm", format: "a4" });
+    var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+    var M = 18, maxW = W - M * 2, y = M;
+    var INK = [26, 26, 46], TEXT = [45, 51, 69], MUTED = [123, 133, 153];
+
+    function ensure(h) { if (y + h > H - 16) { doc.addPage(); y = M; } }
+    function write(text, opts) {
+      opts = opts || {};
+      var size = opts.size || 11, indent = opts.indent || 0, lh = size * 0.43 * (opts.leading || 1.45);
+      doc.setFont(opts.font || "helvetica", opts.style || "normal");
+      doc.setFontSize(size);
+      doc.setTextColor.apply(doc, opts.color || TEXT);
+      var lines = doc.splitTextToSize(pdfText(text), maxW - indent);
+      lines.forEach(function (line, i) {
+        ensure(lh);
+        if (i === 0 && opts.bullet) doc.text(opts.bullet, M + indent - 5, y);
+        doc.text(line, M + indent, y);
+        y += lh;
+      });
+      y += opts.after || 0;
+    }
+
+    // Title block
+    doc.setFillColor.apply(doc, INK);
+    doc.rect(M, y - 4, 14, 1.2, "F");
+    y += 3;
+    write(card.dataset.subject.toUpperCase(), { size: 9, style: "bold", color: MUTED, after: 1 });
+    write(card.dataset.topic, { size: 20, style: "bold", color: INK, leading: 1.25, after: 1 });
+    if (card.dataset.subtopic) write(card.dataset.subtopic, { size: 12, color: MUTED, after: 2 });
+    doc.setDrawColor(231, 234, 241);
+    doc.line(M, y, W - M, y);
+    y += 8;
+
+    var src = document.createElement("div");
+    src.appendChild(card.querySelector(".ln-source").content.cloneNode(true));
+
+    var ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
+    function olMarker(n, level) {
+      if (level % 3 === 1) return String.fromCharCode(96 + ((n - 1) % 26) + 1) + ".";
+      if (level % 3 === 2) return (ROMAN[n - 1] || n) + ".";
+      return n + ".";
+    }
+    function listItems(list, depth) {
+      var counts = [0, 0, 0, 0, 0, 0];  // per indent level; deeper levels restart under each parent
+      Array.prototype.forEach.call(list.children, function (li) {
+        if (li.tagName !== "LI") return;
+        var m = /ql-indent-(\d)/.exec(li.className || "");
+        var rel = m ? Number(m[1]) : 0;
+        var level = depth + rel;
+        counts[rel] += 1;
+        for (var k = rel + 1; k < counts.length; k++) counts[k] = 0;
+        var clone = li.cloneNode(true);
+        clone.querySelectorAll("ul, ol").forEach(function (sub) { sub.remove(); });
+        var marker = list.tagName === "OL" ? olMarker(counts[rel], rel) : (rel ? "–" : "•");
+        write(clone.textContent.trim(), { indent: 6 + level * 6, bullet: marker, after: 1.2 });
+        li.querySelectorAll(":scope > ul, :scope > ol").forEach(function (sub) { listItems(sub, level + 1); });
+      });
+      y += 2;
+    }
+
+    function block(el) {
+      if (el.nodeType === 3) {
+        if (el.textContent.trim()) write(el.textContent.trim(), { after: 3 });
+        return;
+      }
+      if (el.nodeType !== 1) return;
+      var tag = el.tagName;
+      var text = (el.textContent || "").trim();
+      if (/^H[1-6]$/.test(tag)) {
+        var size = { H1: 16, H2: 14.5, H3: 13 }[tag] || 12;
+        ensure(18);
+        y += 3;
+        write(text, { size: size, style: "bold", color: INK, leading: 1.3, after: 2 });
+      } else if (tag === "UL" || tag === "OL") {
+        listItems(el, 0);
+      } else if (tag === "BLOCKQUOTE") {
+        var startY = y;
+        write(text, { indent: 6, style: "italic", after: 0 });
+        doc.setFillColor(210, 165, 60);
+        doc.rect(M, startY - 4, 1.2, y - startY + 1, "F");
+        y += 4;
+      } else if (tag === "PRE") {
+        write(el.textContent.replace(/\s+$/, ""), { font: "courier", size: 10, indent: 4, after: 4 });
+      } else if (tag === "TABLE" && doc.autoTable) {
+        var rows = Array.prototype.map.call(el.querySelectorAll("tr"), function (tr) {
+          return Array.prototype.map.call(tr.children, function (c) { return pdfText(c.textContent.trim()); });
+        });
+        var hasHead = el.querySelector("th") && el.rows[0] && el.rows[0].querySelector("th");
+        doc.autoTable({
+          startY: y, margin: { left: M, right: M },
+          head: hasHead ? [rows[0]] : undefined, body: hasHead ? rows.slice(1) : rows,
+          styles: { font: "helvetica", fontSize: 9.5, cellPadding: 2.4, textColor: TEXT, lineColor: [231, 234, 241], lineWidth: 0.2 },
+          headStyles: { fillColor: [246, 247, 251], textColor: INK, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [251, 251, 253] }
+        });
+        y = doc.lastAutoTable.finalY + 6;
+      } else if (tag === "TABLE") {
+        Array.prototype.forEach.call(el.querySelectorAll("tr"), function (tr) {
+          write(Array.prototype.map.call(tr.children, function (c) { return c.textContent.trim(); }).join("  |  "), { after: 1 });
+        });
+        y += 3;
+      } else if (tag === "DIV" || tag === "SECTION") {
+        Array.prototype.forEach.call(el.childNodes, block);
+      } else if (text) {
+        write(text, { after: 3 });
+      }
+    }
+    Array.prototype.forEach.call(src.childNodes, block);
+
+    // Footer on every page
+    var pages = doc.internal.getNumberOfPages();
+    for (var p = 1; p <= pages; p++) {
+      doc.setPage(p);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor.apply(doc, MUTED);
+      doc.text("NursesEdge · Lecture notes", M, H - 9);
+      doc.text(p + " / " + pages, W - M, H - 9, { align: "right" });
+    }
+    doc.save((card.dataset.topic || "lecture-note").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() + ".pdf");
+  }
+  document.getElementById("lnPdf").addEventListener("click", function () { if (current) exportPdf(current); });
+
+  // ── Deep link from the dashboard search: /dashboard/lecture-notes/?q=<topic> ──
+  var initialQ = "{{ initial_search_q|escapejs }}";
+  if (initialQ) {
+    input.value = initialQ;
+    applyFilters();
+    var exact = cards.filter(function (c) { return c.dataset.topic.toLowerCase() === initialQ.toLowerCase(); });
+    if (exact.length === 1) openNote(exact[0]);
+  }
+})();
 </script>
+{% endif %}
 {% endblock %}

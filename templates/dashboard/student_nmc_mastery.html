@@ -3,233 +3,745 @@
 
 {% block content %}
 <style>
-  .hot-page { max-width: 920px; margin: 0 auto; }
-  .hot-hero {
-    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
-    padding: 22px 24px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  .nm {
+    --nm-ink: #2f3b4a;
+    --nm-text: #4b5a6b;
+    --nm-muted: #8592a3;
+    --nm-line: #e7e9f0;
+    --nm-soft: #f5f5f9;
+    --nm-primary: #696cff;
+    max-width: 1080px;
+    margin: 0 auto;
+    color: var(--nm-text);
   }
-  .hot-hero h4 { font-size: 1.15rem; font-weight: 800; color: #1f2d40; margin: 0 0 8px; }
-  .hot-hero p { font-size: 0.87rem; color: #7b8599; margin: 0; line-height: 1.65; }
-  .hot-pillar {
-    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
-    padding: 20px 22px 22px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.03);
+
+  /* ── Hero ── */
+  .nm-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 28px;
+    align-items: center;
+    padding: 28px 30px;
+    margin-bottom: 18px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 6px rgba(67, 89, 113, .08);
+    overflow: hidden;
   }
-  .hot-pillar__title {
-    font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-    color: #8892a4; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #edf0f7;
+  .nm-hero::after {
+    content: "";
+    position: absolute;
+    right: -80px; top: -120px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(105,108,255,.10), transparent);
+    pointer-events: none;
   }
-  .hot-sub {
-    font-size: 0.9rem; font-weight: 800; color: #1f2d40; margin: 18px 0 10px;
+  .nm-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .75rem; font-weight: 600;
+    color: var(--nm-primary);
+    background: rgba(105,108,255,.1);
+    padding: 4px 10px; border-radius: 999px;
+    margin-bottom: 12px;
   }
-  .hot-sub:first-of-type { margin-top: 0; }
-  .hot-list {
-    margin: 0 0 0 1.1rem; padding: 0;
-    font-size: 0.84rem; color: #4a5268; line-height: 1.7;
+  .nm-hero h1 {
+    font-size: 1.65rem; font-weight: 700; letter-spacing: -.02em;
+    color: var(--nm-ink); margin: 0 0 8px;
   }
-  .hot-list li { margin-bottom: 6px; }
-  .hot-list--plain { list-style: disc; }
-  .hot-note { font-size: 0.78rem; color: #9098b0; font-style: italic; margin-top: 10px; }
-  @media (max-width: 576px) {
-    .hot-pillar { padding: 16px 16px 18px; }
+  .nm-hero p { margin: 0; max-width: 40rem; font-size: .95rem; line-height: 1.65; }
+  .nm-hero-stats { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 18px; font-size: .85rem; }
+  .nm-hero-stats span { display: inline-flex; align-items: center; gap: 6px; }
+  .nm-hero-stats b { color: var(--nm-ink); font-weight: 700; }
+  .nm-hero-stats i { font-size: 1.05rem; color: var(--nm-muted); }
+
+  .nm-ring-wrap { position: relative; z-index: 1; display: flex; align-items: center; gap: 18px; }
+  .nm-ring { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+  .nm-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .nm-ring .track { stroke: #eceef5; }
+  .nm-ring .bar { stroke: var(--nm-primary); transition: stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1); }
+  .nm-ring-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    line-height: 1.1;
+  }
+  .nm-ring-label strong { font-size: 1.4rem; font-weight: 700; color: var(--nm-ink); letter-spacing: -.02em; }
+  .nm-ring-label small { font-size: .7rem; color: var(--nm-muted); margin-top: 2px; }
+  .nm-ring-side { font-size: .85rem; line-height: 1.5; }
+  .nm-ring-side b { display: block; color: var(--nm-ink); font-size: .95rem; }
+  .nm-reset {
+    margin-top: 8px; padding: 0; border: 0; background: none;
+    font-size: .8rem; font-weight: 600; color: var(--nm-muted);
+    display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+  }
+  .nm-reset:hover { color: #ff3e1d; }
+  .nm-reset[hidden] { display: none; }
+
+  /* ── Toolbar ── */
+  .nm-toolbar {
+    position: sticky; top: 8px; z-index: 20;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 10px;
+    margin-bottom: 18px;
+    background: rgba(255,255,255,.92);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-radius: 14px;
+    box-shadow: 0 2px 6px rgba(67, 89, 113, .08);
+  }
+  .nm-search { position: relative; flex: 1 1 240px; min-width: 0; }
+  .nm-search i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 1.1rem; color: var(--nm-muted); pointer-events: none;
+  }
+  .nm-search input {
+    width: 100%; height: 40px;
+    padding: 0 36px 0 38px;
+    border: 1px solid var(--nm-line); border-radius: 10px;
+    background: var(--nm-soft);
+    font: inherit; font-size: .9rem; color: var(--nm-ink);
+    outline: none; transition: border-color .15s, background-color .15s, box-shadow .15s;
+  }
+  .nm-search input:focus { background: #fff; border-color: var(--nm-primary); box-shadow: 0 0 0 3px rgba(105,108,255,.15); }
+  .nm-search input::-webkit-search-cancel-button { display: none; }
+  .nm-search .nm-clear {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent;
+    display: none; align-items: center; justify-content: center; color: var(--nm-muted); cursor: pointer;
+  }
+  .nm-search .nm-clear:hover { background: #eceef5; color: var(--nm-ink); }
+  .nm-search.has-value .nm-clear { display: inline-flex; }
+
+  .nm-chips {
+    order: 3;
+    flex: 1 1 100%;
+    display: flex; gap: 6px;
+    overflow-x: auto; scrollbar-width: none;
+    min-width: 0;
+  }
+  .nm-chips .nm-chip { flex: 1 0 auto; justify-content: center; }
+  .nm-chips::-webkit-scrollbar { display: none; }
+  .nm-chip {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 40px; padding: 0 12px;
+    border: 1px solid var(--nm-line); border-radius: 10px;
+    background: #fff; color: var(--nm-text);
+    font-size: .85rem; font-weight: 600; text-decoration: none; white-space: nowrap;
+    transition: border-color .15s, color .15s, background-color .15s;
+  }
+  .nm-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .nm-chip .n { font-size: .75rem; font-weight: 600; color: var(--nm-muted); font-variant-numeric: tabular-nums; }
+  .nm-chip:hover { border-color: var(--accent); color: var(--nm-ink); }
+  .nm-chip.is-done .n { color: var(--accent); }
+
+  .nm-toggle {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 6px 0 4px;
+    font-size: .85rem; font-weight: 600; color: var(--nm-text);
+    cursor: pointer; user-select: none;
+  }
+  .nm-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+  .nm-toggle .sw {
+    position: relative; width: 34px; height: 20px; border-radius: 999px; background: #d9dce6;
+    transition: background-color .2s;
+  }
+  .nm-toggle .sw::after {
+    content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .2s;
+  }
+  .nm-toggle input:checked + .sw { background: var(--nm-primary); }
+  .nm-toggle input:checked + .sw::after { transform: translateX(14px); }
+  .nm-toggle input:focus-visible + .sw { outline: 2px solid var(--nm-primary); outline-offset: 2px; }
+
+  /* ── Area cards ── */
+  .nm-area {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 6px rgba(67, 89, 113, .08);
+    margin-bottom: 18px;
+    scroll-margin-top: 84px;
+    overflow: hidden;
+  }
+  .nm-area__head {
+    display: flex; align-items: center; gap: 14px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--nm-line);
+  }
+  .nm-area__icon {
+    width: 44px; height: 44px; flex-shrink: 0;
+    display: grid; place-items: center;
+    border-radius: 12px;
+    background: var(--tint); color: var(--accent);
+    font-size: 1.4rem;
+  }
+  .nm-area__title { flex: 1; min-width: 0; }
+  .nm-area__title h2 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--nm-ink); letter-spacing: -.01em; }
+  .nm-area__title p { margin: 2px 0 0; font-size: .82rem; color: var(--nm-muted); }
+  .nm-area__progress { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .nm-bar { width: 140px; height: 6px; border-radius: 6px; background: #eceef5; overflow: hidden; }
+  .nm-bar span { display: block; height: 100%; width: 0; border-radius: 6px; background: var(--accent); transition: width .5s cubic-bezier(.2,.7,.2,1); }
+  .nm-count { font-size: .82rem; font-weight: 600; color: var(--nm-ink); font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: right; }
+
+  .nm-area__body { padding: 18px 24px 22px; }
+  .nm-groups { columns: 2; column-gap: 20px; }
+  .nm-group {
+    break-inside: avoid;
+    display: inline-block; width: 100%;
+    margin: 0 0 16px;
+    border: 1px solid var(--nm-line);
+    border-radius: 12px;
+    padding: 12px 8px 8px;
+  }
+  .nm-group h3 {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+    margin: 0 8px 6px;
+    font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--nm-muted);
+  }
+  .nm-group h3 .n { font-weight: 600; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+
+  .nm-topics { list-style: none; margin: 0; padding: 0; }
+  .nm-topics--cols { columns: 2; column-gap: 20px; }
+  .nm-topics > li { break-inside: avoid; }
+
+  /* Plain rows (no-JS) */
+  .nm-topics > li:not(.is-enhanced) {
+    padding: 8px 10px 8px 26px; position: relative; font-size: .9rem; line-height: 1.5; color: var(--nm-text);
+  }
+  .nm-topics > li:not(.is-enhanced)::before {
+    content: ""; position: absolute; left: 11px; top: 16px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  }
+
+  /* Enhanced rows */
+  .nm-check {
+    display: flex; align-items: flex-start; gap: 11px;
+    margin: 0; padding: 8px 10px;
+    border-radius: 9px;
+    font-size: .9rem; line-height: 1.5; color: var(--nm-ink);
+    cursor: pointer;
+    transition: background-color .15s, color .15s;
+  }
+  .nm-check:hover { background: var(--nm-soft); }
+  .nm-check input { position: absolute; opacity: 0; pointer-events: none; }
+  .nm-box {
+    flex-shrink: 0;
+    width: 20px; height: 20px; margin-top: 1px;
+    display: grid; place-items: center;
+    border: 1.5px solid #cdd1dc; border-radius: 6px; background: #fff;
+    color: #fff; font-size: 1rem;
+    transition: background-color .15s, border-color .15s, transform .12s;
+  }
+  .nm-box i { opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+  .nm-check:hover .nm-box { border-color: var(--accent); }
+  .nm-check input:focus-visible + .nm-box { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .nm-check input:checked + .nm-box { background: var(--accent); border-color: var(--accent); }
+  .nm-check input:checked + .nm-box i { opacity: 1; transform: none; }
+  .nm-check input:checked ~ .nm-text { color: var(--nm-muted); }
+  .nm-check:active .nm-box { transform: scale(.92); }
+  .nm-text mark { padding: 0 1px; border-radius: 3px; background: #fff1c2; color: inherit; }
+
+  .nm-hidden { display: none !important; }
+  .nm-area-empty { display: none; padding: 6px 2px 2px; font-size: .88rem; color: var(--nm-muted); }
+  .nm-area-empty i { color: var(--accent); vertical-align: -2px; margin-right: 4px; font-size: 1.05rem; }
+  .nm-area.is-empty .nm-area-empty { display: block; }
+
+  .nm-noresults {
+    display: none;
+    text-align: center; padding: 48px 20px;
+    background: #fff; border-radius: 16px; box-shadow: 0 2px 6px rgba(67, 89, 113, .08);
+    margin-bottom: 18px;
+  }
+  .nm-noresults i { font-size: 2rem; color: #c3c8d4; }
+  .nm-noresults p { margin: 8px 0 0; font-size: .92rem; }
+  .nm-noresults.is-shown { display: block; }
+
+  .nm-footnote {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 14px 16px; margin: 4px 0 8px;
+    border-radius: 12px; background: rgba(105,108,255,.06);
+    font-size: .82rem; line-height: 1.6; color: var(--nm-text);
+  }
+  .nm-footnote i { font-size: 1.1rem; color: var(--nm-primary); margin-top: 1px; }
+
+  /* ── Responsive ── */
+  @media (max-width: 991.98px) {
+    .nm-groups, .nm-topics--cols { columns: 1; }
+  }
+  @media (max-width: 767.98px) {
+    .nm-hero { grid-template-columns: 1fr; gap: 20px; padding: 22px 18px; }
+    .nm-hero h1 { font-size: 1.4rem; }
+    .nm-ring-wrap { padding-top: 18px; border-top: 1px solid var(--nm-line); }
+    .nm-ring { width: 84px; height: 84px; }
+    .nm-ring-label strong { font-size: 1.15rem; }
+    .nm-toolbar { top: 4px; padding: 8px; gap: 8px; }
+    .nm-search { flex-basis: 0; }
+    .nm-chips .nm-chip { flex: 0 0 auto; }
+    .nm-toggle .lbl { font-size: .8rem; }
+    .nm-area { scroll-margin-top: 124px; }
+    .nm-area__head { flex-wrap: wrap; padding: 16px; gap: 12px; }
+    .nm-area__progress { width: 100%; }
+    .nm-bar { flex: 1; width: auto; }
+    .nm-area__body { padding: 12px 10px 14px; }
+    .nm-group { border: 0; border-radius: 0; padding: 4px 0 0; margin-bottom: 10px; }
+    .nm-group + .nm-group { border-top: 1px solid var(--nm-line); padding-top: 14px; }
+    .nm-check { padding: 9px 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nm-ring .bar, .nm-bar span, .nm-box, .nm-box i { transition: none; }
   }
 </style>
 
-<div class="hot-page">
-  <div class="hot-hero">
-    <h4><i class="bx bx-bolt"></i> NMC Mastery</h4>
-    <p>High-yield topic map for nursing registration-style exams—grouped by clinical area so you can plan revision with purpose. (Educational guide only; not an NMC official syllabus.)</p>
+<div class="nm" id="nmc-mastery">
+
+  <!-- Hero -->
+  <section class="nm-hero">
+    <div>
+      <span class="nm-eyebrow"><i class="bx bx-target-lock"></i> High-yield topic map</span>
+      <h1>NMC Mastery</h1>
+      <p>The topics that come up again and again in registration-style exams, grouped by clinical area. Tick each one off as you revise it and watch your coverage grow.</p>
+      <div class="nm-hero-stats">
+        <span><i class="bx bx-grid-alt"></i><b data-nm-areas>5</b> clinical areas</span>
+        <span><i class="bx bx-list-check"></i><b data-nm-total>&nbsp;</b> topics</span>
+        <span><i class="bx bx-devices"></i>Progress saved on this device</span>
+      </div>
+    </div>
+
+    <div class="nm-ring-wrap" aria-live="polite">
+      <div class="nm-ring" role="img" aria-label="Overall revision progress">
+        <svg viewBox="0 0 80 80">
+          <circle class="track" cx="40" cy="40" r="34" fill="none" stroke-width="7"/>
+          <circle class="bar" cx="40" cy="40" r="34" fill="none" stroke-width="7" stroke-linecap="round"
+                  stroke-dasharray="213.63" stroke-dashoffset="213.63" data-nm-ring/>
+        </svg>
+        <div class="nm-ring-label"><strong data-nm-pct>0%</strong><small>revised</small></div>
+      </div>
+      <div class="nm-ring-side">
+        <b><span data-nm-done>0</span> of <span data-nm-total>&nbsp;</span> topics</b>
+        <span data-nm-encourage>Pick an area below to begin.</span><br>
+        <button type="button" class="nm-reset" data-nm-reset hidden><i class="bx bx-reset"></i>Reset progress</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Toolbar -->
+  <div class="nm-toolbar" role="search">
+    <div class="nm-search">
+      <i class="bx bx-search"></i>
+      <input type="search" placeholder="Search topics…" aria-label="Search topics" data-nm-search autocomplete="off">
+      <button type="button" class="nm-clear" aria-label="Clear search" data-nm-clear><i class="bx bx-x"></i></button>
+    </div>
+    <nav class="nm-chips" aria-label="Jump to area" data-nm-chips></nav>
+    <label class="nm-toggle">
+      <input type="checkbox" data-nm-hide>
+      <span class="sw" aria-hidden="true"></span>
+      <span class="lbl">Hide revised</span>
+    </label>
   </div>
 
   <!-- SURGERY -->
-  <article class="hot-pillar">
-    <h2 class="hot-pillar__title">Surgery</h2>
-
-    <h3 class="hot-sub">Urology</h3>
-    <ol class="hot-list">
-      <li>Prostate hypertrophy</li>
-      <li>Urine retention</li>
-      <li>Bladder irrigation</li>
-    </ol>
-
-    <h3 class="hot-sub">Gynaecological</h3>
-    <ol class="hot-list">
-      <li>Breast cancer and mastectomy</li>
-      <li>Cervical cancer, fibroid and hysterectomy</li>
-      <li>Ectopic pregnancy, dysmenorrhoea and caesarean section</li>
-    </ol>
-
-    <h3 class="hot-sub">Gastrointestinal</h3>
-    <ol class="hot-list">
-      <li>Peritonitis, appendicitis and appendectomy</li>
-      <li>PUD and gastrectomy</li>
-      <li>Cholecystitis and cholecystectomy; inflammatory bowel disease and ileostomy</li>
-      <li>Intestinal obstruction, colorectal cancer and colostomy</li>
-      <li>Hernia and herniorrhaphy</li>
-      <li>Haemorrhoids and haemorrhoidectomy</li>
-    </ol>
-
-    <h3 class="hot-sub">Respiratory</h3>
-    <ol class="hot-list">
-      <li>Lobectomy and underwater seal drainage</li>
-      <li>Empyema thoracis, haemothorax and pulmonary embolism</li>
-      <li>Laryngectomy and tracheostomy</li>
-    </ol>
-
-    <h3 class="hot-sub">Integumentary</h3>
-    <ol class="hot-list">
-      <li>Wound healing (factors, first and second intention)</li>
-      <li>Burns and skin grafting</li>
-      <li>Cellulitis and diabetic foot management</li>
-      <li>Amputation and wound debridement</li>
-    </ol>
-
-    <h3 class="hot-sub">Musculoskeletal</h3>
-    <ol class="hot-list">
-      <li>Osteomyelitis</li>
-      <li>Fracture (types, healing process and management—internal and external fixation)</li>
-      <li>Craniotomy</li>
-    </ol>
-
-    <h3 class="hot-sub">EENT</h3>
-    <ol class="hot-list">
-      <li>Glaucoma, corneal laceration, cataract and pterygium extraction</li>
-      <li>Otosclerosis, quinsy and ear syringing</li>
-      <li>Sinusitis, tonsillitis and tonsillectomy</li>
-    </ol>
-
-    <h3 class="hot-sub">Endocrine</h3>
-    <ul class="hot-list hot-list--plain">
-      <li>Goitre and thyroidectomy</li>
-    </ul>
-
-    <h3 class="hot-sub">Procedures</h3>
-    <ol class="hot-list">
-      <li>Blood transfusion and intravenous infusions</li>
-      <li>Preparation of patient for LP, EEG, ECG, intravenous pyelography, X-ray, etc.</li>
-      <li>Incision and drainage</li>
-    </ol>
-
-    <h3 class="hot-sub">Miscellaneous</h3>
-    <ol class="hot-list">
-      <li>Stages (phases) of general anaesthesia</li>
-      <li>Steps in scrubbing</li>
-      <li>Uses of surgical instruments, sterilisation/disinfection, storage</li>
-      <li>Pharmacology of surgical drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
-    </ol>
-  </article>
+  <section class="nm-area" id="surgery" data-nm-area="Surgery" data-icon="bx-plus-medical" style="--accent:#696cff; --tint:rgba(105,108,255,.12)">
+    <div class="nm-area__body">
+      <div class="nm-groups">
+        <div class="nm-group">
+          <h3>Urology</h3>
+          <ul class="nm-topics">
+            <li>Prostate hypertrophy</li>
+            <li>Urine retention</li>
+            <li>Bladder irrigation</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Gynaecological</h3>
+          <ul class="nm-topics">
+            <li>Breast cancer and mastectomy</li>
+            <li>Cervical cancer, fibroid and hysterectomy</li>
+            <li>Ectopic pregnancy, dysmenorrhoea and caesarean section</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Gastrointestinal</h3>
+          <ul class="nm-topics">
+            <li>Peritonitis, appendicitis and appendectomy</li>
+            <li>PUD and gastrectomy</li>
+            <li>Cholecystitis and cholecystectomy; inflammatory bowel disease and ileostomy</li>
+            <li>Intestinal obstruction, colorectal cancer and colostomy</li>
+            <li>Hernia and herniorrhaphy</li>
+            <li>Haemorrhoids and haemorrhoidectomy</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Respiratory</h3>
+          <ul class="nm-topics">
+            <li>Lobectomy and underwater seal drainage</li>
+            <li>Empyema thoracis, haemothorax and pulmonary embolism</li>
+            <li>Laryngectomy and tracheostomy</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Integumentary</h3>
+          <ul class="nm-topics">
+            <li>Wound healing (factors, first and second intention)</li>
+            <li>Burns and skin grafting</li>
+            <li>Cellulitis and diabetic foot management</li>
+            <li>Amputation and wound debridement</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Musculoskeletal</h3>
+          <ul class="nm-topics">
+            <li>Osteomyelitis</li>
+            <li>Fracture (types, healing process and management—internal and external fixation)</li>
+            <li>Craniotomy</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>EENT</h3>
+          <ul class="nm-topics">
+            <li>Glaucoma, corneal laceration, cataract and pterygium extraction</li>
+            <li>Otosclerosis, quinsy and ear syringing</li>
+            <li>Sinusitis, tonsillitis and tonsillectomy</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Endocrine</h3>
+          <ul class="nm-topics">
+            <li>Goitre and thyroidectomy</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Procedures</h3>
+          <ul class="nm-topics">
+            <li>Blood transfusion and intravenous infusions</li>
+            <li>Preparation of patient for LP, EEG, ECG, intravenous pyelography, X-ray, etc.</li>
+            <li>Incision and drainage</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Miscellaneous</h3>
+          <ul class="nm-topics">
+            <li>Stages (phases) of general anaesthesia</li>
+            <li>Steps in scrubbing</li>
+            <li>Uses of surgical instruments, sterilisation/disinfection, storage</li>
+            <li>Pharmacology of surgical drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- OBSTETRICS -->
-  <article class="hot-pillar">
-    <h2 class="hot-pillar__title">Obstetrics</h2>
-    <ol class="hot-list">
-      <li>Diagram and descriptions (vulva, cervix, uterus, oviduct, placenta, breast and foetal skull)</li>
-      <li>ANC—importance, components and physical examination</li>
-      <li>STIs (Hep. B, HIV, gonorrhoea, candidiasis and syphilis)</li>
-      <li>Management of minor disorders during pregnancy (N&amp;V, constipation and varicose veins)</li>
-      <li>PIH, pre-eclampsia and eclampsia</li>
-      <li>Hyperemesis gravidarum and anaemia</li>
-      <li>Abortion—causes, types, signs &amp; symptoms and management</li>
-      <li>Management and complications of the stages of labour, partography and APGAR score</li>
-      <li>Birth injuries and asphyxia neonatorum</li>
-      <li>Breastfeeding—physiology, importance, health education, care of the breast and management of breastfeeding problems</li>
-      <li>Puerperium—normal and abnormal (sepsis, PPH)</li>
-      <li>Pemphigus neonatorum</li>
-      <li>Family planning—importance, various methods of contraception</li>
-      <li>Health education—nutrition and personal hygiene</li>
-      <li>Preterm</li>
-      <li>Pharmacology of obstetric drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
-    </ol>
-  </article>
+  <section class="nm-area" id="obstetrics" data-nm-area="Obstetrics" data-icon="bx-female" style="--accent:#e5487f; --tint:rgba(229,72,127,.12)">
+    <div class="nm-area__body">
+      <ul class="nm-topics nm-topics--cols">
+        <li>Diagram and descriptions (vulva, cervix, uterus, oviduct, placenta, breast and foetal skull)</li>
+        <li>ANC—importance, components and physical examination</li>
+        <li>STIs (Hep. B, HIV, gonorrhoea, candidiasis and syphilis)</li>
+        <li>Management of minor disorders during pregnancy (N&amp;V, constipation and varicose veins)</li>
+        <li>PIH, pre-eclampsia and eclampsia</li>
+        <li>Hyperemesis gravidarum and anaemia</li>
+        <li>Abortion—causes, types, signs &amp; symptoms and management</li>
+        <li>Management and complications of the stages of labour, partography and APGAR score</li>
+        <li>Birth injuries and asphyxia neonatorum</li>
+        <li>Breastfeeding—physiology, importance, health education, care of the breast and management of breastfeeding problems</li>
+        <li>Puerperium—normal and abnormal (sepsis, PPH)</li>
+        <li>Pemphigus neonatorum</li>
+        <li>Family planning—importance, various methods of contraception</li>
+        <li>Health education—nutrition and personal hygiene</li>
+        <li>Preterm</li>
+        <li>Pharmacology of obstetric drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+      </ul>
+    </div>
+  </section>
 
   <!-- PAEDIATRICS -->
-  <article class="hot-pillar">
-    <h2 class="hot-pillar__title">Paediatrics</h2>
-
-    <h3 class="hot-sub">Peri-operative nursing</h3>
-    <p class="hot-note" style="margin-top:0;">Core principles and nursing care around paediatric surgery.</p>
-
-    <h3 class="hot-sub">Gastrointestinal and nutrition</h3>
-    <ol class="hot-list">
-      <li>Acute abdomen (appendicitis), gastroenteritis (acute diarrhoea)</li>
-      <li>Intestinal obstruction and pyloric stenosis</li>
-      <li>Hirschsprung&rsquo;s disease</li>
-      <li>Protein&ndash;calorie malnutrition</li>
-    </ol>
-
-    <h3 class="hot-sub">Respiratory</h3>
-    <ul class="hot-list hot-list--plain">
-      <li>Asthma and pneumonia</li>
-    </ul>
-
-    <h3 class="hot-sub">Infections and infestations</h3>
-    <ol class="hot-list">
-      <li>Tetanus and meningitis</li>
-      <li>Measles and scabies</li>
-      <li>Malaria and febrile convulsion</li>
-    </ol>
-
-    <h3 class="hot-sub">Enteric feeding</h3>
-    <ul class="hot-list hot-list--plain">
-      <li>Indications and procedure for passage and removal of NG tube</li>
-    </ul>
-
-    <h3 class="hot-sub">Miscellaneous</h3>
-    <ol class="hot-list">
-      <li>Worm infestations, UTI and HIV/AIDS</li>
-      <li>Anaemia (sickle cell anaemia) and jaundice</li>
-      <li>Nephritic syndrome and fracture</li>
-      <li>Burns</li>
-      <li>Repair of cleft lip and palate; imperforate anus; tonsillitis</li>
-      <li>Preterm baby and accident prevention</li>
-    </ol>
-  </article>
+  <section class="nm-area" id="paediatrics" data-nm-area="Paediatrics" data-icon="bx-happy-heart-eyes" style="--accent:#e8930c; --tint:rgba(255,171,0,.16)">
+    <div class="nm-area__body">
+      <div class="nm-groups">
+        <div class="nm-group">
+          <h3>Peri-operative nursing</h3>
+          <ul class="nm-topics">
+            <li>Core principles and nursing care around paediatric surgery</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Gastrointestinal and nutrition</h3>
+          <ul class="nm-topics">
+            <li>Acute abdomen (appendicitis), gastroenteritis (acute diarrhoea)</li>
+            <li>Intestinal obstruction and pyloric stenosis</li>
+            <li>Hirschsprung&rsquo;s disease</li>
+            <li>Protein&ndash;calorie malnutrition</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Respiratory</h3>
+          <ul class="nm-topics">
+            <li>Asthma and pneumonia</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Infections and infestations</h3>
+          <ul class="nm-topics">
+            <li>Tetanus and meningitis</li>
+            <li>Measles and scabies</li>
+            <li>Malaria and febrile convulsion</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Enteric feeding</h3>
+          <ul class="nm-topics">
+            <li>Indications and procedure for passage and removal of NG tube</li>
+          </ul>
+        </div>
+        <div class="nm-group">
+          <h3>Miscellaneous</h3>
+          <ul class="nm-topics">
+            <li>Worm infestations, UTI and HIV/AIDS</li>
+            <li>Anaemia (sickle cell anaemia) and jaundice</li>
+            <li>Nephritic syndrome and fracture</li>
+            <li>Burns</li>
+            <li>Repair of cleft lip and palate; imperforate anus; tonsillitis</li>
+            <li>Preterm baby and accident prevention</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- PUBLIC HEALTH -->
-  <article class="hot-pillar">
-    <h2 class="hot-pillar__title">Public health</h2>
-    <ol class="hot-list">
-      <li>Health promotion and health education</li>
-      <li>Personal and environmental hygiene</li>
-      <li>Prevention and control of communicable diseases</li>
-      <li>Population issues and family planning</li>
-      <li>Medical statistics and disease surveillance</li>
-      <li>Immunisation and cold chain system</li>
-      <li>Home visiting</li>
-      <li>Reproductive child health (child welfare clinic)</li>
-      <li>Home—definition, types, etc.</li>
-      <li>Family—definition, types, roles</li>
-      <li>School health</li>
-      <li>Community assessment</li>
-      <li>Primary health care and CHPS</li>
-    </ol>
-  </article>
+  <section class="nm-area" id="public-health" data-nm-area="Public health" data-icon="bx-world" style="--accent:#3f9b1b; --tint:rgba(113,221,55,.16)">
+    <div class="nm-area__body">
+      <ul class="nm-topics nm-topics--cols">
+        <li>Health promotion and health education</li>
+        <li>Personal and environmental hygiene</li>
+        <li>Prevention and control of communicable diseases</li>
+        <li>Population issues and family planning</li>
+        <li>Medical statistics and disease surveillance</li>
+        <li>Immunisation and cold chain system</li>
+        <li>Home visiting</li>
+        <li>Reproductive child health (child welfare clinic)</li>
+        <li>Home—definition, types, etc.</li>
+        <li>Family—definition, types, roles</li>
+        <li>School health</li>
+        <li>Community assessment</li>
+        <li>Primary health care and CHPS</li>
+      </ul>
+    </div>
+  </section>
 
   <!-- PSYCHIATRY -->
-  <article class="hot-pillar">
-    <h2 class="hot-pillar__title">Psychiatry</h2>
-    <ol class="hot-list">
-      <li>Characteristics of mentally healthy person</li>
-      <li>Promotion of mental health and prevention of mental illnesses</li>
-      <li>Delirium and dementia</li>
-      <li>Anxiety disorders and coping mechanisms</li>
-      <li>Mood disorders</li>
-      <li>Eating disorders (anorexia nervosa and bulimia)</li>
-      <li>Conversion and dissociative disorders</li>
-      <li>Psychosomatic disorders—definition, signs &amp; symptoms and management</li>
-      <li>Personality disorders</li>
-      <li>Schizophrenia</li>
-      <li>Mental retardation</li>
-      <li>Substance abuse</li>
-      <li>Aggression and violence</li>
-      <li>Suicide</li>
-      <li>Seizures and epilepsy</li>
-      <li>Grieving process</li>
-      <li>Psychiatric assessment (MSE)</li>
-      <li>Therapies used in psychiatry (ECT, psychotherapy and social therapy)</li>
-      <li>Role of the CPN</li>
-      <li>Patient&rsquo;s bill of rights and other legal aspects</li>
-      <li>Pharmacology of psychotropic drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
-    </ol>
-  </article>
+  <section class="nm-area" id="psychiatry" data-nm-area="Psychiatry" data-icon="bx-brain" style="--accent:#0896c4; --tint:rgba(3,195,236,.14)">
+    <div class="nm-area__body">
+      <ul class="nm-topics nm-topics--cols">
+        <li>Characteristics of mentally healthy person</li>
+        <li>Promotion of mental health and prevention of mental illnesses</li>
+        <li>Delirium and dementia</li>
+        <li>Anxiety disorders and coping mechanisms</li>
+        <li>Mood disorders</li>
+        <li>Eating disorders (anorexia nervosa and bulimia)</li>
+        <li>Conversion and dissociative disorders</li>
+        <li>Psychosomatic disorders—definition, signs &amp; symptoms and management</li>
+        <li>Personality disorders</li>
+        <li>Schizophrenia</li>
+        <li>Mental retardation</li>
+        <li>Substance abuse</li>
+        <li>Aggression and violence</li>
+        <li>Suicide</li>
+        <li>Seizures and epilepsy</li>
+        <li>Grieving process</li>
+        <li>Psychiatric assessment (MSE)</li>
+        <li>Therapies used in psychiatry (ECT, psychotherapy and social therapy)</li>
+        <li>Role of the CPN</li>
+        <li>Patient&rsquo;s bill of rights and other legal aspects</li>
+        <li>Pharmacology of psychotropic drugs (trade and generic names, indications, dosages, routes, side effects and contraindications)</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="nm-noresults" data-nm-noresults>
+    <i class="bx bx-search-alt"></i>
+    <p>No topics match &ldquo;<span data-nm-query></span>&rdquo;. Try a shorter word.</p>
+  </div>
+
+  <p class="nm-footnote">
+    <i class="bx bx-info-circle"></i>
+    <span>This is an educational revision guide prepared by NursesEdge. It is not an official NMC syllabus.</span>
+  </p>
 </div>
+
+<script>
+(function () {
+  var root = document.getElementById("nmc-mastery");
+  if (!root) return;
+
+  var STORE_KEY = "ne:nmc-mastery:v1:{{ email|escapejs }}";
+  var CIRC = 213.63;
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function save(ids) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(ids)); } catch (e) {}
+  }
+  function slug(s) {
+    return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  var done = new Set(load());
+  var areas = [];
+  var total = 0;
+
+  /* Build each area: header, topic rows, and a chip in the toolbar */
+  root.querySelectorAll("[data-nm-area]").forEach(function (section) {
+    var name = section.getAttribute("data-nm-area");
+    var areaKey = section.id;
+    var groups = section.querySelectorAll(".nm-group");
+
+    var head = document.createElement("header");
+    head.className = "nm-area__head";
+    head.innerHTML =
+      '<div class="nm-area__icon"><i class="bx ' + section.getAttribute("data-icon") + '"></i></div>' +
+      '<div class="nm-area__title"><h2></h2><p></p></div>' +
+      '<div class="nm-area__progress"><div class="nm-bar"><span></span></div><span class="nm-count"></span></div>';
+    head.querySelector("h2").textContent = name;
+    section.insertBefore(head, section.firstChild);
+
+    var empty = document.createElement("p");
+    empty.className = "nm-area-empty";
+    empty.innerHTML = '<i class="bx bxs-check-circle"></i>Every topic in this area is revised.';
+    section.querySelector(".nm-area__body").appendChild(empty);
+
+    var items = [];
+    section.querySelectorAll(".nm-topics > li").forEach(function (li) {
+      var text = li.textContent.replace(/\s+/g, " ").trim();
+      var id = areaKey + ":" + slug(text);
+      li.textContent = "";
+      li.classList.add("is-enhanced");
+      var label = document.createElement("label");
+      label.className = "nm-check";
+      label.innerHTML = '<input type="checkbox"><span class="nm-box" aria-hidden="true"><i class="bx bx-check"></i></span><span class="nm-text"></span>';
+      label.querySelector(".nm-text").textContent = text;
+      var input = label.querySelector("input");
+      input.checked = done.has(id);
+      li.appendChild(label);
+      var item = { li: li, input: input, text: text, lower: text.toLowerCase(), id: id, textEl: label.querySelector(".nm-text") };
+      input.addEventListener("change", function () {
+        if (input.checked) done.add(id); else done.delete(id);
+        save(Array.from(done));
+        update();
+      });
+      items.push(item);
+    });
+    total += items.length;
+
+    var meta = items.length + " topics" + (groups.length ? " · " + groups.length + " sections" : "");
+    head.querySelector("p").textContent = meta;
+
+    var chip = document.createElement("a");
+    chip.className = "nm-chip";
+    chip.href = "#" + areaKey;
+    chip.setAttribute("style", section.getAttribute("style"));
+    chip.innerHTML = '<span class="dot"></span><span class="nm-chip-name"></span><span class="n"></span>';
+    chip.querySelector(".nm-chip-name").textContent = name;
+    root.querySelector("[data-nm-chips]").appendChild(chip);
+
+    areas.push({
+      section: section, items: items, groups: groups, chip: chip,
+      bar: head.querySelector(".nm-bar span"), count: head.querySelector(".nm-count")
+    });
+  });
+
+  root.querySelectorAll("[data-nm-total]").forEach(function (el) { el.textContent = total; });
+  root.querySelector("[data-nm-areas]").textContent = areas.length;
+
+  /* Drop ids for topics that no longer exist, so the count stays honest */
+  var valid = new Set();
+  areas.forEach(function (a) { a.items.forEach(function (it) { valid.add(it.id); }); });
+  done.forEach(function (id) { if (!valid.has(id)) done.delete(id); });
+
+  var searchInput = root.querySelector("[data-nm-search]");
+  var searchWrap = root.querySelector(".nm-search");
+  var hideToggle = root.querySelector("[data-nm-hide]");
+  var noResults = root.querySelector("[data-nm-noresults]");
+  var resetBtn = root.querySelector("[data-nm-reset]");
+
+  function update() {
+    var q = searchInput.value.trim().toLowerCase();
+    var hideDone = hideToggle.checked;
+    var totalDone = 0, anyVisible = false;
+
+    areas.forEach(function (a) {
+      var aDone = 0, aVisible = 0;
+      a.items.forEach(function (it) {
+        var isDone = it.input.checked;
+        if (isDone) aDone++;
+        var match = !q || it.lower.indexOf(q) !== -1;
+        var show = match && !(hideDone && isDone);
+        it.li.classList.toggle("nm-hidden", !show);
+        if (show) aVisible++;
+        if (q && match) {
+          var i = it.lower.indexOf(q);
+          it.textEl.innerHTML = escapeHtml(it.text.slice(0, i)) + "<mark>" + escapeHtml(it.text.slice(i, i + q.length)) + "</mark>" + escapeHtml(it.text.slice(i + q.length));
+        } else if (it.textEl.firstElementChild) {
+          it.textEl.textContent = it.text;
+        }
+      });
+      a.groups.forEach(function (g) {
+        g.classList.toggle("nm-hidden", !g.querySelector(".nm-topics > li:not(.nm-hidden)"));
+      });
+      totalDone += aDone;
+      var pct = a.items.length ? aDone / a.items.length : 0;
+      a.bar.style.width = (pct * 100) + "%";
+      a.count.textContent = aDone + "/" + a.items.length;
+      a.chip.querySelector(".n").textContent = aDone + "/" + a.items.length;
+      a.chip.classList.toggle("is-done", aDone === a.items.length);
+
+      var allDoneHidden = hideDone && !q && aDone === a.items.length;
+      a.section.classList.toggle("is-empty", allDoneHidden);
+      a.section.classList.toggle("nm-hidden", aVisible === 0 && !allDoneHidden);
+      if (aVisible > 0 || allDoneHidden) anyVisible = true;
+    });
+
+    var pctAll = total ? Math.round(totalDone / total * 100) : 0;
+    root.querySelector("[data-nm-done]").textContent = totalDone;
+    root.querySelector("[data-nm-pct]").textContent = pctAll + "%";
+    root.querySelector("[data-nm-ring]").setAttribute("stroke-dashoffset", (CIRC * (1 - totalDone / (total || 1))).toFixed(2));
+    root.querySelector("[data-nm-encourage]").textContent =
+      totalDone === 0 ? "Pick an area below to begin." :
+      totalDone === total ? "Every topic covered. Brilliant work!" :
+      pctAll >= 75 ? "Nearly there. Keep going." :
+      pctAll >= 40 ? "Good progress. Stay consistent." :
+      "Great start. Keep the momentum.";
+    resetBtn.hidden = totalDone === 0;
+
+    searchWrap.classList.toggle("has-value", !!searchInput.value);
+    root.querySelector("[data-nm-query]").textContent = searchInput.value.trim();
+    noResults.classList.toggle("is-shown", !!q && !anyVisible);
+  }
+
+  searchInput.addEventListener("input", update);
+  searchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { searchInput.value = ""; update(); }
+  });
+  root.querySelector("[data-nm-clear]").addEventListener("click", function () {
+    searchInput.value = ""; update(); searchInput.focus();
+  });
+  hideToggle.addEventListener("change", update);
+  resetBtn.addEventListener("click", function () {
+    if (!window.confirm("Clear all ticked topics on this device?")) return;
+    done.clear(); save([]);
+    areas.forEach(function (a) { a.items.forEach(function (it) { it.input.checked = false; }); });
+    update();
+  });
+
+  update();
+})();
+</script>
 {% endblock %}
