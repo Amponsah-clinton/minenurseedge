@@ -169,9 +169,6 @@
   {% if config_error %}
     <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>{{ config_error }}</span></div>
   {% endif %}
-  {% if notice %}
-    <div class="alert alert-info"><i class="bx bx-mobile-alt"></i><span>{{ notice }}</span></div>
-  {% endif %}
   {% if error %}
     <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>
       {% if error == "verify_failed" %}We could not verify the payment. If money left your account, contact support with your reference.
@@ -225,7 +222,6 @@
       <p class="secure">
         <i class="bx bx-shield-quarter"></i>
         {% if using_paystack %}Secure checkout by Paystack &middot; Mobile Money or card
-        {% elif using_bulkclix %}A Mobile Money prompt will be sent to your phone
         {% else %}Online payment is not configured yet{% endif %}
       </p>
 

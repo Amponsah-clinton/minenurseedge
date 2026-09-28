@@ -239,15 +239,16 @@ class PaymentConfirmationTests(SimpleTestCase):
         self.apply.assert_called_once()
 
 
-class MobileMoneyTests(SimpleTestCase):
-    def test_starting_a_momo_prompt_does_not_unlock_the_dashboard(self):
+class PaystackOnlyCheckoutTests(SimpleTestCase):
+    """Paystack is the only provider: Pay opens its checkout and nothing activates until it confirms."""
+
+    def _checkout(self, **settings):
         request = RequestFactory().post("/subscribe/", {"start_checkout": "1", "plan_slug": "standard"})
         request.session = SessionStore()
-        request.session.update(STUDENT)
+        request.session.update(dict(STUDENT, email="ama@example.com"))
         admin = mock.MagicMock()
-        admin.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [
-            {"full_name": "Ama Owusu", "phone_number": "0241234567"}]
-        with self.settings(PAYSTACK_SECRET_KEY="", BULKCLIX_API_KEY="bk_live"), \
+        init = {"status": True, "data": {"reference": "ref1", "authorization_url": "https://checkout.paystack.com/abc"}}
+        with self.settings(**settings), \
              mock.patch.object(views, "_reconcile_pending_subscription_from_paystack", return_value=False), \
              mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")), \
              mock.patch.object(views, "_get_plans", return_value=PLANS), \
@@ -255,14 +256,29 @@ class MobileMoneyTests(SimpleTestCase):
              mock.patch.object(views, "_supabase_admin", return_value=admin), \
              mock.patch.object(views, "_student_unread_count", return_value=0), \
              mock.patch.object(views, "_community_unread_count", return_value=0), \
-             mock.patch.object(views, "_bulkclix_start_subscription_payment",
-                               return_value=({"reference": "BX123", "amount_paid": 60}, None)), \
+             mock.patch.object(views, "_paystack_request", return_value=(init, None)), \
              mock.patch.object(views, "_apply_successful_subscription_payment") as apply:
             response = views.student_subscribe(request)
+        return response, request, apply, admin
+
+    def test_pay_goes_to_paystack_and_only_records_the_reference(self):
+        response, request, apply, admin = self._checkout(**PAYSTACK)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://checkout.paystack.com/abc")
+        admin.table.return_value.update.assert_called_once_with({"payment_reference": "ref1"})
         apply.assert_not_called()
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("Mobile Money prompt was sent", response.content.decode())
         self.assertNotIn("payment_welcome", request.session)
+
+    def test_without_paystack_keys_nothing_is_charged_or_unlocked(self):
+        response, request, apply, _ = self._checkout(PAYSTACK_SECRET_KEY="")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Online payments are not configured", response.content.decode())
+        apply.assert_not_called()
+        self.assertNotIn("payment_welcome", request.session)
+
+    def test_no_bulkclix_code_left(self):
+        self.assertFalse(hasattr(views, "_bulkclix_start_subscription_payment"))
+        self.assertFalse(hasattr(views, "_bulkclix_request"))
 
 
 class RemovedEndpointTests(SimpleTestCase):

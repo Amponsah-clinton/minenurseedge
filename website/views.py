@@ -13438,122 +13438,6 @@ def _paystack_transaction_initialize(*, email, amount_ghs, callback_url, metadat
     return data, None
 
 
-def _bulkclix_request(method, path, body_dict=None):
-    import json
-    import urllib.error
-    import urllib.request
-
-    api_key = (getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()
-    if not api_key:
-        return None, "bulkclix_not_configured"
-
-    base_url = (getattr(settings, "BULKCLIX_BASE_URL", None) or "https://api.bulkclix.com").strip().rstrip("/")
-    url = f"{base_url}{path}"
-
-    payload = None
-    if method != "GET":
-        payload = json.dumps(body_dict if body_dict is not None else {}).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, method=method)
-    req.add_header("x-api-key", api_key)
-    req.add_header("Authorization", f"ApiKey {api_key}")
-    req.add_header("Accept", "application/json")
-    if method != "GET":
-        req.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            return json.loads(resp.read().decode()), None
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode(errors="replace")
-        try:
-            return json.loads(raw), None
-        except Exception:
-            snippet = " ".join(raw.split())[:280]
-            return None, f"http_{e.code}:{snippet}" if snippet else f"http_{e.code}"
-    except Exception as e:
-        return None, str(e)
-
-
-def _infer_network_from_phone(phone_number):
-    digits = re.sub(r"\D+", "", phone_number or "")
-    if digits.startswith("233"):
-        digits = "0" + digits[3:]
-    if len(digits) < 3:
-        return "MTN"
-    prefix = digits[:3]
-    mtn = {"024", "025", "053", "054", "055", "059"}
-    telecel = {"020", "050"}
-    airteltigo = {"026", "027", "056", "057"}
-    if prefix in mtn:
-        return "MTN"
-    if prefix in telecel:
-        return "Telecel"
-    if prefix in airteltigo:
-        return "AirtelTigo"
-    return "MTN"
-
-
-def _bulkclix_start_subscription_payment(*, full_name, phone_number, amount):
-    network = _infer_network_from_phone(phone_number)
-    client_reference = f"NE-{secrets.token_hex(8)}"
-
-    payload = {
-        "amount": str(float(amount or 0)).rstrip("0").rstrip("."),
-        "account_number": phone_number,
-        "channel": network,
-        "account_name": (full_name or "Student").strip()[:120],
-        "client_reference": client_reference,
-    }
-    # Mobile money transfer endpoint per Bulkclix payment API.
-    resp, err = _bulkclix_request("POST", "/api/v1/payment-api/send/mobilemoney", payload)
-    if err:
-        return None, err
-    if not resp:
-        return None, "bulkclix_invalid_response"
-    if isinstance(resp, dict) and resp.get("status") is False:
-        return None, str(resp.get("message") or "bulkclix_request_failed")
-    if "data" not in resp:
-        return None, str(resp.get("message") or "bulkclix_invalid_response")
-    data_block = (resp.get("data") or {}) if isinstance(resp, dict) else {}
-    if not data_block:
-        msg = (resp.get("message") if isinstance(resp, dict) else "") or ""
-        return None, str(msg or "bulkclix_invalid_response")
-    payment = (data_block.get("payment") or {}) if isinstance(data_block, dict) else {}
-
-    def _pick_reference(obj):
-        if not isinstance(obj, dict):
-            return ""
-        for key in (
-            "transaction_id",
-            "order_id",
-            "ext_transaction_id",
-            "payment_reference",
-            "reference",
-            "trxref",
-            "id",
-        ):
-            val = obj.get(key)
-            if val is not None and str(val).strip():
-                return str(val).strip()
-        return ""
-
-    reference = (
-        _pick_reference(payment)
-        or _pick_reference(data_block)
-        or _pick_reference(resp if isinstance(resp, dict) else {})
-    )
-    if not reference:
-        msg = (resp.get("message") if isinstance(resp, dict) else "") or ""
-        return None, str(msg or "bulkclix_missing_reference")
-    amount_paid = float(
-        payment.get("amount")
-        or data_block.get("amount")
-        or (resp.get("amount") if isinstance(resp, dict) else 0)
-        or amount
-        or 0
-    )
-    return {"reference": str(reference), "amount_paid": amount_paid}, None
-
-
 def _apply_successful_subscription_payment(user_id, sub_id, plan_slug, amount_paid, payment_reference):
     user_id = str(user_id)
     if plan_slug not in ("standard", "basic", "premium"):
@@ -13711,7 +13595,7 @@ def _queue_payment_welcome(request):
     request.session.pop("show_welcome_card", None)  # the payment welcome replaces the login greeting
 
 
-def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error="", notice=""):
+def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, error=""):
     """Shared context dict for all student_subscribe render() calls."""
     using_paystack = bool((getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip())
     paystack_fee = None
@@ -13737,10 +13621,8 @@ def _subscribe_ctx(request, user_id, plans, checkout_row, config_error=None, err
         "checkout_row": checkout_row,
         "config_error": config_error,
         "error": error,
-        "notice": notice,
         "using_paystack": using_paystack,
         "paystack_fee": paystack_fee,
-        "using_bulkclix": bool((getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()),
     }
 
 
@@ -13815,7 +13697,6 @@ def student_subscribe(request):
 
     if request.method == "POST" and request.POST.get("start_checkout"):
         paystack_secret = (getattr(settings, "PAYSTACK_SECRET_KEY", None) or "").strip()
-        bulkclix_key = (getattr(settings, "BULKCLIX_API_KEY", None) or "").strip()
 
         plan_slug = checkout_row.get("plan_slug", "standard")
         plan = plans.get(plan_slug, plans.get("standard", {}))
@@ -13882,67 +13763,19 @@ def student_subscribe(request):
                 ),
             )
 
-        if not bulkclix_key:
-            return render(
-                request,
-                "subscribe.html",
-                _subscribe_ctx(
-                    request, user_id, plans, checkout_row,
-                    config_error=(
-                        "Online payments are not configured. "
-                        "Add PAYSTACK_SECRET_KEY (and PAYSTACK_PUBLIC_KEY) to your .env, or set BULKCLIX_X_API_KEY for MoMo."
-                    ),
-                    error=error,
+        # Paystack is the only payment provider (Mobile Money and card on its hosted checkout).
+        return render(
+            request,
+            "subscribe.html",
+            _subscribe_ctx(
+                request, user_id, plans, checkout_row,
+                config_error=(
+                    "Online payments are not configured. "
+                    "Add PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY to your environment."
                 ),
-            )
-
-        try:
-            profile_rows = (
-                _supabase_admin()
-                .table("profiles")
-                .select("full_name, phone_number")
-                .eq("id", str(user_id))
-                .limit(1)
-                .execute()
-                .data
-                or []
-            )
-            profile = profile_rows[0] if profile_rows else {}
-            full_name = (profile.get("full_name") or request.session.get("full_name") or "Student").strip()
-            phone_number = (profile.get("phone_number") or "").strip()
-            if not phone_number:
-                raise ValueError("Add your phone number to your profile before making payment.")
-            payment, berr = _bulkclix_start_subscription_payment(
-                full_name=full_name,
-                phone_number=phone_number,
-                amount=price,
-            )
-            if berr:
-                raise ValueError(berr)
-            # Starting a MoMo request is not a payment: the student still has to approve it
-            # on their phone, and nothing here confirms that. Keep the subscription pending
-            # and record the reference so an admin can activate it once the money arrives.
-            reference = str(payment.get("reference") or "")
-            _supabase_admin().table("subscriptions").update({
-                "payment_reference": reference,
-            }).eq("id", str(checkout_row["id"])).eq("user_id", str(user_id)).eq("status", "pending_payment").execute()
-            masked = phone_number[:3] + "****" + phone_number[-3:] if len(phone_number) >= 7 else phone_number
-            return render(request, "subscribe.html",
-                _subscribe_ctx(request, user_id, plans, checkout_row, error=error, notice=(
-                    f"A Mobile Money prompt was sent to {masked}. Approve it on your phone. "
-                    f"Your dashboard opens as soon as the payment is confirmed. "
-                    f"If it has not opened within a few minutes, contact support with reference {reference}."
-                )))
-        except Exception as exc:
-            emsg = str(exc)
-            if "not allowed for momo collection" in emsg.lower():
-                emsg = (
-                    "Bulkclix is not enabled for MoMo collection on this account. "
-                    "Contact Bulkclix support to enable it, then try again."
-                )
-            return render(request, "subscribe.html",
-                _subscribe_ctx(request, user_id, plans, checkout_row,
-                    config_error=emsg, error=error))
+                error=error,
+            ),
+        )
 
     return render(request, "subscribe.html",
         _subscribe_ctx(request, user_id, plans, checkout_row, error=error))
