@@ -156,13 +156,14 @@ class PaymentFlowTests(SimpleTestCase):
         html = views.student_subscribe(self._request("get", "/subscribe/")).content.decode()
         self.assertIn("GHS 1.20 Paystack processing fee (1.95%)", html)
         self.assertIn("Total GHS 61.20", html)
-        self.assertIn("Pay GHS 61.20 with Paystack", html)
+        self.assertIn("Pay GHS 61.20", html)
+        self.assertNotIn("with Paystack", html)
 
     @override_settings(PAYSTACK_PASS_FEE_TO_CUSTOMER=False)
     def test_subscribe_page_hides_fee_when_disabled(self):
         html = views.student_subscribe(self._request("get", "/subscribe/")).content.decode()
         self.assertNotIn("processing fee", html)
-        self.assertIn("Pay with Paystack", html)
+        self.assertIn("Pay GHS 60.00", html)
 
     def test_checkout_charges_customer_the_fee(self):
         init = {"status": True, "data": {"reference": "ref1", "authorization_url": "https://checkout.paystack.com/x"}}

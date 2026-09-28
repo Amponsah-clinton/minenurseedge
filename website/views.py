@@ -2787,9 +2787,10 @@ def complete_academic_profile(request):
 
 def signup_page(request):
     """
-    Free registration — no payment required at sign-up.
-    Users register for free and land on the Free Test page.
-    Payment is collected later via /subscribe/ when they want full access.
+    Registration, then straight to payment.
+    The account is created with a pending subscription and the user is sent to
+    /subscribe/; the dashboard stays locked (StudentSubscriptionGateMiddleware)
+    until the payment is confirmed.
     """
     if request.method == "POST":
         full_name        = request.POST.get("fullName", "").strip()
@@ -2926,8 +2927,8 @@ def signup_page(request):
                 "year_of_study": year_of_study,
                 "school": institution,
             })
-            # Send free users straight to the Free Test — no payment wall at registration.
-            return redirect("/dashboard/free-test/")
+            # Payment comes first: the dashboard unlocks once the subscription is active.
+            return redirect("/subscribe/?reason=new_account")
 
         except Exception as exc:
             return _signup_err(f"Registration failed: {exc}")

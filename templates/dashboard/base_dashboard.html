@@ -505,6 +505,58 @@
       color: #697a8d;
       margin-bottom: 1.25rem;
     }
+
+    /* ── Account menu (header, top right) ── */
+    .account-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px 3px 3px !important;
+      border: 1px solid #e4e8f0;
+      border-radius: 999px;
+      background: #fff;
+      cursor: pointer;
+      transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+    }
+    .account-toggle:hover { border-color: #cfd5e1; background: #f8f9fc; }
+    .account-toggle:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(26, 26, 46, .18); }
+    .account-toggle[aria-expanded="true"] { border-color: #1a1a2e; }
+    .account-initials {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .03em;
+      line-height: 1;
+      user-select: none;
+    }
+    .account-initials .bx { font-size: 1.1rem; }
+    .account-initials--lg { width: 42px; height: 42px; font-size: .95rem; }
+    .account-chevron {
+      font-size: 1.25rem;
+      color: #5a6070;
+      transition: transform .2s ease;
+    }
+    .account-toggle[aria-expanded="true"] .account-chevron { transform: rotate(180deg); }
+    .account-menu { min-width: 250px; padding: 8px; border-radius: 12px; }
+    .account-menu-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 6px; }
+    .account-menu-who { display: flex; flex-direction: column; min-width: 0; }
+    .account-menu-who strong { color: #1f2d40; font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account-menu-who small { color: #7b8599; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .account-menu .dropdown-divider { margin: 6px 0; }
+    .account-logout { display: flex; align-items: center; gap: 10px; border-radius: 8px; padding: 9px 10px; color: #b3261e; font-weight: 600; }
+    .account-logout .bx { font-size: 1.2rem; }
+    .account-logout:hover, .account-logout:focus { background: #fdecea; color: #b3261e; }
+    @media (prefers-reduced-motion: reduce) {
+      .account-chevron { transition: none; }
+    }
   </style>
 
   <!-- Helpers -->
@@ -995,31 +1047,25 @@
 
               <!-- User dropdown -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
-                  <div class="avatar avatar-online">
-                    <img src="https://cdn-icons-png.flaticon.com/512/2785/2785554.png" alt class="w-px-40 h-auto rounded-circle" />
-                  </div>
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end">
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <div class="d-flex">
-                        <div class="flex-shrink-0 me-3">
-                          <div class="avatar avatar-online">
-                            <img src="/sneat-assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
-                          </div>
-                        </div>
-                        <div class="flex-grow-1">
-                          <span class="fw-semibold d-block">{{ full_name }}</span>
-                          <small class="text-muted">{{ role|capfirst }}</small>
-                        </div>
-                      </div>
-                    </a>
+                <button type="button" class="nav-link dropdown-toggle hide-arrow account-toggle"
+                        data-bs-toggle="dropdown" aria-expanded="false"
+                        aria-label="Account menu for {{ account_name|default:'your account' }}">
+                  <span class="account-initials" aria-hidden="true">{% if account_initials %}{{ account_initials }}{% else %}<i class="bx bx-user"></i>{% endif %}</span>
+                  <i class="bx bx-chevron-down account-chevron" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end account-menu">
+                  <li class="account-menu-head">
+                    <span class="account-initials account-initials--lg" aria-hidden="true">{% if account_initials %}{{ account_initials }}{% else %}<i class="bx bx-user"></i>{% endif %}</span>
+                    <span class="account-menu-who">
+                      <strong>{{ account_name|default:full_name }}</strong>
+                      <small>{% if account_email %}{{ account_email }}{% else %}{{ role|capfirst }}{% endif %}</small>
+                    </span>
                   </li>
+                  <li><hr class="dropdown-divider"></li>
                   <li>
-                    <a class="dropdown-item" href="/logout/">
-                      <i class="bx bx-power-off me-2"></i>
-                      <span class="align-middle">Log Out</span>
+                    <a class="dropdown-item account-logout" href="/logout/">
+                      <i class="bx bx-log-out" aria-hidden="true"></i>
+                      <span>Log out</span>
                     </a>
                   </li>
                 </ul>

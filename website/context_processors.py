@@ -120,6 +120,28 @@ def referral_modal_ctx(request):
     return {"show_referral_modal": show_modal, "show_referral_prompt": show_prompt}
 
 
+def user_initials(name, email=""):
+    """'Ama Serwaa Mensah' → 'AM', 'Kwame' → 'K'; falls back to the email's first letter."""
+    words = [w for w in (name or "").replace(".", " ").split() if w[:1].isalpha()]
+    if words:
+        letters = words[0][0] + (words[-1][0] if len(words) > 1 else "")
+    else:
+        letters = (email or "").strip()[:1] if (email or "")[:1].isalpha() else ""
+    return letters.upper()
+
+
+def account_menu_ctx(request):
+    """Name and initials for the dashboard header's account menu, taken from the login session."""
+    session = getattr(request, "session", None) or {}
+    name = (session.get("full_name") or "").strip()
+    email = (session.get("email") or "").strip()
+    return {
+        "account_name": name or email.split("@")[0],
+        "account_email": email,
+        "account_initials": user_initials(name, email),
+    }
+
+
 def dashboard_search_nav(request):
     """Navigation index for the dashboard top search bar (client-side + API)."""
     path = request.path or ""

@@ -122,31 +122,24 @@ class StudentAcademicProfileSyncMiddleware:
 
 class StudentSubscriptionGateMiddleware:
     """
-    Students must have an active, non-expired subscription to use most of /dashboard/.
-    Free users (registered but unpaid) can access the main dashboard page, the free
-    test, and initial setup pages. Everything else requires a paid subscription.
+    Students must have an active, non-expired subscription to use anything under
+    /dashboard/ — including the dashboard home and the free test. Unpaid students
+    are sent to /subscribe/ until payment is confirmed.
     """
 
-    # Paths accessible to all logged-in students regardless of subscription.
+    # Setup endpoints that must keep working for any logged-in student.
     _FREE_PREFIXES = (
-        "/dashboard/free-test/",
         "/dashboard/complete-academic-profile/",
         "/dashboard/ack-disclaimer/",
-        "/dashboard/search/",
     )
-    _FREE_EXACT = {"/dashboard/", "/dashboard"}
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         path = request.path
-        if not path.startswith("/dashboard/"):
+        if not (path.startswith("/dashboard/") or path == "/dashboard"):
             return self.get_response(request)
-        # Main dashboard landing page is free.
-        if path.rstrip("/") + "/" in self._FREE_EXACT or path in self._FREE_EXACT:
-            return self.get_response(request)
-        # Free test and initial setup pages are always accessible.
         if any(path.startswith(p) for p in self._FREE_PREFIXES):
             return self.get_response(request)
         if request.session.get("role") != "student":

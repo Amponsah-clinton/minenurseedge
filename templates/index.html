@@ -77,64 +77,103 @@
         #header nav#nav-main ul li:not(.nav-cta) a {
             padding: 0 7px;
         }
-        .landing-disclaimer-wrap {
-            padding: 44px 0 16px;
+        /* ── FAQ ── */
+        .faq {
+            padding: 88px 0 72px;
             background: #ffffff;
         }
-        .landing-disclaimer-card {
-            max-width: 980px;
+        .faq-inner {
+            max-width: 1100px;
             margin: 0 auto;
-            border: 1px solid #e9e9e9;
-            border-radius: 12px;
-            padding: 26px 28px;
-            background: #fcfcfc;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+            padding: 0 24px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+            gap: 64px;
+            align-items: start;
         }
-        .landing-disclaimer-title {
-            margin: 0 0 10px;
-            font-size: 17px;
-            font-weight: 700;
-            color: #111111;
-            letter-spacing: 0.2px;
-            text-transform: none;
-            display: flex;
-            align-items: center;
-            gap: 12px;
+        .faq-intro .section-heading {
+            padding-bottom: 0;
         }
-        .landing-disclaimer-icon {
-            width: 30px;
-            height: 30px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            background: #f3f4f6;
-            color: #1f2937;
-            font-size: 15px;
-            border: 1px solid #e5e7eb;
-        }
-        .landing-disclaimer-text {
+        .faq-lead {
             margin: 0;
             font-size: 15px;
+            line-height: 1.7;
+            color: #6b6b6b;
+        }
+        .faq-lead a {
+            color: #111111;
+            font-weight: 600;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+        .faq-list {
+            border-top: 1px solid #e6e6e6;
+        }
+        .faq-item {
+            border-bottom: 1px solid #e6e6e6;
+        }
+        .faq-item summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 22px 0;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.5;
+            color: #111111;
+        }
+        .faq-item summary::-webkit-details-marker {
+            display: none;
+        }
+        .faq-item summary::after {
+            content: "+";
+            flex-shrink: 0;
+            font-size: 24px;
+            font-weight: 300;
+            line-height: 1;
+            color: #9a9a9a;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .faq-item summary:hover::after {
+            color: #111111;
+        }
+        .faq-item[open] summary::after {
+            transform: rotate(45deg);
+            color: #111111;
+        }
+        .faq-item summary:focus-visible {
+            outline: 2px solid #d2b356;
+            outline-offset: 4px;
+        }
+        .faq-item p {
+            margin: -6px 0 0;
+            padding: 0 48px 24px 0;
+            font-size: 15px;
             line-height: 1.75;
-            color: #3f3f46;
+            color: #555555;
         }
         #pricing .price {
             font-size: 34px !important;
             line-height: 1.2;
         }
         @media only screen and (max-width: 767px) {
-            .landing-disclaimer-wrap {
-                padding: 32px 0 8px;
+            .faq {
+                padding: 56px 0 40px;
             }
-            .landing-disclaimer-card {
-                padding: 20px 18px;
-                border-radius: 10px;
+            .faq-inner {
+                grid-template-columns: 1fr;
+                gap: 28px;
+                padding: 0 20px;
             }
-            .landing-disclaimer-title {
-                font-size: 16px;
+            .faq-item summary {
+                padding: 18px 0;
+                font-size: 15px;
             }
-            .landing-disclaimer-text {
+            .faq-item p {
+                padding-right: 0;
                 font-size: 14px;
             }
             #pricing .price {
@@ -1123,42 +1162,41 @@
 
 
     <!--FAQ-->
-    <section id="faq" class="landing-disclaimer-wrap">
-        <div class="row clearfix">
-            <div class="col-1">
-                <div class="landing-disclaimer-card wow fadeInUp" data-wow-delay="0.2s">
-                    <h3 class="landing-disclaimer-title">
-                        <span class="landing-disclaimer-icon"><i class="fa fa-question-circle" aria-hidden="true"></i></span>
-                        FAQ
-                    </h3>
-
-                    <div class="landing-disclaimer-text" style="text-align:left;">
-                        <h4 style="margin:18px 0 6px;font-size:15px;font-weight:800;color:#111;">1. Are you affiliated to Nursing and Midwifery Council (NMC)?</h4>
-                        <p style="margin:0 0 14px;color:#3f3f46;font-size:14px;line-height:1.8;">
-                            No. nursesedge  is an independent platform and is not affiliated with the Nursing and Midwifery Council (NMC) of Ghana.
-                        </p>
-
-                        <h4 style="margin:18px 0 6px;font-size:15px;font-weight:800;color:#111;">2. What is nursesedge  mainly for?</h4>
-                        <p style="margin:0 0 14px;color:#3f3f46;font-size:14px;line-height:1.8;">
-                            nursesedge  helps nursing students learn, practice, and prepare for their Licensure exams with structured content and exam-style testing.
-                        </p>
-
-                        <h4 style="margin:18px 0 6px;font-size:15px;font-weight:800;color:#111;">3. Do you provide explanations?</h4>
-                        <p style="margin:0 0 14px;color:#3f3f46;font-size:14px;line-height:1.8;">
-                            Yes. When you answer questions, explanations help you understand the reasoning and improve for the next attempt.
-                        </p>
-
-                        <h4 style="margin:18px 0 6px;font-size:15px;font-weight:800;color:#111;">4. Is nursesedge  officially the same as NMC questions?</h4>
-                        <p style="margin:0;color:#3f3f46;font-size:14px;line-height:1.8;">
-                            nursesedge  is built to support learning and practice. It is not an official NMC publisher.
-                        </p>
-
-                        <h4 style="margin:18px 0 6px;font-size:15px;font-weight:800;color:#111;">5. Do I get AI help with explanations?</h4>
-                        <p style="margin:0;color:#3f3f46;font-size:14px;line-height:1.8;">
-                            Yes. nursesedge  includes an AI learning assistant that can help you understand difficult questions with clear explanations.
-                        </p>
-                    </div>
+    <section id="faq" class="faq">
+        <div class="faq-inner">
+            <div class="faq-intro">
+                <div class="section-heading">
+                    <h3>FAQ</h3>
+                    <h2 class="section-title">Common questions</h2>
                 </div>
+                <p class="faq-lead">Can't find what you're looking for? <a href="/contact/">Contact us</a>.</p>
+            </div>
+
+            <div class="faq-list">
+                <details class="faq-item" open>
+                    <summary>Are you affiliated to Nursing and Midwifery Council (NMC)?</summary>
+                    <p>No. nursesedge is an independent platform and is not affiliated with the Nursing and Midwifery Council (NMC) of Ghana.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>What is nursesedge mainly for?</summary>
+                    <p>nursesedge helps nursing students learn, practice, and prepare for their Licensure exams with structured content and exam-style testing.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Do you provide explanations?</summary>
+                    <p>Yes. When you answer questions, explanations help you understand the reasoning and improve for the next attempt.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Is nursesedge officially the same as NMC questions?</summary>
+                    <p>nursesedge is built to support learning and practice. It is not an official NMC publisher.</p>
+                </details>
+
+                <details class="faq-item">
+                    <summary>Do I get AI help with explanations?</summary>
+                    <p>Yes. nursesedge includes an AI learning assistant that can help you understand difficult questions with clear explanations.</p>
+                </details>
             </div>
         </div>
     </section>

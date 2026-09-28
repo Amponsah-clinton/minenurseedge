@@ -105,6 +105,7 @@ TEMPLATES = [
                 "website.context_processors.academic_profile_gate",
                 "website.context_processors.subscription_status_ctx",
                 "website.context_processors.dashboard_search_nav",
+                "website.context_processors.account_menu_ctx",
                 "website.context_processors.referral_modal_ctx",
             ],
         },
