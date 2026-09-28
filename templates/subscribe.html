@@ -1,141 +1,296 @@
-{% extends "dashboard/base_dashboard.html" %}
-{% block title %}Complete payment - nursesedge {% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Activate your account - NursesEdge</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="https://res.cloudinary.com/dmqizfpyz/image/upload/v1775390368/Screenshot_2026-04-05_115733_ataewa.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/sneat-assets/vendor/fonts/boxicons.css">
+  <style>
+    :root {
+      --ink: #1d1f3f;
+      --text: #4b5569;
+      --muted: #8a93a6;
+      --line: #e8eaf1;
+      --soft: #f6f7fb;
+      --primary: #696cff;
+      --primary-ink: #4f52e0;
+      --good: #1f9d55; --good-soft: #e7f6ee;
+      --warn: #8a5a00; --warn-soft: #fff3dc;
+      --bad: #b42318;  --bad-soft: #ffeae8;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background: #f5f5f9; color: var(--text); font-family: "Public Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { color: var(--primary-ink); }
+    h1, h2, p { margin: 0; }
 
-{% block content %}
-<style>
-  .sub-wrap { max-width: 720px; margin: 0 auto; }
-  .sub-head h4 { font-size: 1.25rem; font-weight: 800; color: #1f2d40; margin: 0 0 6px; }
-  .sub-head p { font-size: 0.87rem; color: #7b8599; margin: 0 0 22px; }
-  .sub-card {
-    background: #fff; border: 1px solid #e8eaf0; border-radius: 12px;
-    padding: 22px 24px; box-shadow: 0 2px 8px rgba(0,0,0,.04); margin-bottom: 18px;
-  }
-  .sub-card-title {
-    font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
-    color: #8892a4; margin: 0 0 14px;
-  }
-  .plan-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-  .plan-card {
-    position: relative; border: 2px solid #e4e8f0; border-radius: 10px; padding: 16px 14px;
-    cursor: pointer; background: #fff; transition: border-color 0.15s;
-  }
-  .plan-card input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .plan-card.selected { border-color: #1a1a2e; box-shadow: 0 0 0 3px rgba(26,26,46,.07); }
-  .plan-badge { font-size: 0.67rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; display: inline-block; margin-bottom: 8px; }
-  .plan-badge-standard { background: #1a1a2e; color: #fff; }
-  .plan-name { font-size: 0.95rem; font-weight: 800; color: #1f2d40; margin: 0 0 4px; }
-  .plan-price { font-size: 1.35rem; font-weight: 800; color: #1a1a2e; }
-  .plan-price small { font-size: 0.75rem; color: #9098b0; font-weight: 400; }
-  .plan-fee { font-size: 0.78rem; color: #7b8599; margin-top: 4px; }
-  .plan-fee strong { color: #1f2d40; }
-  .btn-pay {
-    width: 100%; height: 48px; border: none; border-radius: 9px; background: #1a1a2e; color: #fff;
-    font-size: 0.92rem; font-weight: 700; cursor: pointer; margin-top: 8px;
-  }
-  .btn-pay:hover { background: #2a2a4e; }
-  .btn-pay:disabled { opacity: 0.55; cursor: not-allowed; }
-  .sub-hint { font-size: 0.75rem; color: #9098b0; margin-top: 12px; text-align: center; }
-</style>
+    .top { background: #fff; border-bottom: 1px solid var(--line); }
+    .top-inner { max-width: 1040px; margin: 0 auto; padding: 0 20px; height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em; }
+    .brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .who { display: flex; align-items: center; gap: 14px; font-size: .85rem; min-width: 0; }
+    .who span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .who a { font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 
-<div class="sub-wrap">
-  <div class="sub-head">
-    <h4>Unlock Full Access</h4>
-    <p>Get unlimited General Tests, Mock Exams, Lecture Notes, Flashcards, Drug Cards, NCLEX Questions, and the AI Study Assistant — everything you need to ace the NMC Licensure Exam. GHS {{ standard.price|default:"60" }} / {{ standard.duration_days|default:365 }} days.</p>
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 36px 20px 56px; }
+
+    .steps { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; font-size: .82rem; font-weight: 600; flex-wrap: wrap; }
+    .step { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+    .step b { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: .75rem; background: #e9eaf1; color: var(--muted); }
+    .step.done { color: var(--good); } .step.done b { background: var(--good); color: #fff; }
+    .step.now { color: var(--ink); } .step.now b { background: var(--primary); color: #fff; }
+    .step-line { width: 28px; height: 2px; background: #dfe1ea; border-radius: 2px; }
+
+    .head h1 { font-size: 1.8rem; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1.2; }
+    .head p { margin-top: 8px; font-size: 1rem; max-width: 40rem; }
+
+    .alert { border-radius: 12px; padding: 13px 16px; font-size: .9rem; margin-top: 20px; display: flex; gap: 10px; align-items: flex-start; }
+    .alert i { font-size: 1.2rem; margin-top: 1px; flex-shrink: 0; }
+    .alert-good { background: var(--good-soft); color: #14663a; }
+    .alert-warn { background: var(--warn-soft); color: var(--warn); }
+    .alert-bad  { background: var(--bad-soft);  color: var(--bad); }
+    .alert-info { background: #eeeeff; color: #3b3fb8; }
+
+    .grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; margin-top: 26px; align-items: start; }
+    .card { min-width: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(29,31,63,.04), 0 2px 12px rgba(29,31,63,.06); padding: 26px; }
+    .card h2 { font-size: 1rem; font-weight: 700; color: var(--ink); margin-bottom: 16px; }
+
+    .benefits { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+    .benefits li { display: flex; gap: 10px; align-items: flex-start; font-size: .9rem; color: var(--ink); }
+    .benefits i { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; font-size: 1.05rem; background: #eeeeff; color: var(--primary); }
+    .benefits small { display: block; color: var(--muted); font-size: .78rem; margin-top: 1px; }
+    .note { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); font-size: .82rem; color: var(--muted); display: flex; gap: 8px; }
+    .note i { color: var(--primary); font-size: 1.05rem; }
+
+    .price-card { position: sticky; top: 20px; }
+    .plan-tag { display: inline-block; font-size: .72rem; font-weight: 700; color: var(--primary); background: #eeeeff; border-radius: 999px; padding: 4px 10px; }
+    .plan-name { font-size: 1.1rem; font-weight: 800; color: var(--ink); margin-top: 12px !important; }
+    .price { display: flex; align-items: baseline; gap: 6px; margin-top: 10px; }
+    .price .cur { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+    .price .val { font-size: 2.8rem; font-weight: 800; color: var(--ink); letter-spacing: -0.04em; line-height: 1; }
+    .price .per { font-size: .9rem; color: var(--muted); }
+    .breakdown { margin: 16px 0 0; padding: 12px 14px; background: var(--soft); border-radius: 12px; font-size: .84rem; }
+    .breakdown strong { color: var(--ink); }
+    .btn-pay {
+      width: 100%; height: 52px; margin-top: 18px; border: 0; border-radius: 12px;
+      background: var(--primary); color: #fff; font-family: inherit; font-size: 1rem; font-weight: 700; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+      transition: background-color .15s, transform .1s;
+    }
+    .btn-pay:hover { background: var(--primary-ink); }
+    .btn-pay:active { transform: translateY(1px); }
+    .btn-pay:disabled { opacity: .6; cursor: progress; }
+    .btn-pay i { font-size: 1.2rem; }
+    .secure { margin-top: 12px; font-size: .78rem; color: var(--muted); text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .secure i { color: var(--good); font-size: 1rem; }
+
+    .ref { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; }
+    .ref summary { cursor: pointer; font-size: .86rem; font-weight: 700; color: var(--ink); list-style: none; display: flex; align-items: center; gap: 6px; }
+    .ref summary::-webkit-details-marker { display: none; }
+    .ref summary i { color: var(--primary); font-size: 1.1rem; }
+    .ref-row { display: flex; gap: 8px; margin-top: 12px; }
+    .ref-row input { flex: 1; min-width: 0; height: 42px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0 12px; font-family: inherit; font-size: .95rem; font-weight: 700; letter-spacing: .12em; color: var(--ink); background: #fff; outline: none; }
+    .ref-row input:focus { border-color: var(--primary); }
+    .ref-row input::placeholder { letter-spacing: .04em; font-weight: 500; color: #b3b9c8; }
+    .ref-row button { height: 42px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--line); background: #fff; font-family: inherit; font-size: .82rem; font-weight: 700; color: var(--ink); cursor: pointer; }
+    .ref-row button.apply { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .ref-row button:disabled { opacity: .5; cursor: default; }
+    .ref-status { font-size: .78rem; margin-top: 8px !important; min-height: 1.1em; }
+
+    .foot { text-align: center; margin-top: 28px; font-size: .82rem; color: var(--muted); }
+    .foot a { font-weight: 600; }
+
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: minmax(0, 1fr); }
+      .price-card { position: static; order: -1; }
+    }
+    @media (max-width: 560px) {
+      .wrap { padding: 24px 16px 44px; }
+      .top-inner { padding: 0 16px; }
+      .who span { display: none; }
+      .head h1 { font-size: 1.45rem; }
+      .card { padding: 20px; }
+      .benefits { grid-template-columns: 1fr; }
+      .step-line { width: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <span class="brand">
+      <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto,f_auto,w_96/v1775390368/Screenshot_2026-04-05_115733_ataewa.png" alt="">
+      NursesEdge
+    </span>
+    <div class="who">
+      <span>{{ email }}</span>
+      <a href="/logout/"><i class="bx bx-log-out"></i>Log out</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  {% with reason=request.GET.reason %}
+  <div class="steps" aria-label="Progress">
+    <span class="step done"><b><i class="bx bx-check"></i></b>Account created</span>
+    <span class="step-line"></span>
+    <span class="step now"><b>2</b>{% if reason == 'renewal_required' %}Renew plan{% else %}Payment{% endif %}</span>
+    <span class="step-line"></span>
+    <span class="step"><b>3</b>Dashboard</span>
   </div>
 
-  {% if request.GET.reason == 'new_account' %}
-  <div class="alert alert-success mb-3" style="border-radius:10px;">
-    <strong>Your account has been created.</strong> One last step: complete payment below and your dashboard opens immediately.
-  </div>
-  {% endif %}
-  {% if request.GET.reason == 'payment_required' %}
-  <div class="alert alert-warning mb-3" style="border-radius:10px;">
-    <strong>Payment required.</strong> Your account is not active yet. Complete payment below to open your dashboard.
-  </div>
-  {% endif %}
-  {% if request.GET.reason == 'renewal_required' %}
-  <div class="alert alert-warning mb-3" style="border-radius:10px;">
-    Your annual subscription has expired. Renew now to restore full dashboard access.
-  </div>
-  {% endif %}
-  {% if request.GET.reason == 'cancelled' %}
-  <div class="alert alert-secondary mb-3" style="border-radius:10px;">Checkout was cancelled. You can try again when you are ready.</div>
-  {% endif %}
-  {% if config_error %}
-  <div class="alert alert-danger mb-3" style="border-radius:10px;">{{ config_error }}</div>
-  {% endif %}
-  {% if error %}
-  <div class="alert alert-danger mb-3" style="border-radius:10px;">
-    {% if error == "verify_failed" %}
-      We could not verify the payment. If money left your account, contact support with your reference.
+  <div class="head">
+    {% if reason == 'renewal_required' %}
+      <h1>Renew your access</h1>
+      <p>Your plan has ended. Renew to get back into your dashboard, tests and notes.</p>
     {% else %}
-      Payment could not continue (code: {{ error }}).
+      <h1>Activate your account</h1>
+      <p>Complete payment to open your dashboard. Access starts immediately after your payment is confirmed.</p>
     {% endif %}
   </div>
+
+  {% if reason == 'new_account' %}
+    <div class="alert alert-good"><i class="bx bxs-check-circle"></i><span><strong>Your account has been created, {{ full_name|default:"there" }}.</strong> One last step: pay below and your dashboard opens straight away.</span></div>
+  {% elif reason == 'payment_required' %}
+    <div class="alert alert-warn"><i class="bx bx-lock-alt"></i><span><strong>Your account is not active yet.</strong> The dashboard opens once your payment is complete.</span></div>
+  {% elif reason == 'renewal_required' %}
+    <div class="alert alert-warn"><i class="bx bx-time-five"></i><span><strong>Your annual subscription has expired.</strong> Renew now to restore full access.</span></div>
+  {% elif reason == 'cancelled' %}
+    <div class="alert alert-info"><i class="bx bx-info-circle"></i><span>Checkout was cancelled. You can try again whenever you are ready.</span></div>
+  {% endif %}
+  {% endwith %}
+
+  {% if config_error %}
+    <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>{{ config_error }}</span></div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert-bad"><i class="bx bx-error-circle"></i><span>
+      {% if error == "verify_failed" %}We could not verify the payment. If money left your account, contact support with your reference.
+      {% else %}Payment could not continue (code: {{ error }}).{% endif %}
+    </span></div>
   {% endif %}
 
-  <form method="post" action="/subscribe/">
-    {% csrf_token %}
-    <div class="sub-card">
-      <p class="sub-card-title">Annual access plan</p>
-      <div class="plan-grid">
-        <label class="plan-card selected" id="pc-standard">
-          <input type="radio" name="plan_slug" value="standard" checked>
-          <span class="plan-badge plan-badge-standard">Annual Access</span>
-          <div class="plan-name">{{ standard.name|default:"Annual Access" }}</div>
-          <div class="plan-price">GHS {{ standard.price|default:"60" }}<small> / {{ standard.duration_days|default:365 }} days</small></div>
-          {% if paystack_fee %}
-          <div class="plan-fee">+ GHS {{ paystack_fee.fee }} Paystack processing fee ({{ paystack_fee.percent }}%) &middot; <strong>Total GHS {{ paystack_fee.total }}</strong></div>
-          {% endif %}
-        </label>
-      </div>
-      <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
-        Pay GHS {% if paystack_fee %}{{ paystack_fee.total }}{% else %}{{ standard.price|default:"60"|floatformat:2 }}{% endif %}
-      </button>
-      <p class="sub-hint">
-        {% if using_paystack %}
-        {% elif using_bulkclix %}
-        A mobile money prompt will be initiated via Bulkclix.
-        {% else %}
-        Configure Paystack or Bulkclix in your environment to enable payments.
-        {% endif %}
-      </p>
-    </div>
-  </form>
+  <div class="grid">
+    <section class="card">
+      <h2>Everything included in your plan</h2>
+      <ul class="benefits">
+        <li><i class="bx bx-trophy"></i><span>Mock exams<small>Timed, full-length papers</small></span></li>
+        <li><i class="bx bx-edit-alt"></i><span>General tests<small>Standardised test prep</small></span></li>
+        <li><i class="bx bx-task"></i><span>Prep by topics<small>MCQ sets per subject</small></span></li>
+        <li><i class="bx bx-globe"></i><span>NCLEX-RN practice<small>Grouped sets with review</small></span></li>
+        <li><i class="bx bx-book-open"></i><span>Lecture notes<small>Year 1 to Final Year</small></span></li>
+        <li><i class="bx bx-collection"></i><span>Flashcards &amp; drug cards<small>Quick daily revision</small></span></li>
+        <li><i class="bx bx-calculator"></i><span>Dosage calculations<small>Tablets, IV &amp; drip rates</small></span></li>
+        <li><i class="bx bx-bot"></i><span>AI study assistant<small>Clear explanations on demand</small></span></li>
+        <li><i class="bx bx-line-chart"></i><span>Performance analytics<small>Readiness, trends, weak areas</small></span></li>
+        <li><i class="bx bx-group"></i><span>Communities<small>Study with other students</small></span></li>
+      </ul>
+      <p class="note"><i class="bx bx-info-circle"></i><span>NursesEdge is an independent platform and is not affiliated with the Nursing and Midwifery Council (NMC) of Ghana.</span></p>
+    </section>
 
-  <p style="font-size:0.82rem;color:#7b8599;text-align:center;margin-top:8px;">
-    <a href="/payment/">View payment history</a>
-    &nbsp;&middot;&nbsp;
-    <a href="/logout/">Log out</a>
-  </p>
-</div>
-{% if request.GET.reason == 'renewal_required' %}
-<div class="modal fade" id="renewalRequiredModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content" style="border-radius:12px;">
-      <div class="modal-header">
-        <h5 class="modal-title">Renewal Required</h5>
+    <aside class="card price-card">
+      <span class="plan-tag">Annual access</span>
+      <p class="plan-name">{{ standard.name|default:"Annual Access" }}</p>
+      <div class="price">
+        <span class="cur">GHS</span>
+        <span class="val">{{ standard.price|default:"60" }}</span>
+        <span class="per">/ {{ standard.duration_days|default:365 }} days</span>
       </div>
-      <div class="modal-body">
-        Your subscription has ended. Renew with <strong>GHS {{ standard.price|default:"60" }} / {{ standard.duration_days|default:365 }} days</strong> to continue using dashboard features.
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Renew Now</button>
-      </div>
-    </div>
+
+      {% if paystack_fee %}
+      <p class="breakdown">+ GHS {{ paystack_fee.fee }} Paystack processing fee ({{ paystack_fee.percent }}%) &middot; <strong>Total GHS {{ paystack_fee.total }}</strong></p>
+      {% endif %}
+
+      <form method="post" action="/subscribe/" id="payForm">
+        {% csrf_token %}
+        <input type="hidden" name="plan_slug" value="standard">
+        <button type="submit" name="start_checkout" value="1" class="btn-pay" id="btnPay">
+          <i class="bx bx-lock-alt"></i>
+          Pay GHS {% if paystack_fee %}{{ paystack_fee.total }}{% else %}{{ standard.price|default:"60"|floatformat:2 }}{% endif %}
+        </button>
+      </form>
+      <p class="secure">
+        <i class="bx bx-shield-quarter"></i>
+        {% if using_paystack %}Secure checkout by Paystack &middot; Mobile Money or card
+        {% elif using_bulkclix %}A Mobile Money prompt will be sent to your phone
+        {% else %}Online payment is not configured yet{% endif %}
+      </p>
+
+      <details class="ref" {% if show_referral_modal %}open{% endif %}>
+        <summary><i class="bx bx-gift"></i>Have a referral code?</summary>
+        <div class="ref-row">
+          <input type="text" id="refCodeInput" maxlength="12" placeholder="e.g. aB3xZ" autocomplete="off" spellcheck="false" aria-label="Referral code">
+          <button type="button" id="refCheckBtn">Check</button>
+          <button type="button" id="refApplyBtn" class="apply" disabled>Apply</button>
+        </div>
+        <p class="ref-status" id="refStatus" role="status"></p>
+      </details>
+    </aside>
   </div>
-</div>
-{% endif %}
-{% endblock %}
-{% block scripts %}
-{{ block.super }}
-{% if request.GET.reason == 'renewal_required' %}
+
+  <p class="foot">
+    {% if request.GET.reason == 'renewal_required' %}<a href="/payment/">Payment history</a> &middot; {% endif %}
+    Need help? <a href="/contact/">Contact us</a> &middot; <a href="/logout/">Log out</a>
+  </p>
+</main>
+
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (window.bootstrap) {
-    new bootstrap.Modal(document.getElementById("renewalRequiredModal")).show();
+(function () {
+  /* Prevent double submission while redirecting to checkout */
+  var form = document.getElementById("payForm"), btn = document.getElementById("btnPay");
+  if (form && btn) {
+    form.addEventListener("submit", function () {
+      setTimeout(function () { btn.disabled = true; btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Opening secure checkout…'; }, 0);
+    });
   }
-});
+
+  /* Referral code */
+  var csrf = (document.querySelector("[name=csrfmiddlewaretoken]") || {}).value || "";
+  var inp = document.getElementById("refCodeInput");
+  var checkBtn = document.getElementById("refCheckBtn");
+  var applyBtn = document.getElementById("refApplyBtn");
+  var status = document.getElementById("refStatus");
+  if (!inp) return;
+  function say(msg, ok) { status.textContent = msg; status.style.color = ok ? "#1f9d55" : "#b42318"; }
+  inp.addEventListener("input", function () { applyBtn.disabled = true; status.textContent = ""; });
+
+  checkBtn.addEventListener("click", function () {
+    var code = inp.value.trim();
+    if (!code) { say("Please enter a code.", false); return; }
+    checkBtn.disabled = true;
+    fetch("/api/validate-referral-code/?code=" + encodeURIComponent(code))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.valid) { applyBtn.disabled = false; say(d.referrer_name ? "Valid code. Referred by " + d.referrer_name + "." : "Valid code.", true); }
+        else { applyBtn.disabled = true; say("That code is not valid. Please check it and try again.", false); }
+      })
+      .catch(function () { say("Could not check the code. Please try again.", false); })
+      .finally(function () { checkBtn.disabled = false; });
+  });
+
+  applyBtn.addEventListener("click", function () {
+    var code = inp.value.trim();
+    if (!code) return;
+    applyBtn.disabled = true;
+    fetch("/api/apply-referral-code/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+      body: JSON.stringify({ code: code })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { say(d.message || "Code applied.", true); inp.disabled = true; checkBtn.disabled = true; }
+        else { applyBtn.disabled = false; say(d.error || "Something went wrong.", false); }
+      })
+      .catch(function () { applyBtn.disabled = false; say("Could not apply the code. Please try again.", false); });
+  });
+})();
 </script>
-{% endif %}
-{% endblock %}
+</body>
+</html>

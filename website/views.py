@@ -3930,8 +3930,19 @@ def _get_dashboard_performance_stats(admin, user_id):
     return stats
 
 
+def _student_payment_redirect(request):
+    """Redirect to /subscribe/ unless this student has paid (or an admin granted access)."""
+    if request.session.get("role") != "student":
+        return None
+    try:
+        allowed, reason = _subscription_access_state(request.session.get("user_id"))
+    except Exception:
+        allowed, reason = False, "payment_required"
+    return None if allowed else redirect(f"/subscribe/?reason={reason}")
+
+
 def user_dashboard(request):
-    guard = _require_login(request)
+    guard = _require_login(request) or _student_payment_redirect(request)
     if guard:
         return guard
 
@@ -14239,6 +14250,12 @@ def payment_page(request):
 
     user_id = request.session.get("user_id")
     _reconcile_pending_subscription_from_paystack(user_id, force=True)
+    # This page sits in the dashboard layout; accounts that never paid go to checkout.
+    # Expired members keep access here so they can still see their receipts.
+    if request.session.get("role") == "student":
+        _allowed, _reason = _subscription_access_state(user_id)
+        if not _allowed and _reason == "payment_required":
+            return redirect("/subscribe/?reason=payment_required")
     plans = _get_plans()
     history = _subscription_history_for_user(user_id)
     latest = history[0] if history else None

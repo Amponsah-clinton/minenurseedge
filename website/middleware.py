@@ -146,18 +146,23 @@ class StudentSubscriptionGateMiddleware:
             return self.get_response(request)
         if not request.session.get("user_id"):
             return self.get_response(request)
-        try:
-            from website.views import (
-                _reconcile_pending_subscription_from_paystack,
-                _subscription_access_state,
-            )
+        from website.views import (
+            _reconcile_pending_subscription_from_paystack,
+            _subscription_access_state,
+        )
 
-            uid = request.session.get("user_id")
+        uid = request.session.get("user_id")
+        try:
+            # Picks up Paystack payments whose callback never ran; must not block the check.
             _reconcile_pending_subscription_from_paystack(uid)
-            allowed, reason = _subscription_access_state(uid)
-            if allowed:
-                return self.get_response(request)
         except Exception:
+            pass
+        try:
+            allowed, reason = _subscription_access_state(uid)
+        except Exception:
+            # Fail closed: an unverifiable subscription never opens the dashboard.
+            allowed, reason = False, "payment_required"
+        if allowed:
             return self.get_response(request)
         return redirect(f"/subscribe/?reason={reason}")
 

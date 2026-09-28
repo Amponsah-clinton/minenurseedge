@@ -47,10 +47,63 @@ class SubscriptionGateTests(SimpleTestCase):
             with self.subTest(path=path):
                 self.assertEqual(self._get(path).content, b"page")
 
+    def test_gate_fails_closed_when_the_check_errors(self):
+        request = RequestFactory().get("/dashboard/")
+        request.session = dict(STUDENT)
+        with mock.patch.object(views, "_subscription_access_state", side_effect=RuntimeError("supabase down")):
+            response = self.gate(request)
+        self.assertEqual(response["Location"], "/subscribe/?reason=payment_required")
+
+    def test_reconcile_error_does_not_open_the_gate(self):
+        request = RequestFactory().get("/dashboard/")
+        request.session = dict(STUDENT)
+        with mock.patch.object(views, "_reconcile_pending_subscription_from_paystack", side_effect=RuntimeError("paystack")), \
+             mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")):
+            response = self.gate(request)
+        self.assertEqual(response["Location"], "/subscribe/?reason=payment_required")
+
     def test_admins_and_non_dashboard_pages_are_not_gated(self):
         self.assertEqual(self._get("/dashboard/", session={"user_id": "a", "role": "admin"}).content, b"page")
         self.assertEqual(self._get("/subscribe/").content, b"page")
         self.assertEqual(self._get("/about/").content, b"page")
+
+
+class ViewLevelPaymentChecks(SimpleTestCase):
+    """The views check payment themselves too, in case the middleware is ever bypassed."""
+
+    def _request(self, path):
+        request = RequestFactory().get(path)
+        request.session = SessionStore()
+        request.session.update(STUDENT)
+        return request
+
+    def test_dashboard_view_redirects_unpaid_student(self):
+        with mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")):
+            response = views.user_dashboard(self._request("/dashboard/"))
+        self.assertEqual(response["Location"], "/subscribe/?reason=payment_required")
+
+    def test_payment_history_sends_never_paid_student_to_checkout(self):
+        with mock.patch.object(views, "_reconcile_pending_subscription_from_paystack"), \
+             mock.patch.object(views, "_subscription_access_state", return_value=(False, "payment_required")):
+            response = views.payment_page(self._request("/payment/"))
+        self.assertEqual(response["Location"], "/subscribe/?reason=payment_required")
+
+    def test_checkout_page_is_standalone_without_dashboard_navigation(self):
+        request = self._request("/subscribe/?reason=new_account")
+        plans = {"standard": {"slug": "standard", "name": "Annual Access", "price": 60.0, "currency": "GHS", "duration_days": 365}}
+        with mock.patch.object(views, "_reconcile_pending_subscription_from_paystack"), \
+             mock.patch.object(views, "subscription_allows_dashboard", return_value=False), \
+             mock.patch.object(views, "_get_plans", return_value=plans), \
+             mock.patch.object(views, "_ensure_pending_checkout_row", return_value={"id": "s1", "plan_slug": "standard"}), \
+             mock.patch.object(views, "_student_unread_count", return_value=0), \
+             mock.patch.object(views, "_community_unread_count", return_value=0):
+            response = views.student_subscribe(request)
+        html = response.content.decode()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Your account has been created", html)
+        self.assertIn('name="start_checkout"', html)
+        self.assertNotIn("/dashboard/mock-exams/", html)   # no sidebar links into the dashboard
+        self.assertNotIn("chatbot", html.lower())          # no AI assistant before paying
 
 
 class SignupRedirectTests(SimpleTestCase):
