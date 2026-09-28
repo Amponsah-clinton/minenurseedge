@@ -2,6 +2,7 @@
 {% block title %}My Dashboard - NursesEdge {% endblock %}
 
 {% block content %}
+{% url 'student_objectives_topics' as prep_url %}
 <style>
 {% if show_nmc_disclaimer %}
   #nmcDisclaimerModal .modal-content {
@@ -40,763 +41,400 @@
     font-size: 1.35rem;
   }
 {% endif %}
-  /* ── Dashboard: communities, messages, best score, study list (shared) ── */
-  .dash-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-  .dash-section-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    color: #8892a4;
-    margin: 0;
-  }
-  .dash-section-link {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #5a6070;
-    text-decoration: none;
-  }
-  .dash-section-link:hover { color: #1a1a2e; }
-  .comm-chips {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
-  }
-  .comm-chip {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 11px 14px;
-    background: #fff;
-    border: 1px solid #e8eaf0;
-    border-radius: 10px;
-    text-decoration: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .comm-chip:hover {
-    border-color: #c0c4d8;
-    box-shadow: 0 3px 10px rgba(0,0,0,.07);
-  }
-  .comm-chip__icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 9px;
-    background: #1a1a2e;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-  .comm-chip__name {
-    font-size: 0.84rem;
-    font-weight: 700;
-    color: #1f2d40;
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .comm-chip__meta {
-    font-size: 0.73rem;
-    color: #9098b0;
-    margin-top: 1px;
-  }
-  .comm-empty {
-    border: 1px dashed #dde1ec;
-    border-radius: 10px;
-    padding: 24px 20px;
-    text-align: center;
-    background: #fafbff;
-  }
-  .comm-empty p { font-size: 0.85rem; color: #9098b0; margin: 8px 0 14px; }
-  .msg-list { display: flex; flex-direction: column; }
-  .msg-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 14px 0;
-    border-bottom: 1px solid #f2f4f8;
-  }
-  .msg-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .msg-item:first-child { padding-top: 0; }
-  .msg-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 6px;
-  }
-  .msg-dot.unread { background: #1a1a2e; }
-  .msg-dot.read   { background: #dde1ec; }
-  .msg-body { flex: 1; min-width: 0; }
-  .msg-title {
-    font-size: 0.87rem;
-    font-weight: 700;
-    color: #1f2d40;
-    margin: 0 0 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .msg-excerpt {
-    font-size: 0.81rem;
-    color: #7b8599;
-    margin: 0;
-    line-height: 1.5;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .msg-meta {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 5px;
-  }
-  .msg-date  { font-size: 0.74rem; color: #a8b0c0; }
-  .msg-badge {
-    font-size: 0.68rem;
-    font-weight: 700;
-    border-radius: 999px;
-    padding: 1px 8px;
-  }
-  .msg-badge.unread { background: #f0f2ff; color: #5a5ce8; }
-  .msg-badge.read   { background: #f0faf4; color: #3ea76a; }
-  .msg-empty {
-    padding: 24px 0;
-    text-align: center;
-    color: #a8b0c0;
-    font-size: 0.85rem;
-  }
-  /* ── Prep by Topics card ── */
-  .pt-card {
-    border-radius: 14px;
-    border: 1px solid #e2e6ef;
-    box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
-    overflow: hidden;
-  }
-  .pt-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .pt-stat {
-    background: #f8f9fc;
-    border: 1px solid #edf0f7;
-    border-radius: 10px;
-    padding: 10px 6px 9px;
-    text-align: center;
-  }
-  .pt-stat__value {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #1f2d40;
-    line-height: 1.1;
-    margin: 0;
-  }
-  .pt-stat__label {
-    font-size: 0.66rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: #9098b0;
-    margin: 4px 0 0;
-  }
-  .pt-cover { margin-bottom: 18px; }
-  .pt-cover__row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 7px;
-    font-size: 0.78rem;
-  }
-  .pt-cover__row strong { color: #1f2d40; font-weight: 700; }
-  .pt-cover__row span { color: #9098b0; font-weight: 600; }
-  .pt-track {
-    height: 8px;
-    border-radius: 999px;
-    background: #eceff6;
-    overflow: hidden;
-  }
-  .pt-track > span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: #1a1a2e;
-    transition: width .5s ease;
-  }
-  .pt-focus-head {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .7px;
-    color: #9098b0;
-    margin: 0 0 8px;
-  }
-  .pt-list { display: flex; flex-direction: column; gap: 8px; }
-  .pt-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 12px;
-    border: 1px solid #eceff5;
-    border-radius: 12px;
-    background: #fff;
-    text-decoration: none;
-    transition: border-color .15s, box-shadow .15s, transform .15s;
-  }
-  .pt-row:hover {
-    border-color: #cfd5e6;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, .07);
-    transform: translateY(-1px);
-  }
-  .pt-badge {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.86rem;
-    font-weight: 800;
-    letter-spacing: -.2px;
-  }
-  .pt-badge .bx { font-size: 20px; }
-  .pt-main { flex: 1; min-width: 0; }
-  .pt-name {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    font-size: 0.87rem;
-    font-weight: 700;
-    color: #1f2d40;
-    line-height: 1.3;
-  }
-  .pt-name > span:first-child {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .pt-new {
-    flex-shrink: 0;
-    font-size: 0.58rem;
-    font-weight: 800;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-    color: #fff;
-    background: #7c3aed;
-    border-radius: 4px;
-    padding: 2px 5px;
-  }
-  .pt-meta {
-    margin: 2px 0 0;
-    font-size: 0.74rem;
-    color: #8d96ab;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .pt-meta b { font-weight: 700; }
-  .pt-mini {
-    height: 5px;
-    border-radius: 999px;
-    background: #eceff6;
-    overflow: hidden;
-    margin-top: 7px;
-  }
-  .pt-mini > span { display: block; height: 100%; border-radius: 999px; }
-  .pt-go { flex-shrink: 0; color: #c0c8d8; font-size: 20px; transition: color .15s, transform .15s; }
-  .pt-row:hover .pt-go { color: #1a1a2e; transform: translateX(2px); }
 
-  .pt-weak      .pt-badge { background: #fef2f2; color: #dc2626; }
-  .pt-weak      .pt-mini > span { background: #ef4444; }
-  .pt-weak      .pt-meta b { color: #dc2626; }
-  .pt-moderate  .pt-badge { background: #fffbeb; color: #b45309; }
-  .pt-moderate  .pt-mini > span { background: #f59e0b; }
-  .pt-moderate  .pt-meta b { color: #b45309; }
-  .pt-strong    .pt-badge { background: #ecfdf5; color: #059669; }
-  .pt-strong    .pt-mini > span { background: #10b981; }
-  .pt-strong    .pt-meta b { color: #059669; }
-  .pt-new-topic .pt-badge { background: #f0f2ff; color: #5a5ce8; }
+  /* ───────────────────────── Tokens ───────────────────────── */
+  .db {
+    --ink: #1d1f3f;
+    --ink-2: #2f3350;
+    --text: #4b5569;
+    --muted: #8a93a6;
+    --line: #e8eaf1;
+    --soft: #f6f7fb;
+    --primary: #696cff;
+    --primary-ink: #4f52e0;
+    --primary-soft: #eeeeff;
+    --good: #1f9d55;   --good-soft: #e7f6ee;
+    --ok: #5b5ef0;     --ok-soft: #eeeeff;
+    --warn: #c27803;   --warn-soft: #fff3dc;
+    --bad: #e0362c;    --bad-soft: #ffeae8;
+    --flame: #f0690f;  --flame-soft: #fff0e4;
+    --radius: 16px;
+    color: var(--text);
+  }
+  .db *, .db *::before, .db *::after { box-sizing: border-box; }
+  .db a { text-decoration: none; }
+  .db h1, .db h2, .db h3, .db p { margin: 0; }
+  .db-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
 
-  .pt-tip {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    margin-bottom: 14px;
-    padding: 11px 13px;
-    border: 1px dashed #d5daea;
-    border-radius: 10px;
-    background: #fafbff;
-    font-size: 0.79rem;
-    line-height: 1.5;
-    color: #5f6b83;
-  }
-  .pt-tip .bx { font-size: 1.15rem; color: #5a5ce8; margin-top: 1px; flex-shrink: 0; }
-  .pt-cta {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    width: 100%;
-    height: 44px;
-    margin-top: 16px;
-    border-radius: 10px;
-    border: 2px solid #1a1a2e;
-    background: #1a1a2e;
-    color: #fff;
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background .15s, color .15s;
-  }
-  .pt-cta:hover { background: #fff; color: #1a1a2e; }
-  .pt-sub-link {
-    display: block;
-    margin-top: 10px;
-    text-align: center;
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #5a6070;
-    text-decoration: none;
-  }
-  .pt-sub-link:hover { color: #1a1a2e; }
-  .pt-lock {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 14px;
-    padding: 9px 12px;
-    border-radius: 9px;
-    background: #f3f4f6;
-    color: #6b7280;
-    font-size: 0.77rem;
-    font-weight: 600;
-  }
-  .best-score-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
-    border: 1px solid #e3ebfb;
-    border-radius: 14px;
-    box-shadow: 0 6px 18px rgba(30, 64, 175, 0.08);
-  }
-  .best-score-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    background: #ecf2ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 21px;
-    color: #3758f9;
-  }
-  .best-score-label {
-    font-size: 0.82rem;
-    color: #7f8aa3;
-    margin: 0 0 6px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.55px;
-  }
-  .best-score-value {
-    font-size: 2.2rem;
-    line-height: 1;
-    font-weight: 800;
-    color: #1f2d40;
-    margin: 0 0 8px;
-  }
-  .best-score-value .unit {
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #7f8aa3;
-    margin-left: 2px;
-  }
-  .best-score-meta {
-    font-size: 0.92rem;
-    color: #5f6b83;
-    margin: 0;
-  }
-  .best-score-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: #3758f9;
-    text-decoration: none;
-  }
-  .best-score-cta:hover { color: #2747e0; }
-  .study-card {
-    border: 1px solid #e5e7eb;
-    border-radius: 14px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  .db-card {
     background: #fff;
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgba(29, 31, 63, .04), 0 2px 10px rgba(29, 31, 63, .05);
+    padding: 22px;
   }
-  .study-list { display: grid; gap: 12px; }
-  .study-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    border: 1px solid #eceff3;
-    border-radius: 12px;
-    padding: 13px 14px;
-    background: #fff;
-    transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+  .db-card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 18px;
   }
-  .study-item:hover {
-    border-color: #d8dee8;
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-    transform: translateY(-1px);
+  .db-card-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .db-card-title h2 { font-size: 1rem; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  .db-card-title p { font-size: .78rem; color: var(--muted); margin-top: 1px; }
+  .db-ico {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    display: grid; place-items: center; font-size: 1.15rem;
+    background: var(--primary-soft); color: var(--primary);
   }
-  .study-item .avatar-initial {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
+  .db-link {
+    display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+    font-size: .8rem; font-weight: 600; color: var(--primary);
   }
-  .study-title {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #1f2d40;
-    line-height: 1.2;
-  }
-  .study-sub {
-    margin: 3px 0 0;
-    font-size: 0.82rem;
-    color: #7b8599;
-    line-height: 1.35;
-  }
-  .study-btn {
-    min-width: 90px;
-    border-radius: 9px;
-    font-weight: 700;
-    font-size: 0.77rem;
-  }
+  .db-link:hover { color: var(--primary-ink); }
+  .db-link i { font-size: 1.05rem; transition: transform .15s; }
+  .db-link:hover i { transform: translateX(2px); }
 
-  /* ── Welcome card ─────────────────────────────────────────────── */
-  .wc-card {
+  .db-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 42px; padding: 0 18px; border-radius: 10px; border: 1.5px solid transparent;
+    font-size: .86rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+    transition: background-color .15s, border-color .15s, color .15s, transform .12s;
+  }
+  .db-btn:active { transform: translateY(1px); }
+  .db-btn i { font-size: 1.15rem; }
+  .db-btn--primary { background: var(--primary); color: #fff; }
+  .db-btn--primary:hover { background: var(--primary-ink); color: #fff; }
+  .db-btn--light { background: #fff; color: var(--ink); }
+  .db-btn--light:hover { background: #e9eaff; color: var(--ink); }
+  .db-btn--ghost-light { border-color: rgba(255,255,255,.22); color: #fff; }
+  .db-btn--ghost-light:hover { border-color: rgba(255,255,255,.6); color: #fff; }
+  .db-btn--outline { border-color: var(--line); color: var(--ink-2); background: #fff; }
+  .db-btn--outline:hover { border-color: var(--primary); color: var(--primary); }
+  .db-btn--block { width: 100%; }
+
+  .db-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 3px 10px; white-space: nowrap;
+  }
+  .db-pill i { font-size: .9rem; }
+  .db-band-strong { background: var(--good-soft); color: var(--good); }
+  .db-band-ok     { background: var(--ok-soft);   color: var(--ok); }
+  .db-band-weak   { background: var(--warn-soft); color: var(--warn); }
+  .db-band-low    { background: var(--bad-soft);  color: var(--bad); }
+  .db-band-none   { background: #f1f2f7;          color: #6b7386; }
+  .db-fill-strong { background: var(--good); }
+  .db-fill-ok     { background: var(--ok); }
+  .db-fill-weak   { background: #f0a020; }
+  .db-fill-low    { background: var(--bad); }
+
+  /* ───────────────────────── Header ───────────────────────── */
+  .db-head {
+    display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;
+    gap: 14px 24px; margin: 4px 0 22px;
+  }
+  .db-date { font-size: .78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; min-height: 1.2em; }
+  .db-head h1 { font-size: 1.75rem; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; margin-top: 4px; line-height: 1.2; }
+  .db-head .db-sub { margin-top: 6px; font-size: .95rem; color: var(--text); max-width: 42rem; }
+  .db-head .db-quote { margin-top: 8px; font-size: .85rem; font-style: italic; color: var(--muted); max-width: 42rem; }
+  .db-head-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .db-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 34px; padding: 0 12px; border-radius: 999px;
+    background: #fff; border: 1px solid var(--line);
+    font-size: .8rem; font-weight: 600; color: var(--ink-2); white-space: nowrap;
+  }
+  .db-chip i { font-size: 1.05rem; }
+  .db-chip--flame i { color: var(--flame); }
+  .db-chip--good i { color: var(--good); }
+  .db-chip--warn { background: var(--warn-soft); border-color: #f6dca8; color: #8a5a00; }
+  .db-chip--warn a { color: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+  .db-chip--msg { color: var(--primary); }
+  .db-chip--msg:hover { border-color: var(--primary); color: var(--primary); }
+  .db-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+
+  /* ───────────────────────── Top: next step + readiness ───────────────────────── */
+  .db-top { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); gap: 20px; margin-bottom: 20px; }
+
+  .db-next {
+    position: relative; overflow: hidden;
+    background: var(--ink); color: #fff;
+    border-radius: var(--radius);
+    padding: 26px 28px 24px;
+    display: flex; flex-direction: column;
+    min-height: 250px;
+  }
+  .db-next-rings { position: absolute; right: -70px; top: -70px; width: 300px; height: 300px; pointer-events: none; }
+  .db-next-rings circle { fill: none; stroke: rgba(255,255,255,.07); stroke-width: 1.5; }
+  .db-next-rings .dot { fill: var(--primary); stroke: none; }
+  .db-next-rings .dot-2 { fill: rgba(255,255,255,.45); stroke: none; }
+  .db-next-label {
+    position: relative; align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    padding: 5px 11px; border-radius: 999px;
+    background: rgba(105,108,255,.28); color: #d4d5ff;
+  }
+  .db-next-label i { font-size: 1rem; }
+  .db-next--good .db-next-label { background: rgba(58,199,110,.2); color: #9df0bd; }
+  .db-next--warn .db-next-label { background: rgba(255,176,32,.2); color: #ffd27a; }
+  .db-next-text {
     position: relative;
-    background: #ffffff;
-    border: 1px solid #dbeafe;
-    border-left: 4px solid #2563eb;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(37, 99, 235, 0.07);
-    margin-bottom: 26px;
-    overflow: hidden;
-    animation: wc-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+    margin-top: 18px !important;
+    font-size: 1.25rem; font-weight: 600; line-height: 1.45; letter-spacing: -0.01em;
+    color: #fff; max-width: 34rem;
+    text-wrap: pretty;
   }
-  @keyframes wc-in {
-    from { opacity: 0; transform: translateY(-16px); }
-    to   { opacity: 1; transform: translateY(0); }
+  .db-next-actions { position: relative; display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 24px; }
+  .db-next-more { position: relative; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.1); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .db-next-more span { font-size: .76rem; color: rgba(255,255,255,.55); margin-right: 2px; }
+  .db-next-more a {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .78rem; font-weight: 600; color: #fff;
+    padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,.08);
   }
-  .wc-card.is-hiding {
-    animation: wc-out 0.28s ease forwards;
-    pointer-events: none;
-  }
-  @keyframes wc-out {
-    to { opacity: 0; transform: translateY(-8px); }
-  }
-  .wc-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 20px 20px 0 22px;
-  }
-  .wc-left { display: flex; align-items: flex-start; gap: 14px; }
-  .wc-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    background: #eff6ff;
-    color: #2563eb;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 21px;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-  .wc-greeting {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0 0 6px;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-  }
-  .wc-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
-    font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 999px;
-    border: 1px solid #e2e8f0;
-    background: #f1f5f9;
-    color: #64748b;
-  }
-  .wc-chip--green { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
-  .wc-chip--amber { background: #fffbeb; border-color: #fde68a; color: #b45309; }
-  .wc-chip i { font-size: 12px; }
-  .wc-dismiss {
-    width: 28px;
-    height: 28px;
-    border: 1px solid #e2e8f0;
-    border-radius: 7px;
-    background: #f8fafc;
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 18px;
-    flex-shrink: 0;
-    transition: background 0.12s;
-    line-height: 1;
-    padding: 0;
-  }
-  .wc-dismiss:hover { background: #f1f5f9; color: #475569; }
-  .wc-quote {
-    font-size: 0.9rem;
-    font-style: italic;
-    color: #475569;
-    line-height: 1.65;
-    margin: 14px 22px 0;
-    padding: 0;
-    border: 0;
-  }
-  .wc-footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding: 12px 20px 16px;
-  }
-  .wc-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.815rem;
-    font-weight: 800;
-    color: #2563eb;
-    text-decoration: none;
-    letter-spacing: 0.005em;
-    transition: color 0.12s;
-  }
-  .wc-cta:hover { color: #1d4ed8; }
-  .wc-cta i { font-size: 19px; }
-  .wc-bar {
-    height: 3px;
-    background: #2563eb;
-    transform-origin: left;
-    transform: scaleX(1);
-    opacity: 0.35;
-  }
-  .wc-bar.is-running {
-    transition: transform linear;
-    transform: scaleX(0);
-  }
-  /* ── My Performance card (tests taken) ─────────────────────────────── */
-  .mp-card { border-radius: 14px; border: 1px solid #e3e8f0; box-shadow: 0 6px 20px rgba(15,23,42,.07); overflow: hidden; }
-  .mp-head { padding: 18px 22px 14px; border-bottom: 1px solid #f0f2f8; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-  .mp-head__icon { width: 36px; height: 36px; border-radius: 9px; background: #1a1a2e; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; flex-shrink: 0; }
-  .mp-title { margin: 0; font-size: .95rem; font-weight: 800; color: #1f2d40; line-height: 1.2; }
-  .mp-sub { margin: 0; font-size: .75rem; color: #9098b0; }
-  .mp-link { font-size: .8rem; font-weight: 700; color: #3758f9; text-decoration: none; display: flex; align-items: center; gap: 3px; }
-  .mp-link i { font-size: 1rem; }
-  .mp-body { padding: 18px 22px 20px; }
+  .db-next-more a:hover { background: rgba(255,255,255,.14); color: #fff; }
 
-  .mp-empty { text-align: center; padding: 10px 0 4px; }
-  .mp-empty > i { font-size: 2.8rem; color: #d0d5e0; }
-  .mp-empty__t { margin: 10px 0 4px; font-size: .9rem; font-weight: 700; color: #4a5568; }
-  .mp-empty__s { margin: 0 auto; font-size: .82rem; color: #9098b0; max-width: 320px; }
+  .db-ready { display: flex; flex-direction: column; }
+  .db-ready-body { display: flex; align-items: center; gap: 20px; flex: 1; }
+  .db-ring { position: relative; width: 128px; height: 128px; flex-shrink: 0; }
+  .db-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .db-ring .track { stroke: #eef0f6; }
+  .db-ring .arc { transition: stroke-dashoffset 1.1s cubic-bezier(.2,.7,.2,1); }
+  .db-ring .tick { stroke: var(--ink); stroke-width: 2.5; stroke-linecap: round; }
+  .db-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .db-ring-label strong { font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; }
+  .db-ring-label strong small { font-size: .95rem; font-weight: 700; color: var(--muted); margin-left: 1px; }
+  .db-ring-label span { font-size: .7rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
+  .db-ready-info { min-width: 0; }
+  .db-ready-info .db-pill { margin-bottom: 10px; }
+  .db-ready-info p { font-size: .82rem; line-height: 1.55; }
+  .db-ready-info .note { color: var(--muted); font-size: .75rem; margin-top: 6px; }
+  .db-ready-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+  .db-mini { background: var(--soft); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .db-mini b { display: block; font-size: 1.1rem; font-weight: 800; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-mini span { font-size: .72rem; color: var(--muted); font-weight: 600; }
 
-  .mp-top { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
-  .mp-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 124px; text-align: center; }
-  .mp-ring { position: relative; width: 104px; height: 104px; }
-  .mp-ring__label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
-  .mp-ring__v { font-size: 1.4rem; font-weight: 800; color: #1f2d40; }
-  .mp-ring__k { font-size: .6rem; font-weight: 700; color: #9098b0; text-transform: uppercase; letter-spacing: .5px; }
-  .mp-level { font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; }
-  .mp-level.is-strong { background: #dcfce7; color: #16a34a; }
-  .mp-level.is-on_track { background: #eef2ff; color: #3758f9; }
-  .mp-level.is-needs_work { background: #fef3c7; color: #d97706; }
-  .mp-level.is-critical { background: #fee2e2; color: #dc2626; }
-  .mp-conf { font-size: .66rem; font-weight: 600; color: #9098b0; line-height: 1.3; }
+  /* ───────────────────────── Stat tiles ───────────────────────── */
+  .db-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .db-stat { padding: 18px 18px 16px; }
+  .db-stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+  .db-stat-top span:first-child { font-size: .8rem; font-weight: 600; color: var(--muted); }
+  .db-stat .db-ico { width: 34px; height: 34px; border-radius: 9px; font-size: 1.1rem; }
+  .db-stat-val { font-size: 2rem; font-weight: 800; color: var(--ink); line-height: 1; }
+  .db-stat-val small { font-size: 1rem; font-weight: 700; color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+  .db-stat-foot { margin-top: 10px; font-size: .76rem; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .db-stat-foot i { font-size: 1rem; }
+  .db-up { color: var(--good) !important; }
+  .db-down { color: var(--bad) !important; }
+  .ico-flame { background: var(--flame-soft) !important; color: var(--flame) !important; }
+  .ico-good  { background: var(--good-soft) !important;  color: var(--good) !important; }
+  .ico-warn  { background: var(--warn-soft) !important;  color: var(--warn) !important; }
+  .ico-bad   { background: var(--bad-soft) !important;   color: var(--bad) !important; }
+  .ico-ink   { background: var(--ink) !important;        color: #fff !important; }
+  .ico-teal  { background: #e3f6f8 !important;           color: #0a8ca0 !important; }
+  .ico-pink  { background: #fde9f1 !important;           color: #d23f7a !important; }
 
-  .mp-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .mp-tile { background: #f8f9fc; border-radius: 10px; padding: 10px 8px; text-align: center; min-width: 0; }
-  .mp-tile__v { font-size: 1.25rem; font-weight: 800; color: #1f2d40; line-height: 1; }
-  .mp-tile__v small { font-size: .62rem; font-weight: 700; margin-left: 1px; }
-  .mp-tile__l { font-size: .7rem; color: #7b8599; font-weight: 700; margin-top: 4px; line-height: 1.3; }
-  .mp-tile__s { display: block; font-size: .64rem; font-weight: 600; color: #9098b0; }
-  .mp-up { color: #16a34a !important; }
-  .mp-down { color: #dc2626 !important; }
-  .mp-flat { color: #d97706 !important; }
+  /* ───────────────────────── Body grid ───────────────────────── */
+  .db-body { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .db-col { display: grid; gap: 20px; min-width: 0; }
+  .db-col > *, .db-top > *, .db-stats > *, .db-pair > * { min-width: 0; }
 
-  .mp-next { margin-top: 16px; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; background: #f0f4ff; }
-  .mp-next.is-good { background: #f0fdf4; }
-  .mp-next.is-warn { background: #fff7ed; }
-  .mp-next__icon { font-size: 1.35rem; flex-shrink: 0; color: #3758f9; }
-  .mp-next.is-good .mp-next__icon { color: #16a34a; }
-  .mp-next.is-warn .mp-next__icon { color: #ea580c; }
-  .mp-next__body { flex: 1; min-width: 0; }
-  .mp-next__k { margin: 0 0 2px; font-size: .64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #7b8599; }
-  .mp-next__t { margin: 0; font-size: .84rem; color: #374151; line-height: 1.55; }
-  .mp-next__cta { flex-shrink: 0; background: #1a1a2e; color: #fff !important; border-radius: 8px; padding: 8px 14px; font-size: .78rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
-  .mp-next__cta:hover { background: #2b2b4a; }
-
-  .mp-insights { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  .mp-insight { border: 1px solid #eef0f5; border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
-  .mp-insight > i { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
-  .mp-insight.is-good > i { background: #dcfce7; color: #16a34a; }
-  .mp-insight.is-warn > i { background: #ffedd5; color: #ea580c; }
-  a.mp-insight:hover { border-color: #fed7aa; background: #fffaf5; }
-  .mp-insight__k { margin: 0; font-size: .62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #9098b0; }
-  .mp-insight__v { margin: 1px 0; font-size: .84rem; font-weight: 700; color: #1f2d40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mp-insight__m { margin: 0; font-size: .7rem; color: #7b8599; }
-
-  .mp-sec { margin: 18px 0 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .mp-sec__t { margin: 0; font-size: .71rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #9098b0; }
-  .mp-sec__link { font-size: .74rem; font-weight: 700; color: #3758f9; text-decoration: none; }
-
-  .mp-types { display: flex; flex-wrap: wrap; gap: 8px; }
-  .mp-type { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e8ebf2; border-radius: 999px; padding: 4px 6px 4px 5px; font-size: .75rem; font-weight: 600; color: #4a5568; background: #fff; }
-  .mp-type > i { width: 22px; height: 22px; border-radius: 50%; background: #f1f3f9; display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; color: #1a1a2e; }
-  .mp-type b { color: #1f2d40; }
-  .mp-type__avg, .mp-pill { font-weight: 800; border-radius: 999px; }
-  .mp-type__avg { font-size: .68rem; padding: 1px 7px; }
-  .b-strong { background: #dcfce7; color: #15803d; }
-  .b-ok { background: #eef2ff; color: #3758f9; }
-  .b-weak { background: #fef3c7; color: #b45309; }
-  .b-low { background: #fee2e2; color: #b91c1c; }
-
-  .mp-list { display: flex; flex-direction: column; gap: 2px; }
-  .mp-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 0 -10px; border-radius: 10px; text-decoration: none; color: inherit; transition: background .15s ease; }
-  .mp-row:hover { background: #f8f9fc; }
-  .mp-row__icon { width: 34px; height: 34px; border-radius: 9px; background: #f1f3f9; color: #1a1a2e; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .mp-row__main { flex: 1; min-width: 0; }
-  .mp-row__title { margin: 0; font-size: .84rem; font-weight: 700; color: #1f2d40; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .mp-row__meta { margin: 1px 0 0; font-size: .72rem; color: #9098b0; }
-  .mp-row__score { text-align: right; flex-shrink: 0; }
-  .mp-pill { display: inline-block; min-width: 50px; text-align: center; font-size: .8rem; padding: 3px 9px; }
-  .mp-delta { display: block; font-size: .66rem; font-weight: 700; color: #9098b0; margin-top: 3px; }
-
-  .mp-legend { font-size: .68rem; font-weight: 600; color: #9098b0; display: inline-flex; align-items: center; gap: 5px; }
-  .mp-legend i { width: 14px; border-top: 2px dashed #22c55e; }
-  .mp-spark { position: relative; }
-  .mp-spark canvas { display: block; width: 100%; height: 72px; cursor: crosshair; }
-  .mp-tip { position: absolute; top: 0; left: 0; pointer-events: none; background: #1a1a2e; color: #fff; font-size: .7rem; line-height: 1.35; padding: 5px 8px; border-radius: 6px; white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity .12s ease; }
-  .mp-tip b { font-weight: 800; }
-
-  @media (max-width: 575.98px) {
-    .mp-head, .mp-body { padding-left: 16px; padding-right: 16px; }
-    .mp-top { grid-template-columns: 1fr; justify-items: center; }
-    .mp-ring-wrap { width: auto; }
-    .mp-tiles { width: 100%; }
-    .mp-insights { grid-template-columns: 1fr; }
-    .mp-next { flex-wrap: wrap; align-items: flex-start; }
-    .mp-next__body { flex-basis: calc(100% - 40px); }
-    .mp-next__cta { margin-left: 34px; }
+  /* Chart */
+  .db-trend { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .db-chart { position: relative; height: 220px; margin: 0 -4px; touch-action: pan-y; }
+  .db-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .db-chart .grid line { stroke: #eef0f6; }
+  .db-chart .grid text, .db-chart .xlab { fill: #a3aabb; font-size: 11px; font-family: inherit; }
+  .db-chart .target line { stroke: var(--good); stroke-dasharray: 5 5; stroke-width: 1.5; }
+  .db-chart .target text { fill: var(--good); font-size: 11px; font-weight: 700; font-family: inherit; }
+  .db-chart .area { fill: rgba(105,108,255,.08); }
+  .db-chart .line { fill: none; stroke: var(--primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .db-chart .pt { stroke: #fff; stroke-width: 2; }
+  .db-chart .hair { stroke: #c9cde0; stroke-width: 1; stroke-dasharray: 3 3; }
+  .db-tip {
+    position: absolute; z-index: 2; pointer-events: none;
+    background: var(--ink); color: #fff; border-radius: 10px;
+    padding: 8px 11px; font-size: .76rem; line-height: 1.35; white-space: nowrap;
+    transform: translate(-50%, calc(-100% - 12px)); opacity: 0; transition: opacity .12s;
+    max-width: 240px;
   }
-  @media (max-width: 379.98px) {
-    .mp-tiles { grid-template-columns: repeat(2, 1fr); }
+  .db-tip b { font-size: .95rem; }
+  .db-tip span { display: block; color: rgba(255,255,255,.65); overflow: hidden; text-overflow: ellipsis; }
+  .db-tip.is-on { opacity: 1; }
+  .db-chart-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    min-height: 190px; border: 1.5px dashed var(--line); border-radius: 12px; padding: 20px 16px;
+    font-size: .86rem; line-height: 1.55;
+  }
+  .db-chart-empty i { font-size: 2rem; color: #c6cbe0; margin-bottom: 8px; }
+  .db-chart-empty b { color: var(--ink); }
+
+  .db-sep { height: 1px; background: var(--line); margin: 20px -22px 16px; }
+  .db-sub-head { font-size: .74rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px !important; }
+
+  /* Recent tests */
+  .db-tests { display: grid; }
+  .db-test {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 8px; margin: 0 -8px; border-radius: 12px;
+    transition: background-color .15s;
+  }
+  .db-test:hover { background: var(--soft); }
+  .db-test .db-ico { width: 38px; height: 38px; }
+  .db-test-main { flex: 1; min-width: 0; }
+  .db-test-main b { display: block; font-size: .88rem; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-test-main small { display: block; font-size: .75rem; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-delta { font-size: .74rem; font-weight: 700; display: inline-flex; align-items: center; color: var(--muted); flex-shrink: 0; }
+  .db-delta i { font-size: .95rem; }
+  .db-score { min-width: 54px; text-align: center; font-size: .82rem; font-weight: 800; border-radius: 9px; padding: 6px 8px; flex-shrink: 0; }
+
+  /* Where you stand */
+  .db-types { display: grid; gap: 14px; }
+  .db-type-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: .84rem; margin-bottom: 7px; }
+  .db-type-top span { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-weight: 600; }
+  .db-type-top span i { font-size: 1.05rem; color: var(--muted); }
+  .db-type-top em { font-style: normal; color: var(--muted); font-size: .76rem; font-weight: 500; }
+  .db-type-top b { color: var(--ink); }
+  .db-bar { position: relative; height: 10px; border-radius: 999px; background: #eef0f6; }
+  .db-bar > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+  .db-bar > i { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--ink); border-radius: 2px; }
+  .db-legend { display: flex; align-items: center; gap: 6px; font-size: .74rem; color: var(--muted); margin-top: 14px !important; }
+  .db-legend i { display: inline-block; width: 2px; height: 12px; background: var(--ink); border-radius: 2px; }
+  .db-subjects { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+  .db-subject { border: 1px solid var(--line); border-radius: 14px; padding: 14px 15px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .db-subject .tag { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; display: inline-flex; align-items: center; gap: 4px; }
+  .db-subject .tag i { font-size: .95rem; }
+  .db-subject b { font-size: .92rem; color: var(--ink); line-height: 1.35; }
+  .db-subject .meta { font-size: .76rem; color: var(--muted); }
+  .db-subject .db-link { margin-top: 6px; align-self: flex-start; }
+  .db-subject--good .tag { color: var(--good); }
+  .db-subject--bad .tag { color: var(--bad); }
+
+  /* Study tools */
+  .db-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .db-tool {
+    position: relative;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 16px; border: 1px solid var(--line); border-radius: 14px;
+    background: #fff;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+  }
+  .db-tool:hover { border-color: #cfd2f5; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(29,31,63,.06); }
+  .db-tool .db-ico { width: 40px; height: 40px; border-radius: 11px; font-size: 1.25rem; }
+  .db-tool b { display: block; font-size: .88rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .db-tool small { display: block; font-size: .74rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .db-tool .pro {
+    position: absolute; top: 12px; right: 12px;
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: .62rem; font-weight: 800; letter-spacing: .04em;
+    color: #8a5a00; background: var(--warn-soft); border-radius: 6px; padding: 2px 6px;
+  }
+
+  /* Messages + communities */
+  .db-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .db-msg { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); color: inherit; }
+  .db-msg:first-of-type { padding-top: 0; }
+  .db-msg:last-of-type { border-bottom: 0; padding-bottom: 0; }
+  .db-msg .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; background: #dde0ea; }
+  .db-msg .dot.unread { background: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .db-msg-main { min-width: 0; flex: 1; }
+  .db-msg-main b { display: block; font-size: .85rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-msg-main span.body { font-size: .79rem; line-height: 1.5; margin-top: 2px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .db-msg-main small { display: block; font-size: .72rem; color: var(--muted); margin-top: 4px; }
+  .db-comms { display: grid; gap: 4px; }
+  .db-comm { display: flex; align-items: center; gap: 12px; padding: 9px 10px; margin: 0 -10px; border-radius: 12px; transition: background-color .15s; }
+  .db-comm:hover { background: var(--soft); }
+  .db-comm .db-ico { width: 38px; height: 38px; }
+  .db-comm b { display: block; font-size: .85rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-comm small { font-size: .74rem; color: var(--muted); }
+  .db-empty { text-align: center; padding: 18px 8px 6px; font-size: .84rem; color: var(--muted); }
+  .db-empty i { display: block; font-size: 1.9rem; color: #c6cbe0; margin-bottom: 6px; }
+  .db-empty .db-btn { margin-top: 12px; height: 38px; }
+
+  /* ───────────────────────── Aside cards ───────────────────────── */
+  .db-plan-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .db-plan-name { font-size: 1.2rem; font-weight: 800; color: var(--ink); margin-top: 14px !important; letter-spacing: -0.02em; }
+  .db-plan-meta { font-size: .8rem; margin-top: 4px !important; display: flex; align-items: center; gap: 6px; }
+  .db-plan-meta i { font-size: 1rem; }
+  .db-days { margin-top: 14px; }
+  .db-days-top { display: flex; justify-content: space-between; gap: 8px; font-size: .76rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+  .db-days-top b { color: var(--ink); }
+  .db-alert { border-radius: 12px; padding: 11px 13px; margin-top: 14px; font-size: .8rem; line-height: 1.5; }
+  .db-alert b { display: block; font-size: .84rem; }
+  .db-alert--warn { background: var(--warn-soft); color: #8a5a00; }
+  .db-alert--bad { background: var(--bad-soft); color: #a3261e; }
+  .db-plan .db-btn { margin-top: 16px; }
+
+  .db-peer-big strong { font-size: 2.1rem; font-weight: 800; color: var(--ink); line-height: 1; }
+  .db-peer p { font-size: .82rem; line-height: 1.55; margin-top: 12px !important; }
+  .db-peer p b { color: var(--ink); }
+  .db-peer .fine { font-size: .72rem; color: var(--muted); margin-top: 8px !important; }
+  .db-scale { position: relative; height: 10px; border-radius: 999px; background: #eef0f6; margin-top: 16px; }
+  .db-scale > span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--primary); }
+  .db-scale > i { position: absolute; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #fff; border: 4px solid var(--primary); }
+  .db-scale-labels { display: flex; justify-content: space-between; font-size: .7rem; color: var(--muted); margin-top: 6px; }
+
+  .db-pt-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .db-pt-stats .db-mini { text-align: center; padding: 10px 6px; }
+  .db-pt-row { display: flex; align-items: center; gap: 12px; padding: 9px 8px; margin: 0 -8px; border-radius: 12px; transition: background-color .15s; }
+  .db-pt-row:hover { background: var(--soft); }
+  .db-pt-badge { width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0; display: grid; place-items: center; font-size: .8rem; font-weight: 800; }
+  .db-pt-badge i { font-size: 1.2rem; }
+  .db-pt-main { flex: 1; min-width: 0; }
+  .db-pt-main b { display: flex; align-items: center; gap: 6px; font-size: .85rem; color: var(--ink); }
+  .db-pt-main b span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-pt-main b em { font-style: normal; flex-shrink: 0; font-size: .58rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #fff; background: var(--primary); border-radius: 4px; padding: 2px 5px; }
+  .db-pt-main small { display: block; font-size: .73rem; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-pt-mini { display: block; height: 4px; border-radius: 999px; background: #eef0f6; margin-top: 6px; overflow: hidden; }
+  .db-pt-mini span { display: block; height: 100%; border-radius: 999px; }
+  .db-pt-row > i { color: #c6cbe0; font-size: 1.2rem; flex-shrink: 0; }
+  .db-pt-new { background: var(--primary-soft); color: var(--primary); }
+  .db-pt-tip { display: flex; gap: 8px; font-size: .78rem; line-height: 1.5; background: var(--soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; }
+  .db-pt-tip i { color: var(--primary); font-size: 1.1rem; }
+
+  .db-ref-code { display: flex; gap: 8px; margin: 14px 0 10px; }
+  .db-ref-code div {
+    flex: 1; display: grid; place-items: center; height: 52px; min-width: 0;
+    border: 1.5px dashed #c9cce8; border-radius: 12px; background: var(--soft);
+    font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+    font-size: 1.35rem; font-weight: 800; letter-spacing: .28em; color: var(--ink); user-select: all;
+  }
+  .db-ref-code button { width: 52px; height: 52px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); font-size: 1.2rem; cursor: pointer; display: grid; place-items: center; transition: border-color .15s, color .15s; }
+  .db-ref-code button:hover { border-color: var(--primary); color: var(--primary); }
+  .db-ref-earn { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .db-share { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px; }
+  .db-share a { height: 40px; border-radius: 10px; border: 1px solid var(--line); display: grid; place-items: center; font-size: 1.15rem; color: var(--text); transition: border-color .15s, color .15s; }
+  .db-share a:hover { border-color: currentColor; }
+  .db-share .wa:hover { color: #128c44; } .db-share .fb:hover { color: #1877f2; } .db-share .x:hover { color: #000; }
+  .db-share .tg:hover { color: #0088cc; } .db-share .li:hover { color: #0a66c2; }
+
+  /* ───────────────────────── Responsive ───────────────────────── */
+  @media (max-width: 1199.98px) {
+    .db-top, .db-body { grid-template-columns: minmax(0, 1fr); }
+    .db-aside { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+    .db-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 767.98px) {
+    .db-head { margin-top: 0; }
+    .db-head h1 { font-size: 1.45rem; }
+    .db-next { padding: 22px 20px 20px; min-height: 0; }
+    .db-next-text { font-size: 1.08rem; }
+    .db-next-actions .db-btn { flex: 1 1 auto; }
+    .db-card { padding: 18px; }
+    .db-sep { margin-left: -18px; margin-right: -18px; }
+    .db-stats { gap: 12px; }
+    .db-stat { padding: 14px; }
+    .db-stat-val { font-size: 1.6rem; }
+    .db-aside, .db-pair, .db-subjects { grid-template-columns: minmax(0, 1fr); }
+    .db-tools { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .db-ready-body { gap: 16px; }
+    .db-ring { width: 108px; height: 108px; }
+    .db-ring-label strong { font-size: 1.65rem; }
+    .db-chart { height: 190px; }
+    .db-test .db-delta { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .db-ring .arc { transition: none; }
   }
 </style>
-
-{% if show_welcome_card %}
-<div id="wcCard" class="wc-card" role="status" aria-live="polite" aria-label="Welcome message">
-  <div class="wc-top">
-    <div class="wc-left">
-      <span class="wc-icon" aria-hidden="true">
-        {% if welcome_time == "morning" %}<i class="bx bx-sun"></i>
-        {% elif welcome_time == "afternoon" %}<i class="bx bx-smile"></i>
-        {% else %}<i class="bx bx-moon"></i>{% endif %}
-      </span>
-      <div>
-        <p class="wc-greeting">Good {{ welcome_time }}, {{ welcome_first_name }}</p>
-        {% if sub_status == "active" %}
-          <span class="wc-chip wc-chip--green">
-            <i class="bx bx-check-circle"></i> Subscribed{% if days_remaining and days_remaining > 0 %} &middot; {{ days_remaining }} day{{ days_remaining|pluralize }} left{% endif %}
-          </span>
-        {% else %}
-          <span class="wc-chip wc-chip--amber">
-            <i class="bx bx-user"></i> Free access &middot; <a href="/subscribe/" style="color:inherit;font-weight:800;">Upgrade</a>
-          </span>
-        {% endif %}
-      </div>
-    </div>
-    <button class="wc-dismiss" type="button" id="wcClose" aria-label="Dismiss welcome message">
-      <i class="bx bx-x"></i>
-    </button>
-  </div>
-
-  <blockquote class="wc-quote">"{{ welcome_quote }}"</blockquote>
-
-  <div class="wc-footer">
-    {% if sub_status == "active" %}
-      <a href="/dashboard/general-tests/" class="wc-cta">
-        Start Practicing <i class="bx bx-right-arrow-alt"></i>
-      </a>
-    {% else %}
-      <a href="/dashboard/free-test/" class="wc-cta">
-        Try a Free Test <i class="bx bx-right-arrow-alt"></i>
-      </a>
-    {% endif %}
-  </div>
-
-  <div class="wc-bar" id="wcBar"></div>
-</div>
-<script>
-(function () {
-  var card     = document.getElementById('wcCard');
-  var bar      = document.getElementById('wcBar');
-  var closeBtn = document.getElementById('wcClose');
-  if (!card) return;
-
-  var DELAY = 10000; // 10 seconds
-
-  function dismiss() {
-    card.classList.add('is-hiding');
-    setTimeout(function () { card.style.display = 'none'; }, 290);
-  }
-
-  // Kick off the countdown bar
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      if (bar) {
-        bar.style.transitionDuration = DELAY + 'ms';
-        bar.classList.add('is-running');
-      }
-    });
-  });
-
-  var timer = setTimeout(dismiss, DELAY);
-
-  closeBtn.addEventListener('click', function () {
-    clearTimeout(timer);
-    dismiss();
-  });
-})();
-</script>
-{% endif %}
 
 {% if show_nmc_disclaimer %}
 {% csrf_token %}
@@ -816,7 +454,7 @@
       </div>
       <div class="modal-body pt-3">
         <p class="mb-0">
-          NursesEdge  is an independent platform and is <strong>not affiliated</strong> with the Nursing and Midwifery Council (NMC) of Ghana.
+          NursesEdge is an independent platform and is <strong>not affiliated</strong> with the Nursing and Midwifery Council (NMC) of Ghana.
           It is privately managed with the sole aim of supporting nursing students in their exam preparation.
         </p>
       </div>
@@ -827,809 +465,650 @@
   </div>
 </div>
 {% endif %}
-{% if has_unread_notifications %}
-<div class="alert alert-warning" role="alert">
-  You have {{ student_unread_notifications }} unread message{{ student_unread_notifications|pluralize }}.
-  <a href="/dashboard/messages/" class="alert-link">Open messages</a>
-</div>
-{% endif %}
-<div class="row">
 
-  <div class="col-lg-8">
-    <!-- Welcome card -->
-    <div class="mb-4">
-      <div class="card">
-        <div class="d-flex align-items-end row">
-          <div class="col-sm-7">
-            <div class="card-body">
-            <h5 class="card-title text-primary" style="font-size:1.45rem;font-weight:800;">Welcome back, {{ full_name }}! 🎉</h5>
-            <p class="mb-4" style="font-size:1.03rem;line-height:1.7;">
-                Ready to conquer your <span class="fw-bold">NMC Licensure Exam</span>?
-                Pick up where you left off and keep your streak going!
-              </p>
-              <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-primary">Start Mock Exams</a>
-            </div>
-          </div>
-          <div class="col-sm-5 text-center text-sm-left">
-            <div class="card-body pb-0 px-0 px-md-4">
-              <img src="https://res.cloudinary.com/dmqizfpyz/image/upload/q_auto/f_auto/v1775750474/new1-removebg-preview_hld7oo.png"
-                   height="170"
-                   style="border-radius:12px;object-fit:cover;max-width:100%;"
-                   alt="Health icon illustration"
-                   data-app-dark-img="illustrations/man-with-laptop-dark.png"
-                   data-app-light-img="illustrations/man-with-laptop-light.png" />
-            </div>
-          </div>
-        </div>
-      </div>
+<div class="db">
+
+  <!-- ═════════════ Greeting ═════════════ -->
+  <header class="db-head">
+    <div>
+      <p class="db-date" data-db-date></p>
+      <h1>Good {{ welcome_time }}, {{ welcome_first_name }}</h1>
+      <p class="db-sub">
+        {% if perf_stats.studied_today %}You've already studied today. Nice work, keep the momentum going.
+        {% elif perf_stats.streak > 0 %}Study today to keep your {{ perf_stats.streak }}-day streak alive.
+        {% elif perf_stats.has_data %}Welcome back. A short session today keeps everything fresh.
+        {% else %}Ready to conquer your NMC licensure exam? Let's get your first session in.{% endif %}
+      </p>
+      {% if show_welcome_card %}<p class="db-quote">&ldquo;{{ welcome_quote }}&rdquo;</p>{% endif %}
     </div>
+    <div class="db-head-chips">
+      {% if perf_stats.streak > 0 %}
+        <span class="db-chip db-chip--flame"><i class="bx bxs-flame"></i><span><span class="db-num">{{ perf_stats.streak }}</span>-day streak</span></span>
+      {% endif %}
+      {% if sub_status == "active" and days_remaining is not None and days_remaining <= 0 %}
+        <span class="db-chip db-chip--warn"><i class="bx bx-error-circle"></i>Plan expired &middot; <a href="/subscribe/">Renew</a></span>
+      {% elif sub_status == "active" %}
+        <span class="db-chip db-chip--good"><i class="bx bxs-check-circle"></i>Subscribed{% if days_remaining and days_remaining > 0 %} &middot; {{ days_remaining }} day{{ days_remaining|pluralize }} left{% endif %}</span>
+      {% else %}
+        <span class="db-chip db-chip--warn"><i class="bx bxs-crown"></i>Free access &middot; <a href="/subscribe/">Upgrade</a></span>
+      {% endif %}
+      {% if has_unread_notifications %}
+        <a class="db-chip db-chip--msg" href="/dashboard/messages/"><span class="dot"></span>{{ student_unread_notifications }} unread message{{ student_unread_notifications|pluralize }}</a>
+      {% endif %}
+    </div>
+  </header>
 
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-md-6">
-        <div class="card h-100 best-score-card">
-          <div class="card-body d-flex flex-column" style="padding:22px;min-height:200px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-              <div class="best-score-icon">
-                <i class="bx bx-bar-chart-alt-2"></i>
-              </div>
-              <span style="font-size:0.7rem;font-weight:700;color:#3ea76a;background:#eafff2;border-radius:999px;padding:3px 10px;">
-                {% if best_mock_percentage >= 70 %}On track{% elif best_mock_percentage > 0 %}Keep going{% else %}Get started{% endif %}
-              </span>
-            </div>
-            <div class="flex-grow-1">
-              <p class="best-score-label">Best Score</p>
-              <p class="best-score-value">{{ best_mock_percentage }}<span class="unit">%</span></p>
-              <p class="best-score-meta">{{ total_questions_available }} practice questions &bull; {{ mock_exam_count }} mock exam{{ mock_exam_count|pluralize }} available</p>
-            </div>
-            <div style="margin-top:14px;">
-              <a href="/dashboard/performance/" class="best-score-cta">
-                View performance <i class="bx bx-chevron-right" aria-hidden="true"></i>
-              </a>
-            </div>
-          </div>
+  <!-- ═════════════ Next step + readiness ═════════════ -->
+  <section class="db-top">
+    <article class="db-next db-next--{{ perf_stats.advice_tone|default:'info' }}">
+      <svg class="db-next-rings" viewBox="0 0 300 300" aria-hidden="true">
+        <circle cx="150" cy="150" r="60"/><circle cx="150" cy="150" r="95"/><circle cx="150" cy="150" r="130"/>
+        <circle class="dot" cx="55" cy="150" r="5"/><circle class="dot-2" cx="150" cy="280" r="3.5"/>
+      </svg>
+      <span class="db-next-label"><i class="bx {{ perf_stats.advice_icon|default:'bx-bulb' }}"></i>Your next step</span>
+      <p class="db-next-text">{{ perf_stats.advice|default:"Take your first mock exam or general test to unlock your readiness score, trends and personalised tips." }}</p>
+      <div class="db-next-actions">
+        <a class="db-btn db-btn--light" href="{{ perf_stats.advice_cta_url|default:'/dashboard/general-tests/' }}">
+          {{ perf_stats.advice_cta_label|default:"Take a test" }} <i class="bx bx-right-arrow-alt"></i>
+        </a>
+        {% if perf_stats.has_data %}
+          <a class="db-btn db-btn--ghost-light" href="/dashboard/performance/">Full report</a>
+        {% else %}
+          <a class="db-btn db-btn--ghost-light" href="/dashboard/mock-exams/">Browse mock exams</a>
+        {% endif %}
+      </div>
+      {% if perf_stats.unfinished|length > 1 %}
+      <div class="db-next-more">
+        <span>Also waiting:</span>
+        {% for u in perf_stats.unfinished|slice:"1:4" %}
+          <a href="{{ u.url }}"><i class="bx bx-play-circle"></i>{{ u.title|truncatechars:28 }} &middot; {{ u.minutes_left }} min</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </article>
+
+    <article class="db-card db-ready">
+      <div class="db-card-head">
+        <div class="db-card-title">
+          <span class="db-ico"><i class="bx bx-bullseye"></i></span>
+          <div><h2>Exam readiness</h2><p>Recent &amp; mock results count more</p></div>
         </div>
       </div>
-      <div class="col-12 col-md-6">
-        <div class="card h-100" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 8px rgba(0,0,0,.04);">
-          <div class="card-body" style="padding:20px 22px;">
-            <div class="dash-section-header">
-              <div style="display:flex;align-items:center;gap:8px;">
-                <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
-                  <i class="bx bx-group"></i>
-                </span>
-                <div>
-                  <p class="dash-section-label" style="margin-bottom:0;">My Communities</p>
-                  <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">
-                    {% if joined_communities %}{{ joined_communities|length }} joined{% else %}None joined yet{% endif %}
-                    {% if community_unread %}&nbsp;<span style="background:#1a1a2e;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.67rem;font-weight:700;">{{ community_unread }} new</span>{% endif %}
-                  </p>
-                </div>
-              </div>
-              <a href="/dashboard/community/" class="dash-section-link">
-                Browse all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
-              </a>
-            </div>
-            {% if joined_communities %}
-            <div class="comm-chips">
-              {% for c in joined_communities %}
-              <a href="/dashboard/community/{{ c.slug }}/" class="comm-chip">
-                <div class="comm-chip__icon"><i class="bx {{ c.icon }}"></i></div>
-                <div style="min-width:0;">
-                  <div class="comm-chip__name">{{ c.name }}</div>
-                  <div class="comm-chip__meta">{{ c.member_count }} member{{ c.member_count|pluralize }}</div>
-                </div>
-              </a>
-              {% endfor %}
-            </div>
+      {% with lvl=perf_stats.readiness_level target=perf_stats.target_pct|default:75 %}
+      {% widthratio target 100 360 as tick_deg %}
+      <div class="db-ready-body">
+        <div class="db-ring" role="img" aria-label="Readiness {{ perf_stats.readiness_pct|default:0 }} percent">
+          <svg viewBox="0 0 120 120">
+            <circle class="track" cx="60" cy="60" r="50" fill="none" stroke-width="11"/>
+            <circle class="arc" cx="60" cy="60" r="50" fill="none" stroke-width="11" stroke-linecap="round"
+                    stroke="{% if lvl == 'strong' %}#1f9d55{% elif lvl == 'on_track' %}#696cff{% elif lvl == 'needs_work' %}#f0a020{% elif lvl == 'critical' %}#e0362c{% else %}#d6d9e6{% endif %}"
+                    stroke-dasharray="314.16" stroke-dashoffset="314.16" data-db-arc="{{ perf_stats.readiness_pct|default:0 }}"/>
+            <line class="tick" x1="60" y1="3" x2="60" y2="17" transform="rotate({{ tick_deg|add:90 }} 60 60)"/>
+          </svg>
+          <div class="db-ring-label">
+            {% if perf_stats.has_data %}
+              <strong class="db-num">{{ perf_stats.readiness_pct }}<small>%</small></strong>
+              <span>ready</span>
             {% else %}
-            <div class="comm-empty">
-              <i class="bx bx-group" style="font-size:2rem;color:#c8cdd8;"></i>
-              <p>You haven't joined any communities yet.</p>
-              <a href="/dashboard/community/" class="btn btn-sm btn-dark" style="border-radius:8px;font-size:0.82rem;font-weight:700;padding:7px 18px;background:#1a1a2e;border:none;">
-                Explore Communities
-              </a>
-            </div>
+              <strong><i class="bx bx-lock-alt" style="font-size:1.6rem;color:#c6cbe0;"></i></strong>
+              <span>locked</span>
             {% endif %}
           </div>
         </div>
-      </div>
-    </div>
-
-    {% if peer_comparison %}
-    <div class="mb-4">
-      <div class="card" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 4px 12px rgba(15,23,42,.05);">
-        <div class="card-body" style="padding:18px 20px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;">
-            <span style="width:36px;height:36px;border-radius:10px;background:#eef2ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">
-              <i class="bx bx-trophy"></i>
-            </span>
-            <div style="min-width:0;">
-              <p style="margin:0;font-size:0.74rem;letter-spacing:.5px;text-transform:uppercase;font-weight:700;color:#7b8ba5;">Peer Comparison (Anonymized)</p>
-              <p style="margin:6px 0 4px;font-size:0.95rem;color:#1f2d40;font-weight:700;line-height:1.45;">
-                You scored {{ peer_comparison.score }}% on {{ peer_comparison.subject_label }}.
-                You are in the top {{ peer_comparison.top_percent }}% of {{ peer_comparison.year_of_study }} {{ peer_comparison.programme }} students this week.
-              </p>
-              <p style="margin:0;font-size:0.78rem;color:#8a94a6;">
-                Based on anonymized scores from {{ peer_comparison.cohort_size }} peers in your cohort. No student names are shown.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- ══════════════════════════════════════════════════════════════════════
-         PERFORMANCE ANALYTICS CARD (tests taken, readiness, next step)
-         ══════════════════════════════════════════════════════════════════════ -->
-    <div class="mb-4" id="perfStatsCard">
-      <div class="card mp-card">
-
-        {# ── Card header ───────────────────────────────────────────────────── #}
-        <div class="mp-head">
-          <div style="display:flex;align-items:center;gap:10px;min-width:0;">
-            <span class="mp-head__icon"><i class="bx bx-line-chart"></i></span>
-            <div style="min-width:0;">
-              <p class="mp-title">My Performance</p>
-              <p class="mp-sub">
-                {% if perf_stats.total_attempts > 0 %}
-                  {{ perf_stats.total_attempts }} test{{ perf_stats.total_attempts|pluralize }} taken{% if perf_stats.questions_answered %} &middot; {{ perf_stats.questions_answered }}{% if perf_stats.questions_plus %}+{% endif %} questions answered{% endif %}
-                {% else %}
-                  No tests taken yet
-                {% endif %}
-              </p>
-            </div>
-          </div>
-          <a href="/dashboard/performance/" class="mp-link">Full report <i class="bx bx-chevron-right"></i></a>
-        </div>
-
-        <div class="mp-body">
-
-          {% if not perf_stats.has_data %}
-          {# ── Empty state ──────────────────────────────────────────────────── #}
-          <div class="mp-empty">
-            <i class="bx bx-bar-chart-alt-2"></i>
-            <p class="mp-empty__t">Your test history will appear here</p>
-            <p class="mp-empty__s">Every test you finish updates your readiness score, trend and personalised tips.</p>
-          </div>
-
-          {% else %}
-          {# ── Readiness ring + key numbers ─────────────────────────────────── #}
-          <div class="mp-top">
-            <div class="mp-ring-wrap">
-              <div class="mp-ring" title="Readiness: recent tests and longer, exam-style tests count more">
-                <svg width="104" height="104" viewBox="0 0 96 96" style="transform:rotate(-90deg);">
-                  <circle cx="48" cy="48" r="40" fill="none" stroke="#f0f2f8" stroke-width="10"/>
-                  <circle cx="48" cy="48" r="40" fill="none"
-                    stroke="{% if perf_stats.readiness_level == 'strong' %}#22c55e{% elif perf_stats.readiness_level == 'on_track' %}#3758f9{% elif perf_stats.readiness_level == 'needs_work' %}#f59e0b{% else %}#ef4444{% endif %}"
-                    stroke-width="10"
-                    stroke-linecap="round"
-                    stroke-dasharray="251.2"
-                    stroke-dashoffset="251"
-                    id="readinessArc"
-                    data-pct="{{ perf_stats.readiness_pct }}"/>
-                </svg>
-                <div class="mp-ring__label">
-                  <span class="mp-ring__v">{{ perf_stats.readiness_pct }}%</span>
-                  <span class="mp-ring__k">readiness</span>
-                </div>
-              </div>
-              <span class="mp-level is-{{ perf_stats.readiness_level }}">
-                {% if perf_stats.readiness_level == 'strong' %}Exam Ready
-                {% elif perf_stats.readiness_level == 'on_track' %}On Track
-                {% elif perf_stats.readiness_level == 'needs_work' %}Needs Work
-                {% else %}Critical{% endif %}
-              </span>
-              <span class="mp-conf">{{ perf_stats.confidence_note }}</span>
-            </div>
-
-            <div class="mp-tiles">
-              <div class="mp-tile">
-                <div class="mp-tile__v">{{ perf_stats.streak }}<small>d</small></div>
-                <div class="mp-tile__l">Streak
-                  <span class="mp-tile__s {% if perf_stats.studied_today %}mp-up{% elif perf_stats.streak %}mp-flat{% endif %}">
-                    {% if perf_stats.studied_today %}&#10003; studied today{% elif perf_stats.streak %}study today to keep it{% else %}start today{% endif %}
-                  </span>
-                </div>
-              </div>
-
-              <div class="mp-tile">
-                <div class="mp-tile__v">{{ perf_stats.tests_this_week }}</div>
-                <div class="mp-tile__l">Tests this week
-                  <span class="mp-tile__s {% if perf_stats.week_delta > 0 %}mp-up{% elif perf_stats.week_delta < 0 %}mp-down{% endif %}">
-                    {% if perf_stats.week_delta > 0 %}&uarr; {{ perf_stats.week_delta_abs }} vs last week
-                    {% elif perf_stats.week_delta < 0 %}&darr; {{ perf_stats.week_delta_abs }} vs last week
-                    {% elif perf_stats.tests_this_week %}same as last week
-                    {% else %}none yet{% endif %}
-                  </span>
-                </div>
-              </div>
-
-              <div class="mp-tile">
-                <div class="mp-tile__v">{{ perf_stats.accuracy }}%</div>
-                <div class="mp-tile__l">Accuracy
-                  <span class="mp-tile__s">of all questions</span>
-                </div>
-              </div>
-
-              <div class="mp-tile">
-                <div class="mp-tile__v {% if perf_stats.trend == 'improving' %}mp-up{% elif perf_stats.trend == 'declining' %}mp-down{% elif perf_stats.trend == 'stable' %}mp-flat{% endif %}">
-                  {% if perf_stats.trend == 'improving' %}&uarr;{% elif perf_stats.trend == 'declining' %}&darr;{% elif perf_stats.trend == 'stable' %}&rarr;{% else %}&ndash;{% endif %}{% if perf_stats.trend_delta %}{{ perf_stats.trend_delta }}<small>pts</small>{% endif %}
-                </div>
-                <div class="mp-tile__l">Trend
-                  <span class="mp-tile__s">
-                    {% if perf_stats.trend == 'new' %}needs 4+ tests{% else %}{{ perf_stats.trend }} &middot; last {{ perf_stats.trend_window }}{% endif %}
-                  </span>
-                </div>
-              </div>
-
-              <div class="mp-tile">
-                <div class="mp-tile__v">{{ perf_stats.best_score|floatformat:0 }}%</div>
-                <div class="mp-tile__l">Best
-                  <span class="mp-tile__s">avg {{ perf_stats.overall_avg|floatformat:0 }}%</span>
-                </div>
-              </div>
-
-              <div class="mp-tile" title="How much your scores vary from test to test">
-                <div class="mp-tile__v">{% if perf_stats.spread is not None %}&plusmn;{{ perf_stats.spread }}{% else %}&ndash;{% endif %}</div>
-                <div class="mp-tile__l">Consistency
-                  <span class="mp-tile__s {% if perf_stats.consistency == 'steady' %}mp-up{% elif perf_stats.consistency == 'variable' %}mp-down{% endif %}">
-                    {% if perf_stats.consistency %}{{ perf_stats.consistency }}{% else %}needs 4+ tests{% endif %}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-
-          {# ── Next best step ───────────────────────────────────────────────── #}
-          {% if perf_stats.advice %}
-          <div class="mp-next is-{{ perf_stats.advice_tone|default:'info' }}">
-            <i class="bx {{ perf_stats.advice_icon }} mp-next__icon"></i>
-            <div class="mp-next__body">
-              <p class="mp-next__k">Your next step</p>
-              <p class="mp-next__t">{{ perf_stats.advice }}</p>
-            </div>
-            {% if perf_stats.advice_cta_url %}
-            <a href="{{ perf_stats.advice_cta_url }}" class="mp-next__cta">{{ perf_stats.advice_cta_label }}</a>
-            {% endif %}
-          </div>
-          {% endif %}
-
+        <div class="db-ready-info">
+          {% if lvl == 'strong' %}<span class="db-pill db-band-strong"><i class="bx bxs-star"></i>Exam ready</span>
+          {% elif lvl == 'on_track' %}<span class="db-pill db-band-ok"><i class="bx bx-trending-up"></i>On track</span>
+          {% elif lvl == 'needs_work' %}<span class="db-pill db-band-weak"><i class="bx bx-wrench"></i>Needs work</span>
+          {% elif lvl == 'critical' %}<span class="db-pill db-band-low"><i class="bx bx-target-lock"></i>Needs focus</span>
+          {% else %}<span class="db-pill db-band-none">Not started</span>{% endif %}
           {% if perf_stats.has_data %}
-          {# ── Strongest / focus area ───────────────────────────────────────── #}
-          {% if perf_stats.strongest or perf_stats.weakest %}
-          <div class="mp-insights">
-            {% if perf_stats.strongest %}
-            <div class="mp-insight is-good">
-              <i class="bx bx-medal"></i>
-              <div style="min-width:0;">
-                <p class="mp-insight__k">Strongest area</p>
-                <p class="mp-insight__v">{{ perf_stats.strongest.name }}</p>
-                <p class="mp-insight__m">avg {{ perf_stats.strongest.avg }}% &middot; {{ perf_stats.strongest.count }} test{{ perf_stats.strongest.count|pluralize }}</p>
-              </div>
-            </div>
+            <p>{% if perf_stats.readiness_pct >= target %}You're above the {{ target }}% exam-ready line. Keep it there.{% else %}The dark marker is the {{ target }}% exam-ready line.{% endif %}</p>
+            <p class="note">{{ perf_stats.confidence_note }}</p>
+          {% else %}
+            <p>Finish one test and we'll estimate how ready you are for the exam.</p>
+          {% endif %}
+        </div>
+      </div>
+      {% endwith %}
+      {% if perf_stats.has_data %}
+      <div class="db-ready-foot">
+        <div class="db-mini"><b class="db-num">{{ perf_stats.recent_avg|floatformat:"0" }}%</b><span>Last 5 tests</span></div>
+        <div class="db-mini"><b class="db-num">{{ perf_stats.overall_avg|floatformat:"0" }}%</b><span>All-time average</span></div>
+      </div>
+      {% endif %}
+    </article>
+  </section>
+
+  <!-- ═════════════ Stat tiles ═════════════ -->
+  <section class="db-stats">
+    <div class="db-card db-stat">
+      <div class="db-stat-top"><span>Study streak</span><span class="db-ico ico-flame"><i class="bx bxs-flame"></i></span></div>
+      <div class="db-stat-val db-num">{{ perf_stats.streak|default:0 }}<small>day{{ perf_stats.streak|default:0|pluralize }}</small></div>
+      <div class="db-stat-foot">
+        {% if perf_stats.studied_today %}<i class="bx bx-check-circle db-up"></i><span class="db-up">Studied today</span>
+        {% elif perf_stats.streak > 0 %}<i class="bx bx-time-five"></i>Study today to keep it
+        {% else %}<i class="bx bx-play-circle"></i>Start one today{% endif %}
+      </div>
+    </div>
+
+    <div class="db-card db-stat">
+      <div class="db-stat-top"><span>Accuracy</span><span class="db-ico"><i class="bx bx-target-lock"></i></span></div>
+      {% if perf_stats.has_data %}
+        <div class="db-stat-val db-num">{{ perf_stats.accuracy }}<small>%</small></div>
+        <div class="db-stat-foot"><span><span class="db-num">{{ perf_stats.questions_answered }}{% if perf_stats.questions_plus %}+{% endif %}</span> questions answered</span></div>
+      {% else %}
+        <div class="db-stat-val">&mdash;</div>
+        <div class="db-stat-foot">No questions answered yet</div>
+      {% endif %}
+    </div>
+
+    <div class="db-card db-stat">
+      <div class="db-stat-top"><span>Tests this week</span><span class="db-ico ico-good"><i class="bx bx-calendar-check"></i></span></div>
+      <div class="db-stat-val db-num">{{ perf_stats.tests_this_week|default:0 }}</div>
+      <div class="db-stat-foot">
+        {% if not perf_stats.has_data %}Take a test to get started
+        {% elif perf_stats.week_delta > 0 %}<i class="bx bx-up-arrow-alt db-up"></i><span class="db-up">{{ perf_stats.week_delta_abs }} more than last week</span>
+        {% elif perf_stats.week_delta < 0 %}<i class="bx bx-down-arrow-alt db-down"></i><span class="db-down">{{ perf_stats.week_delta_abs }} fewer than last week</span>
+        {% elif perf_stats.tests_this_week %}<i class="bx bx-minus"></i>Same as last week
+        {% else %}<i class="bx bx-play-circle"></i>None yet this week{% endif %}
+      </div>
+    </div>
+
+    <div class="db-card db-stat">
+      <div class="db-stat-top"><span>Best score</span><span class="db-ico ico-warn"><i class="bx bx-medal"></i></span></div>
+      {% if perf_stats.has_data %}
+        <div class="db-stat-val db-num">{{ perf_stats.best_score|floatformat:"0" }}<small>%</small></div>
+        <div class="db-stat-foot">Across {{ perf_stats.total_attempts }} test{{ perf_stats.total_attempts|pluralize }}</div>
+      {% else %}
+        <div class="db-stat-val">&mdash;</div>
+        <div class="db-stat-foot">{{ mock_exam_count }} mock exam{{ mock_exam_count|pluralize }} waiting</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- ═════════════ Body ═════════════ -->
+  <div class="db-body">
+    <div class="db-col">
+
+      <!-- Performance -->
+      <article class="db-card" id="perfStatsCard">
+        <div class="db-card-head">
+          <div class="db-card-title">
+            <span class="db-ico"><i class="bx bx-line-chart"></i></span>
+            <div><h2>Score history</h2><p>{% if perf_stats.has_data %}Recent results, oldest to newest{% else %}Every test you finish shows up here{% endif %}</p></div>
+          </div>
+          {% if perf_stats.has_data %}
+          <div class="db-trend">
+            {% if perf_stats.trend == 'improving' %}<span class="db-pill db-band-strong"><i class="bx bx-trending-up"></i>Up {{ perf_stats.trend_delta }} pts</span>
+            {% elif perf_stats.trend == 'declining' %}<span class="db-pill db-band-low"><i class="bx bx-trending-down"></i>Down {{ perf_stats.trend_delta }} pts</span>
+            {% elif perf_stats.trend == 'stable' %}<span class="db-pill db-band-ok"><i class="bx bx-minus"></i>Holding steady</span>
             {% endif %}
-            {% if perf_stats.weakest %}
-            <a href="{{ perf_stats.weakest.url }}" class="mp-insight is-warn">
-              <i class="bx bx-target-lock"></i>
-              <div style="min-width:0;">
-                <p class="mp-insight__k">Focus area</p>
-                <p class="mp-insight__v">{{ perf_stats.weakest.name }}</p>
-                <p class="mp-insight__m">avg {{ perf_stats.weakest.avg }}% &middot; {{ perf_stats.weakest.count }} test{{ perf_stats.weakest.count|pluralize }}</p>
-              </div>
-            </a>
-            {% endif %}
+            {% if perf_stats.consistency %}<span class="db-pill db-band-none" title="How much your scores vary between tests">&plusmn;{{ perf_stats.spread }} pts &middot; {{ perf_stats.consistency }}</span>{% endif %}
           </div>
           {% endif %}
+        </div>
 
-          {# ── Tests taken, by type ─────────────────────────────────────────── #}
-          <div class="mp-sec"><p class="mp-sec__t">Tests taken</p></div>
-          <div class="mp-types">
-            {% for t in perf_stats.by_type %}
-            <span class="mp-type" title="{{ t.count }} {{ t.label|lower }} &middot; average {{ t.avg }}%">
-              <i class="bx {{ t.icon }}"></i>
-              <b>{{ t.count }}</b> {{ t.label }}
-              <span class="mp-type__avg b-{{ t.band }}">{{ t.avg }}%</span>
-            </span>
-            {% endfor %}
+        {% if perf_stats.has_data %}
+          <div class="db-chart" id="dbChart" data-target="{{ perf_stats.target_pct|default:75 }}">
+            <div class="db-tip" id="dbTip"></div>
           </div>
 
-          {# ── Recent tests ─────────────────────────────────────────────────── #}
-          <div class="mp-sec">
-            <p class="mp-sec__t">Recent tests</p>
-            <a href="/dashboard/performance/" class="mp-sec__link">See all</a>
+          <div class="db-sep"></div>
+          <div class="db-card-head" style="margin-bottom:6px;">
+            <p class="db-sub-head" style="margin:0 !important;">Recent tests</p>
+            <a class="db-link" href="/dashboard/performance/">All results <i class="bx bx-chevron-right"></i></a>
           </div>
-          <div class="mp-list">
+          <div class="db-tests">
             {% for t in perf_stats.recent_tests %}
-            <a href="{{ t.url }}" class="mp-row">
-              <span class="mp-row__icon"><i class="bx {{ t.icon }}"></i></span>
-              <div class="mp-row__main">
-                <p class="mp-row__title" title="{{ t.title }}">{{ t.title }}</p>
-                <p class="mp-row__meta">{{ t.type_label }} &middot; {{ t.when }}{% if t.total %} &middot; {{ t.correct }}/{{ t.total }} correct{% endif %}</p>
-              </div>
-              <div class="mp-row__score">
-                <span class="mp-pill b-{{ t.band }}">{{ t.pct }}%</span>
-                {% if t.delta is not None %}
-                <span class="mp-delta {% if t.delta > 0 %}mp-up{% elif t.delta < 0 %}mp-down{% endif %}">
-                  {% if t.delta > 0 %}&uarr; {{ t.delta_abs }} vs last{% elif t.delta < 0 %}&darr; {{ t.delta_abs }} vs last{% else %}same as last{% endif %}
-                </span>
-                {% endif %}
-              </div>
+            <a class="db-test" href="{{ t.url }}">
+              <span class="db-ico {% if t.kind == 'mock' %}ico-warn{% elif t.kind == 'nclex' %}ico-teal{% elif t.kind == 'quiz' %}ico-pink{% elif t.kind == 'free' %}ico-good{% endif %}"><i class="bx {{ t.icon }}"></i></span>
+              <span class="db-test-main">
+                <b title="{{ t.title }}">{{ t.title }}</b>
+                <small>{{ t.type_label }} &middot; {{ t.when }}{% if t.total %} &middot; {{ t.correct }}/{{ t.total }} correct{% endif %}</small>
+              </span>
+              {% if t.delta is not None %}
+                {% if t.delta > 0 %}<span class="db-delta db-up" title="Compared with your previous attempt"><i class="bx bx-up-arrow-alt"></i>{{ t.delta_abs }}</span>
+                {% elif t.delta < 0 %}<span class="db-delta db-down" title="Compared with your previous attempt"><i class="bx bx-down-arrow-alt"></i>{{ t.delta_abs }}</span>
+                {% else %}<span class="db-delta" title="Same as your previous attempt"><i class="bx bx-minus"></i></span>{% endif %}
+              {% endif %}
+              <span class="db-score db-band-{{ t.band }} db-num">{{ t.pct }}%</span>
             </a>
             {% endfor %}
           </div>
-
-          {# ── Score history (last 12 tests) ────────────────────────────────── #}
-          {% if perf_stats.recent_tests|length >= 3 %}
-          <div class="mp-sec">
-            <p class="mp-sec__t">Score history</p>
-            <span class="mp-legend"><i></i>{{ perf_stats.target_pct }}% exam-ready</span>
+        {% else %}
+          <div class="db-chart-empty">
+            <i class="bx bx-line-chart"></i>
+            <p><b>Your progress chart starts with your first test.</b><br>Scores, trends and comparisons appear here automatically.</p>
+            <a class="db-btn db-btn--primary" style="margin-top:14px;" href="/dashboard/mock-exams/">Take a mock exam</a>
           </div>
-          <div class="mp-spark">
-            <canvas id="perfSparkline" height="72" aria-label="Scores from your recent tests" role="img"></canvas>
-            <div class="mp-tip" id="perfSparkTip"></div>
-          </div>
-          {% endif %}
-          {% endif %}{# end has_data #}
-        </div>{# end card-body #}
-      </div>
-    </div>
-    {# ══════════════════════════════════════════════════════════════════════ #}
+        {% endif %}
+      </article>
 
-    <!-- Start Studying -->
-    <div class="mb-4">
-      <div class="card study-card">
-        <div class="card-header d-flex align-items-center justify-content-between pb-0">
-          <div class="card-title mb-0">
-            <h5 class="m-0 me-2">Start Studying</h5>
-            <small class="text-muted">Choose what to do today</small>
+      <!-- Where you stand -->
+      {% if perf_stats.has_data and perf_stats.by_type %}
+      <article class="db-card">
+        <div class="db-card-head">
+          <div class="db-card-title">
+            <span class="db-ico ico-ink"><i class="bx bx-bar-chart-alt-2"></i></span>
+            <div><h2>Where you stand</h2><p>Average score by test type</p></div>
           </div>
         </div>
-        <div class="card-body">
-          <ul class="p-0 m-0 study-list">
-
-            {# ── Messages (all plans) ─────────────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-bell"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">Messages</p>
-                  <p class="study-sub">
-                    {% if student_unread_notifications and student_unread_notifications > 0 %}{{ student_unread_notifications }} unread{% else %}No unread messages{% endif %}
-                  </p>
-                </div>
-                <a href="/dashboard/messages/" class="btn btn-sm btn-outline-primary study-btn">Open</a>
-              </div>
-            </li>
-
-            {# ── Lecture Notes ─────────────────────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-book-open"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">Lecture Notes</p>
-                  <p class="study-sub">Notes organised by year &amp; topic</p>
-                </div>
-                <a href="/dashboard/lecture-notes/" class="btn btn-sm btn-outline-primary study-btn">Browse</a>
-              </div>
-            </li>
-
-            {# ── Mock Exams (all plans) ────────────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-success"><i class="bx bx-target-lock"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">Mock Exams</p>
-                  <p class="study-sub">Simulate the real NMC licensure exam</p>
-                </div>
-                <a href="/dashboard/mock-exams/" class="btn btn-sm btn-outline-success study-btn">Start</a>
-              </div>
-            </li>
-
-            {# ── Flashcards ────────────────────────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-warning"><i class="bx bx-brain"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">Flashcards</p>
-                  <p class="study-sub">Spaced repetition review</p>
-                </div>
-                <a href="/dashboard/flashcards/" class="btn btn-sm btn-outline-warning study-btn">Review</a>
-              </div>
-            </li>
-
-            {# ── General Tests (all plans) ─────────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-question-mark"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">General Tests</p>
-                  <p class="study-sub">Standardized test preparation</p>
-                </div>
-                <a href="/dashboard/general-tests/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
-              </div>
-            </li>
-
-            {# ── Dosage Calculator (all plans) ─────────────────────────────── #}
-            <li class="study-item">
-              <div class="avatar flex-shrink-0 me-3">
-                <span class="avatar-initial rounded bg-label-info"><i class="bx bx-calculator"></i></span>
-              </div>
-              <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                <div class="me-2">
-                  <p class="study-title">Dosage Calculations</p>
-                  <p class="study-sub">Tablet, injection, IV &amp; drip rate drills</p>
-                </div>
-                <a href="/dashboard/dosage-calculator/" class="btn btn-sm btn-outline-info study-btn">Practice</a>
-              </div>
-            </li>
-
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- My Plan -->
-  <div class="col-lg-4 col-md-12 mb-4">
-    <div class="card" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 6px rgba(0,0,0,.04);">
-      <div class="card-body" style="padding:18px;display:flex;flex-direction:column;">
-
-        {# ── Header row: icon + status badge ──────────────────────────────── #}
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div style="width:38px;height:38px;border-radius:9px;background:#f0f2ff;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a5ce8;">
-            <i class="bx bx-shield-quarter"></i>
-          </div>
-          {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
-            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#f3f4f6;color:#6b7280;">Expired</span>
-          {% elif sub_status == 'active' %}
-            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#ecfdf5;color:#065f46;">Active</span>
-          {% elif sub_status == 'pending_payment' %}
-            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#fffbeb;color:#92400e;">Pending</span>
-          {% else %}
-            <span style="font-size:0.7rem;font-weight:700;border-radius:999px;padding:3px 11px;background:#f3f4f6;color:#6b7280;">{{ sub_status|title }}</span>
-          {% endif %}
-        </div>
-
-        {# ── Plan name ─────────────────────────────────────────────────────── #}
-        <p style="font-size:0.72rem;color:#9098b0;margin:0 0 2px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;">My Plan</p>
-        <p style="font-size:1.2rem;font-weight:800;margin:0 0 10px;color:#1f2d40;">{{ plan_name }}</p>
-
-        {# ── Subscription status ───────────────────────────────────────────── #}
-        <div>
-          {% if sub_status == 'active' %}
-
-            {% if days_remaining is None %}
-              {# Free-access: no expiry #}
-              <div style="display:flex;align-items:center;gap:6px;color:#065f46;font-size:0.82rem;font-weight:600;">
-                <i class="bx bx-infinite" style="font-size:1.1rem;"></i>
-                Never expires
-              </div>
-
-            {% elif days_remaining <= 0 %}
-              {# Expired #}
-              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 13px;">
-                <p style="font-size:0.82rem;font-weight:700;color:#991b1b;margin:0 0 2px;">
-                  <i class="bx bx-error-circle me-1"></i>Subscription expired
-                </p>
-                {% if sub_expires_display %}
-                <p style="font-size:0.74rem;color:#b91c1c;margin:0;">Expired {{ sub_expires_display }}</p>
-                {% endif %}
-              </div>
-
-            {% else %}
-              <p style="font-size:0.82rem;color:#065f46;margin:0;font-weight:600;">
-                <i class="bx bx-check-circle me-1"></i>Subscription active
-              </p>
-              {% if sub_expires_display %}
-              <p style="font-size:0.74rem;color:#9098b0;margin:6px 0 0;">
-                <i class="bx bx-calendar me-1"></i>Expires {{ sub_expires_display }}
-              </p>
-              {% endif %}
-            {% endif %}
-
-          {% elif sub_status == 'pending_payment' %}
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;">
-              <p style="font-size:0.82rem;font-weight:700;color:#92400e;margin:0 0 2px;">
-                <i class="bx bx-time-five me-1"></i>Payment pending
-              </p>
-              <p style="font-size:0.74rem;color:#b45309;margin:0;">Complete payment to activate access</p>
-            </div>
-
-          {% else %}
-            <p style="font-size:0.78rem;color:#9098b0;margin:0;">No active subscription</p>
-          {% endif %}
-        </div>
-
-        {# ── CTA ──────────────────────────────────────────────────────────── #}
-        <div style="margin-top:12px;">
-          {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
-            <a href="/subscribe/"
-               style="font-size:0.8rem;font-weight:700;color:#fff;background:#1f2d40;border-radius:8px;padding:9px 18px;text-decoration:none;display:inline-block;border:1px solid #1f2d40;">
-              Renew Subscription →
-            </a>
-          {% elif sub_status != 'active' %}
-            <a href="/subscribe/"
-               style="font-size:0.8rem;font-weight:700;color:#fff;background:#5a5ce8;border-radius:8px;padding:9px 18px;text-decoration:none;display:inline-block;border:1px solid #4a4cd8;">
-              Complete Payment →
-            </a>
-          {% else %}
-            <a href="/payment/" style="font-size:0.8rem;font-weight:700;color:#5a5ce8;text-decoration:none;">
-              View subscription →
-            </a>
-          {% endif %}
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ── Referral Code Card ── -->
-    {% if user_referral_code %}
-    <div class="card mt-3" style="border-radius:14px;border:1px solid #e2e6ef;box-shadow:0 2px 10px rgba(15,23,42,.06);overflow:hidden;">
-
-      <!-- Card header strip -->
-      <div style="background:#1a1a2e;padding:14px 18px 12px;display:flex;align-items:center;justify-content:space-between;">
-        <div style="display:flex;align-items:center;gap:9px;">
-          <span style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex-shrink:0;">
-            <i class="bx bx-gift"></i>
-          </span>
+        <div class="db-types">
+          {% for b in perf_stats.by_type %}
           <div>
-            <p style="margin:0;font-size:0.78rem;font-weight:800;color:#fff;letter-spacing:0.2px;">Referral Programme</p>
-            <p style="margin:0;font-size:0.7rem;color:#fff;">Earn 10% of every subscription you refer</p>
+            <div class="db-type-top">
+              <span><i class="bx {{ b.icon }}"></i>{{ b.label }}</span>
+              <span><em>{{ b.count }} taken</em>&nbsp;&nbsp;<b class="db-num">{{ b.avg }}%</b></span>
+            </div>
+            <div class="db-bar"><span class="db-fill-{{ b.band }}" style="width:{{ b.avg }}%"></span><i style="left:{{ perf_stats.target_pct|default:75 }}%"></i></div>
           </div>
+          {% endfor %}
         </div>
-        {% if referral_count %}
-        <div style="text-align:right;flex-shrink:0;">
-          <p style="margin:0;font-size:1rem;font-weight:800;color:#fff;">{{ referral_count }}</p>
-          <p style="margin:0;font-size:0.65rem;color:rgba(255,255,255,.5);">referral{{ referral_count|pluralize }}</p>
+        <p class="db-legend"><i></i>{{ perf_stats.target_pct|default:75 }}% exam-ready line</p>
+
+        {% if perf_stats.strongest or perf_stats.weakest %}
+        <div class="db-subjects">
+          {% if perf_stats.strongest %}
+          <div class="db-subject db-subject--good">
+            <span class="tag"><i class="bx bxs-star"></i>Strongest</span>
+            <b>{{ perf_stats.strongest.name }}</b>
+            <span class="meta">{{ perf_stats.strongest.avg }}% average &middot; {{ perf_stats.strongest.count }} test{{ perf_stats.strongest.count|pluralize }}</span>
+          </div>
+          {% endif %}
+          {% if perf_stats.weakest %}
+          <div class="db-subject db-subject--bad">
+            <span class="tag"><i class="bx bx-target-lock"></i>Needs attention</span>
+            <b>{{ perf_stats.weakest.name }}</b>
+            <span class="meta">{{ perf_stats.weakest.avg }}% average &middot; {{ perf_stats.weakest.count }} test{{ perf_stats.weakest.count|pluralize }}</span>
+            <a class="db-link" href="{{ perf_stats.weakest.url }}">Practise it <i class="bx bx-chevron-right"></i></a>
+          </div>
+          {% endif %}
         </div>
         {% endif %}
-      </div>
+      </article>
+      {% endif %}
 
-      <div style="padding:16px 18px;">
+      <!-- Study tools -->
+      <article class="db-card">
+        <div class="db-card-head">
+          <div class="db-card-title">
+            <span class="db-ico ico-good"><i class="bx bx-grid-alt"></i></span>
+            <div><h2>Study tools</h2><p>{{ total_questions_available }} practice question{{ total_questions_available|pluralize }} &middot; {{ mock_exam_count }} mock exam{{ mock_exam_count|pluralize }}</p></div>
+          </div>
+        </div>
+        <div class="db-tools">
+          <a class="db-tool" href="/dashboard/mock-exams/">
+            <span class="db-ico ico-warn"><i class="bx bx-trophy"></i></span>
+            <span><b>Mock exams</b><small>Timed, full-length papers</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/general-tests/">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico"><i class="bx bx-edit-alt"></i></span>
+            <span><b>General tests</b><small>Standardised test prep</small></span>
+          </a>
+          <a class="db-tool" href="{{ prep_url|default:'/dashboard/prep-by-topics/' }}">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico ico-bad"><i class="bx bx-task"></i></span>
+            <span><b>Prep by topics</b><small>MCQ sets per subject</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/lecture-notes/">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico ico-teal"><i class="bx bx-book-open"></i></span>
+            <span><b>Lecture notes</b><small>By year &amp; topic</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/flashcards/">
+            <span class="db-ico ico-pink"><i class="bx bx-collection"></i></span>
+            <span><b>Flashcards</b><small>Spaced repetition review</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/nmc-mastery/">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico ico-ink"><i class="bx bx-target-lock"></i></span>
+            <span><b>NMC Mastery</b><small>High-yield topic map</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/dosage-calculator/">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico ico-good"><i class="bx bx-calculator"></i></span>
+            <span><b>Dosage calculations</b><small>Tablets, IV &amp; drip rates</small></span>
+          </a>
+          <a class="db-tool" href="/dashboard/drug-cards/">
+            {% if not is_subscribed %}<span class="pro"><i class="bx bxs-crown"></i>PRO</span>{% endif %}
+            <span class="db-ico ico-flame"><i class="bx bx-capsule"></i></span>
+            <span><b>Drug cards</b><small>Doses, uses &amp; cautions</small></span>
+          </a>
+        </div>
+      </article>
 
-        <!-- Earnings row -->
-        {% if referral_count %}
-        <div style="display:flex;align-items:center;justify-content:space-between;background:#f8f9fc;border:1px solid #edf0f7;border-radius:9px;padding:10px 13px;margin-bottom:13px;">
-          <div style="display:flex;align-items:center;gap:7px;">
-            <span style="width:26px;height:26px;border-radius:6px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;font-size:13px;color:#3ea76a;">
-              <i class="bx bx-trending-up"></i>
-            </span>
-            <div>
-              <p style="margin:0;font-size:0.72rem;color:#9098b0;font-weight:600;">Total Earned</p>
-              <p style="margin:0;font-size:0.94rem;font-weight:800;color:#1f2d40;">GHS {{ referral_earnings_total }}</p>
+      <!-- Messages + communities -->
+      <div class="db-pair">
+        <article class="db-card">
+          <div class="db-card-head">
+            <div class="db-card-title">
+              <span class="db-ico"><i class="bx bx-bell"></i></span>
+              <div><h2>Messages</h2><p>From the NursesEdge team</p></div>
             </div>
+            <a class="db-link" href="/dashboard/messages/">View all <i class="bx bx-chevron-right"></i></a>
           </div>
-          <div style="text-align:right;">
-            <p style="margin:0;font-size:0.72rem;color:#9098b0;font-weight:600;">Referrals</p>
-            <p style="margin:0;font-size:0.94rem;font-weight:800;color:#3ea76a;">{{ referral_count }} made</p>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Code label -->
-        <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#9098b0;margin:0 0 7px;">Your Unique Code</p>
-
-        <!-- Code + copy -->
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <div style="flex:1;border:1.5px dashed #c8d0de;border-radius:10px;background:#f8f9fc;padding:10px 0;text-align:center;">
-            <span style="font-family:'Courier New',Courier,monospace;font-size:1.6rem;font-weight:900;letter-spacing:6px;color:#1a1a2e;user-select:all;">{{ user_referral_code }}</span>
-          </div>
-          <button onclick="copyRefCode()" id="copyCodeBtn" title="Copy code"
-            style="width:44px;height:44px;border:1.5px solid #dde1ec;border-radius:10px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#5a6070;flex-shrink:0;transition:all 0.15s;">
-            <i class="bx bx-copy"></i>
-          </button>
-        </div>
-
-        <!-- Copy full invite link -->
-        <button onclick="copyRefLink()" id="copyLinkBtn"
-          style="width:100%;height:40px;border:1.5px solid #dde1ec;border-radius:9px;background:#fff;font-size:0.8rem;font-weight:700;color:#3a4562;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:13px;transition:border-color 0.15s;">
-          <i class="bx bx-link-alt" style="font-size:15px;"></i> Copy Full Invite Link
-        </button>
-
-        <!-- Share label -->
-        <p style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:#9098b0;margin:0 0 8px;">Share directly via</p>
-
-        <!-- Social row -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
-          <a id="shareWhatsapp" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #d1f5dc;background:#f0fef4;display:flex;align-items:center;justify-content:center;color:#128c44;font-size:17px;text-decoration:none;transition:background 0.15s;" title="WhatsApp">
-            <i class="bx bxl-whatsapp"></i>
-          </a>
-          <a id="shareFacebook" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #c9deff;background:#f0f5ff;display:flex;align-items:center;justify-content:center;color:#1877F2;font-size:17px;text-decoration:none;transition:background 0.15s;" title="Facebook">
-            <i class="bx bxl-facebook"></i>
-          </a>
-          <a id="shareTwitter" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #e5e5e5;background:#f4f4f5;display:flex;align-items:center;justify-content:center;color:#000;font-size:17px;text-decoration:none;transition:background 0.15s;" title="X">
-            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-          </a>
-          <a id="shareTelegram" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #b9e3f8;background:#edf8ff;display:flex;align-items:center;justify-content:center;color:#0088cc;font-size:17px;text-decoration:none;transition:background 0.15s;" title="Telegram">
-            <i class="bx bxl-telegram"></i>
-          </a>
-          <a id="shareLinkedin" href="#" target="_blank" rel="noopener"
-             style="height:38px;border-radius:9px;border:1px solid #b8d9ed;background:#edf5fa;display:flex;align-items:center;justify-content:center;color:#0077B5;font-size:17px;text-decoration:none;transition:background 0.15s;" title="LinkedIn">
-            <i class="bx bxl-linkedin"></i>
-          </a>
-        </div>
-
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Recent Messages -->
-    <div class="card mt-3" style="border-radius:12px;border:1px solid #e8eaf0;box-shadow:0 2px 8px rgba(0,0,0,.04);">
-      <div class="card-body" style="padding:20px 22px;">
-
-        <div class="dash-section-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
-              <i class="bx bx-bell"></i>
-            </span>
-            <div>
-              <p class="dash-section-label" style="margin-bottom:0;">Recent Messages</p>
-              <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">From the admin team</p>
-            </div>
-          </div>
-          <a href="/dashboard/messages/" class="dash-section-link">
-            View all <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
-          </a>
-        </div>
-
-        {% if recent_messages %}
-        <div class="msg-list">
-          {% for m in recent_messages %}
-          <div class="msg-item">
-            <div class="msg-dot {% if m.is_read %}read{% else %}unread{% endif %}"></div>
-            <div class="msg-body">
-              <p class="msg-title">{{ m.title }}</p>
-              <p class="msg-excerpt">{{ m.message_body }}</p>
-              <div class="msg-meta">
-                <span class="msg-date">{{ m.created_at|slice:":10" }} {{ m.created_at|slice:"11:16" }}</span>
-                <span class="msg-badge {% if m.is_read %}read{% else %}unread{% endif %}">
-                  {% if m.is_read %}Read{% else %}Unread{% endif %}
-                </span>
-              </div>
-            </div>
-            <a href="/dashboard/messages/" style="flex-shrink:0;color:#c0c8d8;font-size:18px;margin-top:2px;" title="Open messages">
-              <i class="bx bx-chevron-right"></i>
+          {% if recent_messages %}
+            {% for m in recent_messages %}
+            <a class="db-msg" href="/dashboard/messages/">
+              <span class="dot {% if not m.is_read %}unread{% endif %}"></span>
+              <span class="db-msg-main">
+                <b>{{ m.title }}</b>
+                <span class="body">{{ m.message_body }}</span>
+                <small>{{ m.created_at|slice:":10" }}{% if not m.is_read %} &middot; <span style="color:var(--primary);font-weight:700;">New</span>{% endif %}</small>
+              </span>
             </a>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="msg-empty">
-          <i class="bx bx-bell-off" style="font-size:2rem;color:#c8cdd8;display:block;margin-bottom:8px;"></i>
-          No messages yet. Check back later.
-        </div>
-        {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="db-empty"><i class="bx bx-bell-off"></i>No messages yet. We'll post updates here.</div>
+          {% endif %}
+        </article>
 
+        <article class="db-card">
+          <div class="db-card-head">
+            <div class="db-card-title">
+              <span class="db-ico ico-teal"><i class="bx bx-group"></i></span>
+              <div><h2>My communities</h2><p>{% if joined_communities %}{{ joined_communities|length }} joined{% else %}Study with other students{% endif %}{% if community_unread %} &middot; <span style="color:var(--primary);font-weight:700;">{{ community_unread }} new</span>{% endif %}</p></div>
+            </div>
+            <a class="db-link" href="/dashboard/community/">Browse <i class="bx bx-chevron-right"></i></a>
+          </div>
+          {% if joined_communities %}
+          <div class="db-comms">
+            {% for c in joined_communities|slice:":4" %}
+            <a class="db-comm" href="/dashboard/community/{{ c.slug }}/">
+              <span class="db-ico ico-ink"><i class="bx {{ c.icon|default:'bx-group' }}"></i></span>
+              <span style="min-width:0;"><b>{{ c.name }}</b><small>{{ c.member_count }} member{{ c.member_count|pluralize }}</small></span>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+            <div class="db-empty">
+              <i class="bx bx-group"></i>You haven't joined any communities yet.
+              <div><a class="db-btn db-btn--outline" href="/dashboard/community/">Explore communities</a></div>
+            </div>
+          {% endif %}
+        </article>
       </div>
     </div>
 
-    {% if prep_topics %}
-    <!-- Prep by Topics -->
-    {% url 'student_objectives_topics' as prep_url %}
-    <div class="card pt-card mt-3">
-      <div class="card-body" style="padding:20px 22px;">
+    <!-- ═════════════ Aside ═════════════ -->
+    <aside class="db-col db-aside">
 
-        <div class="dash-section-header">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="width:32px;height:32px;border-radius:8px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;">
-              <i class="bx bx-task"></i>
-            </span>
-            <div>
-              <p class="dash-section-label" style="margin-bottom:0;">Prep by Topics</p>
-              <p style="font-size:0.76rem;color:#a8b0c0;margin:0;">Objective MCQs, subject by subject</p>
+      <!-- Plan -->
+      <article class="db-card db-plan">
+        <div class="db-plan-row">
+          <span class="db-ico"><i class="bx bx-shield-quarter"></i></span>
+          {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
+            <span class="db-pill db-band-none">Expired</span>
+          {% elif sub_status == 'active' %}
+            <span class="db-pill db-band-strong">Active</span>
+          {% elif sub_status == 'pending_payment' %}
+            <span class="db-pill db-band-weak">Pending</span>
+          {% else %}
+            <span class="db-pill db-band-none">{{ sub_status|title }}</span>
+          {% endif %}
+        </div>
+        <p class="db-plan-name">{{ plan_name }}</p>
+
+        {% if sub_status == 'active' %}
+          {% if days_remaining is None %}
+            <p class="db-plan-meta" style="color:var(--good);font-weight:600;"><i class="bx bx-infinite"></i>Never expires</p>
+          {% elif days_remaining <= 0 %}
+            <div class="db-alert db-alert--bad"><b>Subscription expired</b>{% if sub_expires_display %}Expired {{ sub_expires_display }}. {% endif %}Renew to unlock every tool again.</div>
+          {% else %}
+            <div class="db-days">
+              <div class="db-days-top"><span><b class="db-num">{{ days_remaining }}</b> day{{ days_remaining|pluralize }} left</span>{% if sub_expires_display %}<span>Ends {{ sub_expires_display }}</span>{% endif %}</div>
+              <div class="db-bar" style="height:8px;"><span class="{% if days_remaining <= 14 %}db-fill-weak{% else %}db-fill-strong{% endif %}" style="width:{% if days_remaining >= 365 %}100{% else %}{% widthratio days_remaining 365 100 %}{% endif %}%"></span></div>
             </div>
-          </div>
-          <a href="{% if is_subscribed %}{{ prep_url }}{% else %}/subscribe/{% endif %}" class="dash-section-link">
-            {% if is_subscribed %}Open{% else %}Unlock{% endif %} <i class="bx bx-chevron-right" style="vertical-align:middle;"></i>
-          </a>
-        </div>
-
-        {# ── At-a-glance numbers ─────────────────────────────────────────── #}
-        <div class="pt-stats">
-          <div class="pt-stat">
-            <p class="pt-stat__value">{{ prep_topics.topic_count }}</p>
-            <p class="pt-stat__label">Topics</p>
-          </div>
-          <div class="pt-stat">
-            <p class="pt-stat__value">{{ prep_topics.question_count }}</p>
-            <p class="pt-stat__label">Questions</p>
-          </div>
-          <div class="pt-stat">
-            {% if prep_topics.has_attempts %}
-              <p class="pt-stat__value">{{ prep_topics.avg_pct }}%</p>
-              <p class="pt-stat__label">Avg score</p>
-            {% else %}
-              <p class="pt-stat__value">{{ prep_topics.questions_per_group }}</p>
-              <p class="pt-stat__label">Qs per set</p>
-            {% endif %}
-          </div>
-        </div>
-
-        {# ── Coverage ────────────────────────────────────────────────────── #}
-        {% if prep_topics.has_attempts %}
-        <div class="pt-cover">
-          <div class="pt-cover__row">
-            <strong>Topic coverage</strong>
-            <span>{{ prep_topics.attempted_count }} of {{ prep_topics.topic_count }} started</span>
-          </div>
-          <div class="pt-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ prep_topics.coverage_pct }}" aria-label="Topic coverage">
-            <span style="width:{{ prep_topics.coverage_pct }}%;"></span>
-          </div>
-        </div>
+          {% endif %}
+        {% elif sub_status == 'pending_payment' %}
+          <div class="db-alert db-alert--warn"><b>Payment pending</b>Complete payment to activate full access.</div>
         {% else %}
-        <div class="pt-tip">
-          <i class="bx bx-bulb"></i>
-          <span>Every topic is split into sets of {{ prep_topics.questions_per_group }} questions. Go <strong>timed</strong> ({{ prep_topics.seconds_per_question }}s each) for exam feel, or <strong>untimed</strong> to learn at your pace.</span>
-        </div>
+          <p class="db-plan-meta" style="color:var(--muted);">No active subscription</p>
         {% endif %}
 
-        {# ── Where to work next ──────────────────────────────────────────── #}
-        <p class="pt-focus-head">{{ prep_topics.focus_heading }}</p>
-        <div class="pt-list">
-          {% for t in prep_topics.focus_items %}
-          <a href="{% if is_subscribed %}{{ t.link }}{% else %}/subscribe/{% endif %}"
-             class="pt-row {% if t.attempted %}pt-{{ t.band_key }}{% else %}pt-new-topic{% endif %}">
-            <div class="pt-badge">
-              {% if t.attempted %}{{ t.avg_pct }}%{% else %}<i class="bx bx-play"></i>{% endif %}
-            </div>
-            <div class="pt-main">
-              <p class="pt-name">
-                <span>{{ t.name }}</span>
-                {% if t.is_new %}<span class="pt-new">New</span>{% endif %}
-              </p>
-              {% if t.attempted %}
-                <p class="pt-meta"><b>{{ t.band_label }}</b> &middot; {{ t.attempts_count }} attempt{{ t.attempts_count|pluralize }} &middot; best {{ t.best_pct }}%</p>
-                <div class="pt-mini"><span style="width:{{ t.avg_pct }}%;"></span></div>
-              {% else %}
-                <p class="pt-meta">Not started &middot; {{ t.question_count }} question{{ t.question_count|pluralize }} &middot; {{ t.sets_count }} set{{ t.sets_count|pluralize }}</p>
-              {% endif %}
-            </div>
-            <i class="bx {% if is_subscribed %}bx-chevron-right{% else %}bx-lock-alt{% endif %} pt-go"></i>
-          </a>
-          {% endfor %}
+        {% if sub_status == 'active' and days_remaining is not None and days_remaining <= 0 %}
+          <a class="db-btn db-btn--primary db-btn--block" href="/subscribe/">Renew subscription <i class="bx bx-right-arrow-alt"></i></a>
+        {% elif sub_status != 'active' %}
+          <a class="db-btn db-btn--primary db-btn--block" href="/subscribe/">{% if sub_status == 'pending_payment' %}Complete payment{% else %}Unlock everything{% endif %} <i class="bx bx-right-arrow-alt"></i></a>
+        {% else %}
+          <a class="db-btn db-btn--outline db-btn--block" href="/payment/">View subscription</a>
+        {% endif %}
+      </article>
+
+      <!-- Peer comparison -->
+      {% if peer_comparison %}
+      <article class="db-card db-peer">
+        <div class="db-card-head" style="margin-bottom:14px;">
+          <div class="db-card-title">
+            <span class="db-ico ico-warn"><i class="bx bx-trophy"></i></span>
+            <div><h2>This week's rank</h2><p>Anonymous &middot; {{ peer_comparison.cohort_size }} peers</p></div>
+          </div>
         </div>
+        <div class="db-peer-big"><strong class="db-num">Top {{ peer_comparison.top_percent }}%</strong></div>
+        <div class="db-scale" aria-hidden="true"><span style="width:{{ peer_comparison.percentile }}%"></span><i style="left:{{ peer_comparison.percentile }}%"></i></div>
+        <div class="db-scale-labels"><span>Lowest</span><span>Highest</span></div>
+        <p>You scored <b>{{ peer_comparison.score }}%</b> on {{ peer_comparison.subject_label }}, among {{ peer_comparison.year_of_study }} {{ peer_comparison.programme }} students.</p>
+        <p class="fine">No names are shown. Uses each peer's best score this week.</p>
+      </article>
+      {% endif %}
+
+      <!-- Prep by topics -->
+      {% if prep_topics %}
+      <article class="db-card">
+        <div class="db-card-head">
+          <div class="db-card-title">
+            <span class="db-ico ico-bad"><i class="bx bx-task"></i></span>
+            <div><h2>Prep by topics</h2><p>Objective MCQs, subject by subject</p></div>
+          </div>
+          <a class="db-link" href="{% if is_subscribed %}{{ prep_url }}{% else %}/subscribe/{% endif %}">{% if is_subscribed %}Open{% else %}Unlock{% endif %} <i class="bx bx-chevron-right"></i></a>
+        </div>
+
+        <div class="db-pt-stats">
+          <div class="db-mini"><b class="db-num">{{ prep_topics.topic_count }}</b><span>Topics</span></div>
+          <div class="db-mini"><b class="db-num">{{ prep_topics.question_count }}</b><span>Questions</span></div>
+          {% if prep_topics.has_attempts %}
+            <div class="db-mini"><b class="db-num">{{ prep_topics.avg_pct }}%</b><span>Avg score</span></div>
+          {% else %}
+            <div class="db-mini"><b class="db-num">{{ prep_topics.questions_per_group }}</b><span>Qs per set</span></div>
+          {% endif %}
+        </div>
+
+        {% if prep_topics.has_attempts %}
+          <div class="db-days" style="margin:0 0 16px;">
+            <div class="db-days-top"><span><b>Topic coverage</b></span><span>{{ prep_topics.attempted_count }} of {{ prep_topics.topic_count }} started</span></div>
+            <div class="db-bar" style="height:8px;"><span class="db-fill-ok" style="width:{{ prep_topics.coverage_pct }}%"></span></div>
+          </div>
+        {% else %}
+          <div class="db-pt-tip"><i class="bx bx-bulb"></i><span>Each topic comes in sets of {{ prep_topics.questions_per_group }}. Go <b>timed</b> ({{ prep_topics.seconds_per_question }}s each) for exam feel, or <b>untimed</b> to learn.</span></div>
+        {% endif %}
+
+        <p class="db-sub-head">{{ prep_topics.focus_heading }}</p>
+        {% for t in prep_topics.focus_items %}
+        <a class="db-pt-row" href="{% if is_subscribed %}{{ t.link }}{% else %}/subscribe/{% endif %}">
+          <span class="db-pt-badge {% if not t.attempted %}db-pt-new{% elif t.band_key == 'strong' %}db-band-strong{% elif t.band_key == 'moderate' %}db-band-weak{% else %}db-band-low{% endif %}">
+            {% if t.attempted %}{{ t.avg_pct }}%{% else %}<i class="bx bx-play"></i>{% endif %}
+          </span>
+          <span class="db-pt-main">
+            <b><span>{{ t.name }}</span>{% if t.is_new %}<em>New</em>{% endif %}</b>
+            {% if t.attempted %}
+              <small>{{ t.band_label }} &middot; {{ t.attempts_count }} attempt{{ t.attempts_count|pluralize }} &middot; best {{ t.best_pct }}%</small>
+              <span class="db-pt-mini"><span class="{% if t.band_key == 'strong' %}db-fill-strong{% elif t.band_key == 'moderate' %}db-fill-weak{% else %}db-fill-low{% endif %}" style="width:{{ t.avg_pct }}%"></span></span>
+            {% else %}
+              <small>Not started &middot; {{ t.question_count }} question{{ t.question_count|pluralize }} &middot; {{ t.sets_count }} set{{ t.sets_count|pluralize }}</small>
+            {% endif %}
+          </span>
+          <i class="bx {% if is_subscribed %}bx-chevron-right{% else %}bx-lock-alt{% endif %}"></i>
+        </a>
+        {% endfor %}
 
         {% if is_subscribed %}
-          <a href="{{ prep_url }}" class="pt-cta">
-            {% if prep_topics.has_attempts %}Open Prep by Topics{% else %}Start practising{% endif %}
-            <i class="bx bx-right-arrow-alt" style="font-size:1.2rem;"></i>
-          </a>
-          {% if prep_topics.has_attempts %}
-          <a href="/dashboard/performance/" class="pt-sub-link">View full performance breakdown</a>
-          {% endif %}
+          <a class="db-btn db-btn--primary db-btn--block" style="margin-top:14px;" href="{{ prep_url }}">{% if prep_topics.has_attempts %}Open Prep by Topics{% else %}Start practising{% endif %} <i class="bx bx-right-arrow-alt"></i></a>
         {% else %}
-          <div class="pt-lock"><i class="bx bx-lock-alt" style="font-size:1.1rem;"></i> Prep by Topics is included with a subscription.</div>
-          <a href="/subscribe/" class="pt-cta" style="margin-top:12px;">
-            Unlock with a subscription <i class="bx bx-right-arrow-alt" style="font-size:1.2rem;"></i>
-          </a>
+          <a class="db-btn db-btn--primary db-btn--block" style="margin-top:14px;" href="/subscribe/"><i class="bx bx-lock-alt"></i>Unlock with a subscription</a>
         {% endif %}
+      </article>
+      {% endif %}
 
-      </div>
-    </div>
-    {% endif %}
+      <!-- Referral -->
+      {% if user_referral_code %}
+      <article class="db-card">
+        <div class="db-card-head" style="margin-bottom:4px;">
+          <div class="db-card-title">
+            <span class="db-ico ico-pink"><i class="bx bx-gift"></i></span>
+            <div><h2>Invite &amp; earn</h2><p>Earn 10% of every subscription you refer</p></div>
+          </div>
+        </div>
+        {% if referral_count %}
+        <div class="db-ref-earn">
+          <div class="db-mini"><b class="db-num">GHS {{ referral_earnings_total }}</b><span>Total earned</span></div>
+          <div class="db-mini"><b class="db-num">{{ referral_count }}</b><span>Referral{{ referral_count|pluralize }} made</span></div>
+        </div>
+        {% endif %}
+        <div class="db-ref-code">
+          <div>{{ user_referral_code }}</div>
+          <button type="button" onclick="copyRefCode()" id="copyCodeBtn" title="Copy code" aria-label="Copy referral code"><i class="bx bx-copy"></i></button>
+        </div>
+        <button type="button" onclick="copyRefLink()" id="copyLinkBtn" class="db-btn db-btn--outline db-btn--block"><i class="bx bx-link-alt"></i> Copy invite link</button>
+        <div class="db-share">
+          <a id="shareWhatsapp" class="wa" href="#" target="_blank" rel="noopener" title="WhatsApp" aria-label="Share on WhatsApp"><i class="bx bxl-whatsapp"></i></a>
+          <a id="shareFacebook" class="fb" href="#" target="_blank" rel="noopener" title="Facebook" aria-label="Share on Facebook"><i class="bx bxl-facebook"></i></a>
+          <a id="shareTwitter" class="x" href="#" target="_blank" rel="noopener" title="X" aria-label="Share on X">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </a>
+          <a id="shareTelegram" class="tg" href="#" target="_blank" rel="noopener" title="Telegram" aria-label="Share on Telegram"><i class="bx bxl-telegram"></i></a>
+          <a id="shareLinkedin" class="li" href="#" target="_blank" rel="noopener" title="LinkedIn" aria-label="Share on LinkedIn"><i class="bx bxl-linkedin"></i></a>
+        </div>
+      </article>
+      {% endif %}
+
+    </aside>
   </div>
-
 </div>
-
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function () {
+  var el = document.querySelector("[data-db-date]");
+  if (el) {
+    try {
+      el.textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    } catch (e) {}
+  }
+
+  /* Readiness ring: animate the arc to its value */
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var arc = document.querySelector("[data-db-arc]");
+  if (arc) {
+    var CIRC = 314.16;
+    var pct = Math.max(0, Math.min(100, parseFloat(arc.getAttribute("data-db-arc")) || 0));
+    var go = function () { arc.style.strokeDashoffset = (CIRC * (1 - pct / 100)).toFixed(2); };
+    if (reduced) go(); else requestAnimationFrame(function () { requestAnimationFrame(go); });
+  }
+})();
+</script>
+
+{% if perf_stats.has_data %}
+<script>
+(function () {
+  /* ── Score history chart (inline SVG, no library) ── */
+  var box = document.getElementById("dbChart");
+  if (!box) return;
+  var tip = document.getElementById("dbTip");
+  var points = {{ perf_stats.recent_points_json|safe }};
+  var target = parseFloat(box.getAttribute("data-target")) || 75;
+  var NS = "http://www.w3.org/2000/svg";
+  var BAND = { strong: "#1f9d55", ok: "#5b5ef0", weak: "#f0a020", low: "#e0362c" };
+  function band(p) { return p >= target ? "strong" : p >= 60 ? "ok" : p >= 50 ? "weak" : "low"; }
+  function mk(tag, attrs, parent) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(n);
+    return n;
+  }
+
+  if (!points || points.length < 2) {
+    var only = points && points[0];
+    box.style.height = "auto";
+    box.innerHTML = '<div class="db-chart-empty"><i class="bx bx-line-chart"></i><p><b>One more test and your trend line appears.</b><br><span></span></p></div>';
+    if (only) box.querySelector(".db-chart-empty span").textContent = "First result: " + Math.round(only.p) + "% on " + only.t + ".";
+    return;
+  }
+
+  var svg, xs = [], ys = [], hair, dots = [];
+  function r(i) { return i === points.length - 1 ? 6 : 4.5; }
+
+  function draw() {
+    if (svg) svg.parentNode.removeChild(svg);
+    var W = box.clientWidth, H = box.clientHeight;
+    var L = 34, R = 12, T = 14, B = 26;
+    var iw = W - L - R, ih = H - T - B;
+    function x(i) { return L + i * iw / (points.length - 1); }
+    function y(v) { return T + (1 - v / 100) * ih; }
+
+    svg = mk("svg", { viewBox: "0 0 " + W + " " + H, "aria-hidden": "true" });
+    box.insertBefore(svg, tip);
+
+    var grid = mk("g", { "class": "grid" }, svg);
+    [0, 25, 50, 100].forEach(function (v) {
+      mk("line", { x1: L, x2: W - R, y1: y(v), y2: y(v) }, grid);
+      mk("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, grid).textContent = v;
+    });
+    var tg = mk("g", { "class": "target" }, svg);
+    mk("line", { x1: L, x2: W - R, y1: y(target), y2: y(target) }, tg);
+    mk("text", { x: L + 6, y: y(target) - 6, "text-anchor": "start" }, tg).textContent = "Exam-ready " + target + "%";
+
+    xs = []; ys = [];
+    var d = "";
+    points.forEach(function (p, i) {
+      xs.push(x(i)); ys.push(y(p.p));
+      d += (i ? " L" : "M") + xs[i].toFixed(1) + " " + ys[i].toFixed(1);
+    });
+    mk("path", { d: d + " L" + xs[xs.length - 1].toFixed(1) + " " + y(0) + " L" + xs[0].toFixed(1) + " " + y(0) + " Z", "class": "area" }, svg);
+    hair = mk("line", { "class": "hair", x1: 0, x2: 0, y1: T, y2: T + ih, opacity: 0 }, svg);
+    mk("path", { d: d, "class": "line" }, svg);
+    dots = points.map(function (p, i) {
+      return mk("circle", { "class": "pt", cx: xs[i], cy: ys[i], r: r(i), fill: BAND[band(p.p)] }, svg);
+    });
+
+    mk("text", { "class": "xlab", x: xs[0], y: H - 6, "text-anchor": "start" }, svg).textContent = points[0].d;
+    mk("text", { "class": "xlab", x: xs[xs.length - 1], y: H - 6, "text-anchor": "end" }, svg).textContent = points[points.length - 1].d;
+  }
+
+  function show(i) {
+    var p = points[i];
+    tip.innerHTML = "<b></b><span></span><span></span>";
+    tip.children[0].textContent = Math.round(p.p) + "%";
+    tip.children[1].textContent = p.t;
+    tip.children[2].textContent = p.d;
+    tip.style.left = Math.max(80, Math.min(box.clientWidth - 80, xs[i])) + "px";
+    tip.style.top = ys[i] + "px";
+    tip.classList.add("is-on");
+    hair.setAttribute("x1", xs[i]); hair.setAttribute("x2", xs[i]); hair.setAttribute("opacity", 1);
+    dots.forEach(function (c, j) { c.setAttribute("r", j === i ? 7 : r(j)); });
+  }
+  function hide() {
+    tip.classList.remove("is-on");
+    if (hair) hair.setAttribute("opacity", 0);
+    dots.forEach(function (c, j) { c.setAttribute("r", r(j)); });
+  }
+  function nearest(evt) {
+    var rect = box.getBoundingClientRect(), mx = evt.clientX - rect.left, best = 0, bd = Infinity;
+    xs.forEach(function (xv, i) { var dd = Math.abs(xv - mx); if (dd < bd) { bd = dd; best = i; } });
+    return best;
+  }
+  box.addEventListener("pointermove", function (e) { show(nearest(e)); });
+  box.addEventListener("pointerdown", function (e) { show(nearest(e)); });
+  box.addEventListener("pointerleave", hide);
+
+  draw();
+  var rt;
+  window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(function () { hide(); draw(); }, 120); });
+})();
+</script>
+{% endif %}
+
 {% if user_referral_code %}
 <script>
 (function () {
@@ -1637,11 +1116,6 @@
   var REF_CODE   = "{{ user_referral_code|escapejs }}";
   var INVITE_URL = "{{ referral_invite_url|escapejs }}";
 
-  /*
-   * Share messages
-   * WhatsApp renders \n as a real line break, making the URL a tappable link.
-   * Other platforms see a clean sentence + URL pair.
-   */
   var WA_MSG = "Hi! I use NursesEdge to prepare for the NMC Nursing Licensure Exam "
              + "and it’s been incredibly helpful for my studies.\n\n"
              + "Sign up with my referral code *" + REF_CODE + "* and let’s prepare together:\n"
@@ -1661,7 +1135,6 @@
   setHref("shareTelegram", "https://t.me/share/url?url=" + encodeURIComponent(INVITE_URL) + "&text=" + encodeURIComponent(STD_MSG));
   setHref("shareLinkedin", "https://www.linkedin.com/sharing/share-offsite/?url=" + encodeURIComponent(INVITE_URL));
 
-  /* Clipboard with legacy fallback */
   function copyToClipboard(text, btn, doneHTML, resetHTML) {
     var finish = function () {
       if (btn) {
@@ -1689,7 +1162,7 @@
     copyToClipboard(
       REF_CODE,
       document.getElementById("copyCodeBtn"),
-      '<i class="bx bx-check" style="color:#3ea76a;font-size:18px;"></i>',
+      '<i class="bx bx-check" style="color:#1f9d55;"></i>',
       '<i class="bx bx-copy"></i>'
     );
   };
@@ -1698,153 +1171,13 @@
       INVITE_URL,
       document.getElementById("copyLinkBtn"),
       '<i class="bx bx-check"></i> Link copied!',
-      '<i class="bx bx-link-alt" style="font-size:15px;"></i> Copy Full Invite Link'
+      '<i class="bx bx-link-alt"></i> Copy invite link'
     );
   };
 })();
 </script>
 {% endif %}
-{% if perf_stats.has_data %}
-<script>
-(function () {
-  /* ── Readiness ring animation ──────────────────────────────────────── */
-  var arc = document.getElementById("readinessArc");
-  if (arc) {
-    var pct = parseInt(arc.getAttribute("data-pct") || "0", 10);
-    var circ = 251.2;
-    var offset = circ - (circ * Math.min(pct, 100) / 100);
-    arc.style.strokeDashoffset = circ;
-    var start = null;
-    var duration = 900;
-    function animateArc(ts) {
-      if (!start) start = ts;
-      var progress = Math.min((ts - start) / duration, 1);
-      var ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      arc.style.strokeDashoffset = circ - (circ - offset) * ease;
-      if (progress < 1) requestAnimationFrame(animateArc);
-    }
-    requestAnimationFrame(animateArc);
-  }
 
-  /* ── Score history (vanilla Canvas) ───────────────────────────────── */
-  var canvas = document.getElementById("perfSparkline");
-  var tip = document.getElementById("perfSparkTip");
-  if (!canvas) return;
-  var points = {{ perf_stats.recent_points_json|safe }};
-  var target = {{ perf_stats.target_pct|default:75 }};
-  if (!points || points.length < 2) return;
-  var scores = points.map(function (p) { return p.p; });
-
-  var h = 72, padX = 8, padTop = 10, padBottom = 8;
-  var w, minV, maxV;
-
-  function colorFor(v) {
-    return v >= target ? "#16a34a" : v >= 60 ? "#3758f9" : v >= 50 ? "#d97706" : "#dc2626";
-  }
-  function xAt(i) { return padX + i * (w - padX * 2) / (scores.length - 1); }
-  function yAt(v) { return padTop + (1 - (v - minV) / (maxV - minV || 1)) * (h - padTop - padBottom); }
-
-  function draw(active) {
-    var dpr = window.devicePixelRatio || 1;
-    w = canvas.parentElement.clientWidth || 300;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
-    var ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    // Always keep the exam-ready line in view so progress toward it is visible.
-    minV = Math.max(0, Math.min(Math.min.apply(null, scores), target) - 8);
-    maxV = Math.min(100, Math.max(Math.max.apply(null, scores), target) + 6);
-
-    function path() {
-      ctx.beginPath();
-      ctx.moveTo(xAt(0), yAt(scores[0]));
-      for (var i = 1; i < scores.length; i++) {
-        var xi = xAt(i), yi = yAt(scores[i]), xp = xAt(i - 1), yp = yAt(scores[i - 1]);
-        ctx.bezierCurveTo((xp + xi) / 2, yp, (xp + xi) / 2, yi, xi, yi);
-      }
-    }
-
-    // Area
-    var grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, "rgba(55, 88, 249, 0.16)");
-    grad.addColorStop(1, "rgba(55, 88, 249, 0)");
-    path();
-    ctx.lineTo(xAt(scores.length - 1), h);
-    ctx.lineTo(xAt(0), h);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Exam-ready line
-    ctx.save();
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "rgba(34, 197, 94, 0.75)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, yAt(target));
-    ctx.lineTo(w, yAt(target));
-    ctx.stroke();
-    ctx.restore();
-
-    // Line
-    path();
-    ctx.strokeStyle = "#3758f9";
-    ctx.lineWidth = 2;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-
-    // Dots, coloured by band
-    for (var k = 0; k < scores.length; k++) {
-      var big = k === scores.length - 1 || k === active;
-      ctx.beginPath();
-      ctx.arc(xAt(k), yAt(scores[k]), big ? 4.5 : 3, 0, Math.PI * 2);
-      ctx.fillStyle = colorFor(scores[k]);
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = big ? 2 : 1.5;
-      ctx.fill();
-      ctx.stroke();
-    }
-  }
-
-  function showTip(clientX) {
-    var rect = canvas.getBoundingClientRect();
-    var mx = clientX - rect.left, closest = 0, best = Infinity;
-    for (var n = 0; n < scores.length; n++) {
-      var d = Math.abs(xAt(n) - mx);
-      if (d < best) { best = d; closest = n; }
-    }
-    draw(closest);
-    var p = points[closest];
-    tip.textContent = "";
-    var b = document.createElement("b");
-    b.textContent = Math.round(p.p) + "%";
-    tip.appendChild(b);
-    tip.appendChild(document.createTextNode(" · " + p.t + " · " + p.d));
-    var x = Math.min(Math.max(xAt(closest), 60), w - 60);
-    tip.style.left = x + "px";
-    tip.style.top = yAt(scores[closest]) + "px";
-    tip.style.opacity = "1";
-  }
-  function hideTip() { tip.style.opacity = "0"; draw(-1); }
-
-  canvas.addEventListener("mousemove", function (e) { showTip(e.clientX); });
-  canvas.addEventListener("mouseleave", hideTip);
-  canvas.addEventListener("touchstart", function (e) { if (e.touches[0]) showTip(e.touches[0].clientX); }, { passive: true });
-  canvas.addEventListener("touchmove", function (e) { if (e.touches[0]) showTip(e.touches[0].clientX); }, { passive: true });
-  canvas.addEventListener("touchend", function () { setTimeout(hideTip, 1600); });
-
-  var resizeTimer;
-  window.addEventListener("resize", function () {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () { draw(-1); }, 120);
-  });
-  draw(-1);
-})();
-</script>
-{% endif %}
 {% if show_nmc_disclaimer %}
 <script>
 (function () {
@@ -1856,7 +1189,6 @@
       var inst = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
       inst.hide();
     } else {
-      // Manual fallback: hide modal and remove backdrop
       modalEl.classList.remove("show");
       modalEl.style.display = "none";
       modalEl.setAttribute("aria-hidden", "true");
@@ -1873,7 +1205,6 @@
       var modal = new window.bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
       modal.show();
     } else {
-      // Manual fallback: show modal
       modalEl.classList.add("show");
       modalEl.style.display = "block";
       modalEl.removeAttribute("aria-hidden");
@@ -1895,7 +1226,6 @@
     }).catch(function () {}).finally(function () { dismissModal(); });
   });
 
-  // Show after a brief delay to ensure Bootstrap JS is fully initialised
   setTimeout(showModal, 120);
 })();
 </script>

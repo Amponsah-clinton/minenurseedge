@@ -1040,11 +1040,11 @@
                 </div>
                 <dl class="ne-stats-grid">
                     <div class="ne-stat">
-                        <dt class="ne-stat-number">{{ stat_students|default:220|floatformat:"0g" }}<span>+</span></dt>
+                        <dt class="ne-stat-number">{{ stat_students|default_if_none:220|floatformat:"0g" }}<span>+</span></dt>
                         <dd class="ne-stat-label">nursing students have signed up to prepare with NursesEdge</dd>
                     </div>
                     <div class="ne-stat">
-                        <dt class="ne-stat-number">{{ stat_questions|default:5000|floatformat:"0g" }}<span>+</span></dt>
+                        <dt class="ne-stat-number">{{ stat_questions|default_if_none:5000|floatformat:"0g" }}<span>+</span></dt>
                         <dd class="ne-stat-label">practice questions across the question bank and NCLEX-RN sets</dd>
                     </div>
                     <div class="ne-stat">
